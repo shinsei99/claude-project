@@ -76,27 +76,31 @@ def build_output(file_bytes: bytes, edits: list) -> bytes:
     return buf.getvalue()
 
 
-def bump_form(prefill_cell: str = "", prefill_value: str = ""):
-    """フォームバージョンを上げ、新キーに prefill 値を注入する。
-    新キーはまだウィジェットとして登録されていないので session_state への
-    書き込みが Streamlit の制約に引っかからない。"""
-    new_v = st.session_state.form_version + 1
-    st.session_state.form_version = new_v
-    st.session_state[f"fc_{new_v}"] = prefill_cell
-    st.session_state[f"fv_{new_v}"] = prefill_value
-
-
 # ── セッション初期化 ────────────────────────────────────────────────────────
 
 for key, default in [
-    ("edits",         []),
-    ("file_bytes",    None),
-    ("fname",         None),
-    ("editing_index", None),
-    ("form_version",  0),      # フォームキーのバージョン番号
+    ("edits",          []),
+    ("file_bytes",     None),
+    ("fname",          None),
+    ("editing_idx",    None),    # 再編集中のリストインデックス（None = 追加モード）
+    ("prefill_cell",   ""),      # 注入するセル番地
+    ("prefill_value",  ""),      # 注入する値
+    ("need_inject",    False),   # True のとき次レンダリング前に入力欄へ値を注入する
 ]:
     if key not in st.session_state:
         st.session_state[key] = default
+
+# ── 値注入（ウィジェットが描画される前に実行） ───────────────────────────────
+#
+# Streamlit は「ウィジェット描画後にそのキーの session_state を書き換えること」
+# を禁止している。そのため、スクリプト最上部（どの st.text_input より前）で
+# session_state["input_cell"] / ["input_value"] を上書きする。
+# need_inject フラグで「1 回だけ注入」を保証し、ユーザーの入力を上書きしない。
+#
+if st.session_state.need_inject:
+    st.session_state["input_cell"]  = st.session_state.prefill_cell
+    st.session_state["input_value"] = st.session_state.prefill_value
+    st.session_state.need_inject    = False
 
 # ── ヘッダー ────────────────────────────────────────────────────────────────
 
@@ -118,8 +122,10 @@ if st.session_state.fname != uploaded.name:
     st.session_state.file_bytes    = uploaded.read()
     st.session_state.fname         = uploaded.name
     st.session_state.edits         = []
-    st.session_state.editing_index = None
-    bump_form()
+    st.session_state.editing_idx   = None
+    st.session_state.prefill_cell  = ""
+    st.session_state.prefill_value = ""
+    st.session_state.need_inject   = True
 
 # ── メインレイアウト ─────────────────────────────────────────────────────────
 
@@ -167,52 +173,54 @@ with left:
 # ── 右ペイン: 編集フォーム ────────────────────────────────────────────────────
 
 with right:
-    editing_idx = st.session_state.editing_index
+    editing_idx = st.session_state.editing_idx
     is_editing  = (editing_idx is not None and editing_idx < len(st.session_state.edits))
 
-    # フォームヘッダー
     if is_editing:
         current = st.session_state.edits[editing_idx]
         st.subheader(f"🔧 再編集中: `{current['sheet']}!{current['cell']}`")
     else:
         st.subheader("✏️ セルを追加")
 
-    # フォームキーをバージョン番号で一意化することで、
-    # ✏️ ボタンクリック時の prefill 注入と Streamlit の制約を両立する
-    v = st.session_state.form_version
-    cell_key  = f"fc_{v}"
-    value_key = f"fv_{v}"
+    # key= で session_state と紐付け。
+    # need_inject が True だったスクリプト冒頭で session_state["input_cell"] に
+    # prefill 値が注入済みなので、ここでは key= を指定するだけで正しい値が表示される。
+    cell_input = st.text_input(
+        "セル番地",
+        key="input_cell",
+        placeholder="例: A1、B3、C10",
+        help="Excelのセル番地（列A-Z＋行番号）を入力",
+    )
+    value_input = st.text_input(
+        "新しい値",
+        key="input_value",
+        placeholder="例: 100、テキスト、2024-01-01",
+    )
 
-    with st.form("cell_form", clear_on_submit=True):
-        cell_input = st.text_input(
-            "セル番地",
-            key=cell_key,
-            placeholder="例: A1、B3、C10",
-            help="Excelのセル番地（列A-Z＋行番号）を入力",
-        )
-        value_input = st.text_input(
-            "新しい値",
-            key=value_key,
-            placeholder="例: 100、テキスト、2024-01-01",
-        )
+    # 編集モードでボタンを切り替える
+    if is_editing:
+        bc1, bc2 = st.columns(2)
+        with bc1:
+            update_btn = st.button("✓ 更新する", type="primary", use_container_width=True)
+        with bc2:
+            cancel_btn = st.button("キャンセル", use_container_width=True)
+        add_btn = False
+    else:
+        add_btn    = st.button("＋ 追加", type="primary", use_container_width=True)
+        update_btn = False
+        cancel_btn = False
 
-        if is_editing:
-            fc1, fc2 = st.columns(2)
-            with fc1:
-                update_btn = st.form_submit_button("✓ 更新する", type="primary", use_container_width=True)
-            with fc2:
-                cancel_btn = st.form_submit_button("キャンセル", use_container_width=True)
-            add_btn = False
-        else:
-            add_btn    = st.form_submit_button("＋ 追加", type="primary", use_container_width=True)
-            update_btn = False
-            cancel_btn = False
+    # ── ボタン処理 ────────────────────────────────────────────────────────
 
-    # ── フォーム送信処理 ──────────────────────────────────────────────────
+    def clear_form():
+        """フォームを空にして追加モードへ戻す"""
+        st.session_state.editing_idx   = None
+        st.session_state.prefill_cell  = ""
+        st.session_state.prefill_value = ""
+        st.session_state.need_inject   = True  # 次の rerun で入力欄を空にする
 
     if cancel_btn:
-        st.session_state.editing_index = None
-        bump_form()
+        clear_form()
         st.rerun()
 
     if update_btn:
@@ -221,7 +229,7 @@ with right:
             st.error(err)
         else:
             original_sheet = st.session_state.edits[editing_idx]["sheet"]
-            # 同シート・同セルへの別エントリが存在する場合は統合
+            # 同シート・同セルに別エントリがあれば統合
             conflict = next(
                 (j for j, ex in enumerate(st.session_state.edits)
                  if ex["sheet"] == original_sheet and ex["cell"] == new_ref and j != editing_idx),
@@ -236,8 +244,7 @@ with right:
                     "cell":  new_ref,
                     "value": new_val,
                 }
-            st.session_state.editing_index = None
-            bump_form()
+            clear_form()
             st.toast("更新しました ✓")
             st.rerun()
 
@@ -257,7 +264,7 @@ with right:
             else:
                 st.session_state.edits.append({"sheet": sheet, "cell": new_ref, "value": new_val})
                 st.toast(f"{sheet}!{new_ref} を追加しました ✓")
-            bump_form()
+            clear_form()
             st.rerun()
 
     # ── 編集リスト ────────────────────────────────────────────────────────
@@ -270,7 +277,7 @@ with right:
         st.subheader(f"📝 編集リスト（{len(st.session_state.edits)} 件）")
 
         for i, e in enumerate(st.session_state.edits):
-            is_this = (st.session_state.editing_index == i)
+            is_this = (st.session_state.editing_idx == i)
             c_text, c_edit, c_del = st.columns([5, 1, 1])
 
             with c_text:
@@ -288,31 +295,29 @@ with right:
                 if st.button("📌" if is_this else "✏️", key=f"edit_{i}",
                              help="編集を閉じる" if is_this else "この値を再編集"):
                     if is_this:
-                        # 編集モードを閉じる → フォームをリセット
-                        st.session_state.editing_index = None
-                        bump_form()
+                        clear_form()
                     else:
-                        # バージョンを上げてから新キーに prefill を注入
-                        # （新キーはまだウィジェット未登録 → 書き込み可能）
-                        st.session_state.editing_index = i
-                        bump_form(prefill_cell=e["cell"], prefill_value=str(e["value"]))
+                        # prefill を設定して need_inject を立てる
+                        # → 次の rerun の冒頭でウィジェットより先に注入される
+                        st.session_state.editing_idx   = i
+                        st.session_state.prefill_cell  = e["cell"]
+                        st.session_state.prefill_value = str(e["value"])
+                        st.session_state.need_inject   = True
                     st.rerun()
 
             with c_del:
                 if st.button("✕", key=f"del_{i}", help="この編集を削除"):
                     st.session_state.edits.pop(i)
-                    if st.session_state.editing_index == i:
-                        st.session_state.editing_index = None
-                        bump_form()
-                    elif (st.session_state.editing_index is not None
-                          and st.session_state.editing_index > i):
-                        st.session_state.editing_index -= 1
+                    if st.session_state.editing_idx == i:
+                        clear_form()
+                    elif (st.session_state.editing_idx is not None
+                          and st.session_state.editing_idx > i):
+                        st.session_state.editing_idx -= 1
                     st.rerun()
 
         if st.button("すべてクリア", use_container_width=True):
-            st.session_state.edits         = []
-            st.session_state.editing_index = None
-            bump_form()
+            st.session_state.edits = []
+            clear_form()
             st.rerun()
 
         st.divider()
