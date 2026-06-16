@@ -1,0 +1,8 @@
+# Ignore everything in home directory by default
+*
+
+# Explicitly track these paths
+!.gitignore
+!CLAUDE.md
+!todo-app/
+!todo-app/**
