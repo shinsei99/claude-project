@@ -597,6 +597,15 @@ function drawTower(slot, showRange) {
   // Icon
   _ctx.font = '13px sans-serif'; _ctx.textAlign = 'center'; _ctx.textBaseline = 'middle';
   _ctx.fillText(def.icon, 0, -5); _ctx.textBaseline = 'alphabetic';
+  // HP bar
+  if (slot.maxHp > 0) {
+    var ratio = Math.max(0, slot.hp / slot.maxHp);
+    var bw = 32, bh = 4, bx = -bw/2, by = 22;
+    _ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    _ctx.fillRect(bx, by, bw, bh);
+    _ctx.fillStyle = ratio > 0.5 ? '#4CFF6A' : ratio > 0.25 ? '#FFD700' : '#FF4444';
+    _ctx.fillRect(bx, by, bw * ratio, bh);
+  }
   _ctx.restore();
 }
 

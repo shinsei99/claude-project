@@ -29,16 +29,19 @@ var WAVES_PER_STAGE = 5;   // wave 5 = boss
 
 // ── Tower definitions ─────────────────────────────────────────────────────────
 var TOWER_DEFS = {
-  normal:  { name:'ノーマルタワー',  desc:'バランス型 自動砲台', icon:'🏰', dmg:6,  range:168, cdMax:38, col:'#8B6C14' },
-  rapid:   { name:'ラピッドタワー',  desc:'高速連射 軽ダメージ', icon:'🔰', dmg:3,  range:132, cdMax:14, col:'#145A8B' },
-  sniper:  { name:'スナイパータワー', desc:'長射程 高ダメージ',  icon:'🎯', dmg:16, range:245, cdMax:95, col:'#333344' },
-  support: { name:'サポートタワー',  desc:'貫通弾で範囲攻撃',   icon:'💠', dmg:5,  range:195, cdMax:28, col:'#1A6B4A' },
+  normal:  { name:'ノーマルタワー',  desc:'バランス型 自動砲台', icon:'🏰', dmg:6,  range:168, cdMax:38, col:'#8B6C14', maxHp:80 },
+  rapid:   { name:'ラピッドタワー',  desc:'高速連射 軽ダメージ', icon:'🔰', dmg:3,  range:132, cdMax:14, col:'#145A8B', maxHp:50 },
+  sniper:  { name:'スナイパータワー', desc:'長射程 高ダメージ',  icon:'🎯', dmg:16, range:245, cdMax:95, col:'#333344', maxHp:60 },
+  support: { name:'サポートタワー',  desc:'貫通弾で範囲攻撃',   icon:'💠', dmg:5,  range:195, cdMax:28, col:'#1A6B4A', maxHp:70 },
 };
-var TOWER_SLOTS = [
-  { x:80,  y:400, type:null, level:1, cd:0 },
-  { x:195, y:432, type:null, level:1, cd:0 },
-  { x:310, y:400, type:null, level:1, cd:0 },
-];
+function makeTowerSlots() {
+  return [
+    { x:80,  y:400, type:null, level:1, cd:0, hp:0, maxHp:0, damageCd:0 },
+    { x:195, y:432, type:null, level:1, cd:0, hp:0, maxHp:0, damageCd:0 },
+    { x:310, y:400, type:null, level:1, cd:0, hp:0, maxHp:0, damageCd:0 },
+  ];
+}
+var TOWER_SLOTS = makeTowerSlots();
 
 // ── Auto-fire state ───────────────────────────────────────────────────────────
 var isHolding = false;
@@ -134,7 +137,7 @@ function initGame() {
   cds = { gunshi: 0, nurse: 0, barrier: 0 };
   PlayerUpgrades.reset();
   enemies = []; bullets = []; enemyBullets = []; particles = []; floats = [];
-  TOWER_SLOTS.forEach(function(t) { t.type = null; t.level = 1; t.cd = 0; });
+  TOWER_SLOTS.forEach(function(t) { t.type = null; t.level = 1; t.cd = 0; t.hp = 0; t.maxHp = 0; t.damageCd = 0; });
   stage = 1; wave = 1;
   waveSpawned = 0; waveTotal = 0; waveTimer = 0;
   bossWarnTimer = 0; stageClearTimer = 0;
@@ -160,7 +163,7 @@ function initGameContinue(fromStage) {
   cds = { gunshi: 0, nurse: 0, barrier: 0 };
   PlayerUpgrades.reset();
   enemies = []; bullets = []; enemyBullets = []; particles = []; floats = [];
-  TOWER_SLOTS.forEach(function(t) { t.type = null; t.level = 1; t.cd = 0; });
+  TOWER_SLOTS.forEach(function(t) { t.type = null; t.level = 1; t.cd = 0; t.hp = 0; t.maxHp = 0; t.damageCd = 0; });
   stage = fromStage; wave = 1;
   waveSpawned = 0; waveTotal = 0; waveTimer = 0;
   bossWarnTimer = 0; stageClearTimer = 0;
@@ -302,7 +305,10 @@ function applyLevelUp(idx) {
     var placed = false;
     for (var si = 0; si < TOWER_SLOTS.length; si++) {
       if (!TOWER_SLOTS[si].type) {
-        TOWER_SLOTS[si].type = ttype;
+        TOWER_SLOTS[si].type  = ttype;
+        TOWER_SLOTS[si].maxHp = TOWER_DEFS[ttype].maxHp;
+        TOWER_SLOTS[si].hp    = TOWER_DEFS[ttype].maxHp;
+        TOWER_SLOTS[si].damageCd = 0;
         addFloat(TOWER_SLOTS[si].x, TOWER_SLOTS[si].y - 40, TOWER_DEFS[ttype].name + '設置！', '#FFD700', 14);
         spawnP(TOWER_SLOTS[si].x, TOWER_SLOTS[si].y, 'levelup', 8);
         placed = true; break;
@@ -353,6 +359,7 @@ function advanceStage() {
     level = 1; xp = 0; regenTimer = 0;
     gs.maxEarthHP = 100;
     cds = { gunshi: 0, nurse: 0, barrier: 0 };
+    TOWER_SLOTS.forEach(function(t) { t.type = null; t.level = 1; t.cd = 0; t.hp = 0; t.maxHp = 0; t.damageCd = 0; });
     enemies = []; bullets = []; enemyBullets = [];
     isHolding = false;
     stageIntroTimer = STAGE_INTRO_FRAMES;
@@ -582,6 +589,24 @@ function updateTowers() {
         rangeMult: 3.0
       }));
       spawnP(t.x, t.y - 10, 'hit', 1);
+    }
+    // Enemy contact damage to tower
+    if (t.damageCd > 0) { t.damageCd--; }
+    for (var di = 0; di < enemies.length; di++) {
+      var en2 = enemies[di];
+      if (en2.dead) continue;
+      var ex = en2.x - t.x, ey = en2.y - t.y;
+      if (Math.sqrt(ex*ex + ey*ey) < 35 && t.damageCd === 0) {
+        t.hp -= en2.dmg > 0 ? en2.dmg : 3;
+        t.damageCd = 45;
+        spawnP(t.x, t.y, 'hit', 3);
+        if (t.hp <= 0) {
+          addFloat(t.x, t.y - 30, TOWER_DEFS[t.type].name + '破壊！', '#FF4444', 14);
+          spawnP(t.x, t.y, 'explosion', 10);
+          t.type = null; t.hp = 0; t.maxHp = 0; t.level = 1; t.cd = 0; t.damageCd = 0;
+        }
+        break;
+      }
     }
   });
 }
