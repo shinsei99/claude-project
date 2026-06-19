@@ -1,5 +1,41 @@
 'use strict';
 
+// ── Stage Intro ───────────────────────────────────────────────────────────────
+function drawStageIntro(stage, timer, totalTime) {
+  var progress = 1 - timer / totalTime;
+  // Fade in 0→0.35, hold 0.35→0.7, fade out 0.7→1
+  var alpha;
+  if      (progress < 0.35) alpha = progress / 0.35;
+  else if (progress > 0.70) alpha = 1 - (progress - 0.70) / 0.30;
+  else                      alpha = 1;
+
+  _ctx.fillStyle = 'rgba(0,0,0,' + (alpha * 0.78) + ')';
+  _ctx.fillRect(0, 0, _W, _H);
+
+  var sc = 0.82 + alpha * 0.18;
+  _ctx.save();
+  _ctx.translate(_W / 2, _H / 2);
+  _ctx.scale(sc, sc);
+  _ctx.globalAlpha = alpha;
+  _ctx.textAlign = 'center';
+
+  _ctx.shadowColor = '#FFD700'; _ctx.shadowBlur = 26;
+  _ctx.fillStyle = '#FFD700'; _ctx.font = 'bold 26px "Kosugi Maru",sans-serif';
+  _ctx.fillText('STAGE', 0, -36);
+
+  _ctx.shadowColor = '#FFFFFF'; _ctx.shadowBlur = 22;
+  _ctx.fillStyle = '#FFFFFF'; _ctx.font = 'bold 86px "Kosugi Maru",sans-serif';
+  _ctx.fillText(stage, 0, 52);
+  _ctx.shadowBlur = 0;
+
+  _ctx.fillStyle = 'rgba(180,210,255,0.70)';
+  _ctx.font = '15px "Kosugi Maru",sans-serif';
+  _ctx.fillText('タップでスキップ', 0, 96);
+
+  _ctx.globalAlpha = 1;
+  _ctx.restore();
+}
+
 // ── Gradient button helper ────────────────────────────────────────────────────
 function _btnGrd(x, y, w, h, colTop, colBot) {
   var g = _ctx.createLinearGradient(x, y, x, y + h);

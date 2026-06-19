@@ -5,6 +5,7 @@
 const ENEMY_DEF = {
   normal: { baseHp:2,  dmg:5,  size:28, pts:10,  spd:0.9,  xpGain:1 },
   fast:   { baseHp:1,  dmg:4,  size:20, pts:10,  spd:1.9,  xpGain:1 },
+  ranged: { baseHp:4,  dmg:8,  size:26, pts:15,  spd:0.65, xpGain:2 },
   tank:   { baseHp:8,  dmg:12, size:44, pts:20,  spd:0.4,  xpGain:2 },
   boss:   { baseHp:60, dmg:0,  size:90, pts:150, spd:0.35, xpGain:5 },
 };
@@ -41,6 +42,11 @@ class Enemy {
 
     if (type === 'boss') {
       this.vx = 1.5; this.vy = 0;
+    } else if (type === 'ranged') {
+      this.stopY       = 175 + Math.random() * 90;
+      this.rangedTimer = 0;
+      this.vx = (Math.random() - 0.5) * 1.2;
+      this.vy = this.spd;
     } else {
       this.vx = (Math.random() - 0.5) * 1.5;
       this.vy = this.spd;
@@ -61,6 +67,24 @@ class Enemy {
         this.bossTimer = 0;
         if (!barrierActive) return { type: 'beam', dmg: 6 };
         else                return { type: 'barrier' };
+      }
+    } else if (this.type === 'ranged') {
+      if (this.y < this.stopY) {
+        // Descend to hover position
+        this.x += this.vx + Math.sin(this.wobble) * 0.3;
+        this.y += this.vy;
+        if (this.x < this.size || this.x > 390 - this.size) this.vx *= -1;
+      } else {
+        // Hover and charge shot
+        this.x += Math.sin(this.wobble * 0.7) * 0.9;
+        if (this.x < this.size) this.x = this.size;
+        if (this.x > 390 - this.size) this.x = 390 - this.size;
+        this.rangedTimer++;
+        if (this.rangedTimer >= 85) {
+          this.rangedTimer = 0;
+          if (!barrierActive) return { type: 'rangedbullet', x: this.x, y: this.y + this.size * 0.5, dmg: this.dmg };
+          else                return { type: 'barrier' };
+        }
       }
     } else {
       this.x += this.vx + Math.sin(this.wobble) * 0.4;
@@ -125,6 +149,28 @@ class Bullet {
         else this.pierceLeft--;
         return { type:'hit', enemy:e, killed, crit:this.crit };
       }
+    }
+    return null;
+  }
+}
+
+// ── EnemyBullet ──────────────────────────────────────────────────────────────
+class EnemyBullet {
+  constructor(x, y, dmg) {
+    this.x    = x;
+    this.y    = y;
+    this.vy   = 4.5;
+    this.size = 7;
+    this.dmg  = dmg;
+    this.dead = false;
+    this.life = 220;
+  }
+  update(H) {
+    this.y += this.vy;
+    this.life--;
+    if (this.y > H - 90 || this.life <= 0) {
+      this.dead = true;
+      return (this.y > H - 90) ? { type: 'hit_earth', dmg: this.dmg } : null;
     }
     return null;
   }

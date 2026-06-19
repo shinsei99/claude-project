@@ -201,6 +201,7 @@ function drawChick(x, y, sz, evolved, acc) {
 var CROW_COLORS = {
   normal: { wing:'#141414', body:'#282828', hi:'#424242', eye:'#FF1A1A', glow:'rgba(255,20,20,0.55)'  },
   fast:   { wing:'#001166', body:'#163388', hi:'#2850BB', eye:'#00EEFF', glow:'rgba(0,220,255,0.55)'  },
+  ranged: { wing:'#1A3A1A', body:'#1E6B1E', hi:'#3AAA3A', eye:'#FFCC00', glow:'rgba(255,210,0,0.58)' },
   tank:   { wing:'#3A0000', body:'#7A0000', hi:'#BB1818', eye:'#FF5500', glow:'rgba(255,80,0,0.55)'   },
 };
 
@@ -217,6 +218,26 @@ function drawCrow(e) {
   _ctx.fillStyle = 'rgba(0,0,0,0.55)';
   _ctx.beginPath(); _ctx.ellipse(0, s * 0.9, s * 0.46, s * 0.1, 0, 0, Math.PI * 2); _ctx.fill();
   _ctx.globalAlpha = al;
+
+  // Ranged enemy: charge-up aura + beam preview
+  if (e.type === 'ranged' && e.rangedTimer > 38) {
+    var cr = Math.min(1, (e.rangedTimer - 38) / 47);
+    _ctx.globalAlpha = al * cr * 0.55;
+    _ctx.shadowColor = '#FFCC00'; _ctx.shadowBlur = 20;
+    _ctx.fillStyle = '#FFE040';
+    _ctx.beginPath(); _ctx.arc(0, 0, s * 0.78, 0, Math.PI * 2); _ctx.fill();
+    _ctx.shadowBlur = 0;
+    _ctx.globalAlpha = al;
+  }
+  if (e.type === 'ranged' && e.rangedTimer > 62) {
+    var lr = Math.min(1, (e.rangedTimer - 62) / 23);
+    _ctx.globalAlpha = al * lr * 0.44;
+    var cBG = _ctx.createLinearGradient(0, s * 0.5, 0, _H - e.y);
+    cBG.addColorStop(0, 'rgba(255,200,0,0.95)'); cBG.addColorStop(1, 'rgba(255,80,0,0)');
+    _ctx.fillStyle = cBG;
+    _ctx.fillRect(-5, s * 0.5, 10, _H - e.y);
+    _ctx.globalAlpha = al;
+  }
 
   // Wings
   _ctx.fillStyle = c.wing; _ctx.strokeStyle = 'rgba(0,0,0,0.6)'; _ctx.lineWidth = 1.5;
@@ -407,6 +428,17 @@ function drawEgg(x, y) {
 }
 
 // ── Particle ─────────────────────────────────────────────────────────────────
+// ── Enemy Bullet ─────────────────────────────────────────────────────────────
+function drawEnemyBullet(eb) {
+  _ctx.save(); _ctx.translate(eb.x, eb.y);
+  _ctx.shadowColor = '#FF6600'; _ctx.shadowBlur = 18;
+  var g = _ctx.createRadialGradient(0, 0, 0, 0, 0, eb.size);
+  g.addColorStop(0, '#FFE800'); g.addColorStop(0.6, '#FF8800'); g.addColorStop(1, '#FF3300');
+  _ctx.fillStyle = g;
+  _ctx.beginPath(); _ctx.arc(0, 0, eb.size, 0, Math.PI * 2); _ctx.fill();
+  _ctx.shadowBlur = 0; _ctx.restore();
+}
+
 function drawParticle(p) {
   var a = p.life / p.maxLife;
   _ctx.save(); _ctx.globalAlpha = a;

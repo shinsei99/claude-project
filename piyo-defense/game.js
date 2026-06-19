@@ -49,6 +49,9 @@ var score = 0, kills = 0, isNewHS = false;
 var level = 1, xp = 0;
 var regenTimer = 0, playFrames = 0, frame = 0;
 var shakeX = 0, shakeY = 0, shakeMag = 0;
+var enemyBullets = [];
+var stageIntroTimer = 0;
+var STAGE_INTRO_FRAMES = 80;
 var levelChoices = [];
 
 function xpToNext(lv) { return 5 + lv * 2; }
@@ -56,14 +59,22 @@ function xpToNext(lv) { return 5 + lv * 2; }
 // ── Wave config ───────────────────────────────────────────────────────────────
 function waveTypes(stg, wv) {
   if (wv === WAVES_PER_STAGE) return ['boss'];
-  if (stg <= 2) {
-    return wv <= 2 ? ['normal','normal','normal'] : ['normal','normal','fast'];
-  }
-  if (stg <= 5) {
-    return wv <= 2 ? ['normal','normal','fast'] : ['normal','fast','tank'];
-  }
-  // Stage 6-10: harder
-  return wv <= 2 ? ['normal','fast','fast'] : ['fast','fast','tank'];
+  // Stage 1: normals only — pure 1-shot satisfaction
+  if (stg === 1) return ['normal'];
+  // Stage 2: normals + late-wave fast
+  if (stg === 2) return wv <= 2 ? ['normal'] : ['normal','fast'];
+  // Stage 3: introduce ranged enemy
+  if (stg === 3) return wv <= 2 ? ['normal','fast'] : ['normal','fast','ranged'];
+  // Stage 4: ranged focus, less normal
+  if (stg === 4) return wv <= 2 ? ['normal','fast','ranged'] : ['fast','ranged'];
+  // Stage 5: add tank
+  if (stg === 5) return wv <= 2 ? ['fast','ranged'] : ['fast','ranged','tank'];
+  // Stage 6: heavier mix
+  if (stg === 6) return wv <= 2 ? ['fast','ranged','tank'] : ['fast','ranged','tank'];
+  // Stage 7–8: ranged pressure + tanks
+  if (stg <= 8) return wv <= 2 ? ['fast','ranged','tank'] : ['ranged','ranged','tank'];
+  // Stage 9–10: maximum intensity
+  return wv <= 2 ? ['ranged','ranged','tank'] : ['fast','ranged','ranged','tank'];
 }
 
 function waveCount(stg, wv) {
@@ -74,7 +85,7 @@ function waveCount(stg, wv) {
 // ── Init ──────────────────────────────────────────────────────────────────────
 function initGame() {
   gs = {
-    state:          'battle',
+    state:          'stageintro',
     earthHP:        100,
     maxEarthHP:     100,
     evoGauge:       0,
@@ -87,14 +98,14 @@ function initGame() {
   upg = { gunshi: true, nurse: true, barrier: true };  // all companions unlocked
   cds = { gunshi: 0, nurse: 0, barrier: 0 };
   PlayerUpgrades.reset();
-  enemies = []; bullets = []; particles = []; floats = [];
+  enemies = []; bullets = []; enemyBullets = []; particles = []; floats = [];
   stage = 1; wave = 1;
   waveSpawned = 0; waveTotal = 0; waveTimer = 0;
   bossWarnTimer = 0; stageClearTimer = 0;
   score = 0; kills = 0; isNewHS = false;
   level = 1; xp = 0; regenTimer = 0; playFrames = 0;
   isHolding = false;
-  startWave();
+  stageIntroTimer = STAGE_INTRO_FRAMES;
 }
 
 function startWave() {
@@ -220,11 +231,16 @@ function advanceStage() {
     wave = 1;
     gs.earthHP  = Math.min(gs.maxEarthHP, gs.earthHP + 20);  // HP bonus
     gs.evoGauge = 0; gs.isEvolved = false;
+    // Reset player level/upgrades each stage — keeps difficulty curve intact
+    PlayerUpgrades.reset();
+    level = 1; xp = 0; regenTimer = 0;
+    gs.maxEarthHP = 100;
     cds = { gunshi: 0, nurse: 0, barrier: 0 };
-    enemies = []; bullets = [];
+    enemies = []; bullets = []; enemyBullets = [];
     isHolding = false;
-    gs.state = 'battle';
-    startWave();
+    stageIntroTimer = STAGE_INTRO_FRAMES;
+    gs.state = 'stageintro';
+    // startWave() called by updateStageIntro when intro ends
   }
 }
 
@@ -242,7 +258,8 @@ function update() {
   switch (gs.state) {
     case 'battle':     updateBattle();     break;
     case 'stageclear': updateStageClear(); break;
-    default: break;  // other states: particles/floats only via frame counter
+    case 'stageintro': updateStageIntro(); break;
+    default: break;
   }
 }
 
@@ -301,12 +318,30 @@ function updateBattle() {
         spawnP(e.x, er.type === 'beam' ? e.y + e.size*0.5 : H-160, 'hit_earth', 5);
         if (er.type === 'beam') { addFloat(W/2, H*0.45, 'ドゴーン！', '#9B59B6', 22); spawnP(e.x,e.y+e.size*0.5,'boss_beam',6); }
         else addFloat(e.x, H-170, '-' + er.dmg, '#FF4444', 13);
+      } else if (er.type === 'rangedbullet') {
+        enemyBullets.push(new EnemyBullet(er.x, er.y, er.dmg));
+        spawnP(er.x, er.y, 'boss_beam', 3);
+        SoundManager.hit();
       } else if (er.type === 'barrier') {
         addFloat(e.x, H-170, 'バリア！', '#00FFFF', 13);
       }
     }
   }
   enemies = enemies.filter(function(e) { return !e.dead; });
+
+  // Enemy bullets
+  for (var ebi = 0; ebi < enemyBullets.length; ebi++) {
+    var eb = enemyBullets[ebi];
+    if (eb.dead) continue;
+    var ebr = eb.update(H);
+    if (ebr && ebr.type === 'hit_earth') {
+      gs.earthHP = Math.max(0, gs.earthHP - ebr.dmg);
+      shakeMag = 5;
+      spawnP(eb.x, H - 160, 'hit_earth', 4);
+      addFloat(eb.x, H - 172, '-' + ebr.dmg, '#FF6600', 13);
+    }
+  }
+  enemyBullets = enemyBullets.filter(function(eb) { return !eb.dead; });
 
   // Bullets
   for (var bi = 0; bi < bullets.length; bi++) {
@@ -363,6 +398,15 @@ function updateStageClear() {
   if (stageClearTimer <= 0) advanceStage();
 }
 
+function updateStageIntro() {
+  stageIntroTimer--;
+  updateParticlesFloats();
+  if (stageIntroTimer <= 0) {
+    gs.state = 'battle';
+    startWave();
+  }
+}
+
 function updateParticlesFloats() {
   particles.forEach(function(p) { p.update(); });
   particles = particles.filter(function(p) { return p.life > 0; });
@@ -385,6 +429,7 @@ function draw() {
     case 'howto':      drawHowToScr();      break;
     case 'battle':     drawBattleScr();     break;
     case 'stageclear': drawStageClearScr(); break;
+    case 'stageintro': drawStageIntroScr(); break;
     case 'levelup':    drawBattleScr(); drawLevelUp(levelChoices, level); break;
     case 'paused':     drawPauseScr();      break;
     case 'gameover':   drawGameOverScr();   break;
@@ -410,6 +455,11 @@ function drawStageClearScr() {
   drawStageClear(stage, TOTAL_STAGES, stageClearTimer, STAGE_CLEAR_FRAMES, frame);
 }
 
+function drawStageIntroScr() {
+  drawBattleScr(true);
+  drawStageIntro(stage, stageIntroTimer, STAGE_INTRO_FRAMES);
+}
+
 function drawBattleScr(frozenBg) {
   drawBg(frame, stage);
   drawGround(stage);
@@ -432,6 +482,8 @@ function drawBattleScr(frozenBg) {
   });
 
   particles.forEach(function(p) { drawParticle(p); });
+
+  enemyBullets.forEach(function(eb) { drawEnemyBullet(eb); });
 
   floats.forEach(function(ft) {
     ctx.globalAlpha = Math.min(1, ft.life / 25);
@@ -544,6 +596,10 @@ canvas.addEventListener('pointerdown', function(e) {
     handleBattlePointerDown(p.tx, p.ty);
   } else if (gs.state === 'battle' || gs.state === 'stageclear') {
     // Do nothing during warning/clear anim
+  } else if (gs.state === 'stageintro') {
+    // Tap to skip intro
+    stageIntroTimer = 0;
+    updateStageIntro();
   } else {
     handleMenuTap(p.tx, p.ty);
   }
