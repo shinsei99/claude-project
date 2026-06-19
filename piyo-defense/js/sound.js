@@ -53,6 +53,8 @@ const SoundManager = {
   levelUp()    { [523,659,784,1047].forEach((f,i) => this._play(f,'sine',0.2,0.28,i*0.1)); },
   bossAppear() { [160,120,100,80].forEach((f,i)   => this._play(f,'sawtooth',0.35,0.45,i*0.11)); },
   gameOver()   { [440,330,220,110].forEach((f,i)  => this._play(f,'sine',0.5,0.32,i*0.22)); },
+  stageClear() { [392,523,659,784,1047].forEach((f,i) => this._play(f,'sine',0.3,0.4,i*0.1)); },
+  bossWarn()   { [100,80,100,80].forEach((f,i) => this._play(f,'sawtooth',0.2,0.4,i*0.15)); },
 
   startBgm(type) {
     if (this._bgmActive === type) return;

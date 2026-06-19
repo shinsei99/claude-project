@@ -1,35 +1,43 @@
 'use strict';
 
 // ── Enemy ────────────────────────────────────────────────────────────────────
+// baseHp is set so Stage1-Wave1 normal dies in 1 hit (base dmg=2)
 const ENEMY_DEF = {
-  normal: { hp:6,   dmg:8,  size:28, pts:10,  spd:1.1, xpGain:1 },
-  fast:   { hp:3,   dmg:6,  size:20, pts:15,  spd:2.2, xpGain:1 },
-  tank:   { hp:24,  dmg:15, size:44, pts:25,  spd:0.5, xpGain:2 },
-  boss:   { hp:200, dmg:0,  size:90, pts:200, spd:0.35,xpGain:5 },
+  normal: { baseHp:2,  dmg:5,  size:28, pts:10,  spd:0.9,  xpGain:1 },
+  fast:   { baseHp:1,  dmg:4,  size:20, pts:10,  spd:1.9,  xpGain:1 },
+  tank:   { baseHp:8,  dmg:12, size:44, pts:20,  spd:0.4,  xpGain:2 },
+  boss:   { baseHp:60, dmg:0,  size:90, pts:150, spd:0.35, xpGain:5 },
 };
 
 class Enemy {
-  constructor(type, x, y, wave) {
-    this.type   = type;
-    this.x      = x;
-    this.y      = y;
-    this.dead   = false;
-    this.wobble = Math.random() * Math.PI * 2;
+  constructor(type, x, y, stage, waveInStage) {
+    this.type      = type;
+    this.x         = x;
+    this.y         = y;
+    this.dead      = false;
+    this.wobble    = Math.random() * Math.PI * 2;
     this.bossTimer = 0;
     this.hitFlash  = 0;
 
     const def = ENEMY_DEF[type];
-    const waveScale = type === 'boss'
-      ? 1 + Math.floor((wave - 1) / 10) * 0.35
-      : 1 + (wave - 1) * 0.10;
 
-    this.maxHp  = Math.ceil(def.hp * waveScale);
-    this.hp     = this.maxHp;
-    this.dmg    = def.dmg;
-    this.size   = def.size;
-    this.pts    = def.pts;
-    this.xpGain = def.xpGain;
-    this.spd    = def.spd * (type === 'boss' ? 1 : 1 + (wave - 1) * 0.03);
+    if (type === 'boss') {
+      // Boss scales more steeply per stage
+      const bossScale = 1 + (stage - 1) * 0.5;
+      this.maxHp = Math.ceil(def.baseHp * bossScale);
+    } else {
+      const stageScale = 1 + (stage - 1) * 0.35;
+      const waveScale  = 1 + (waveInStage - 1) * 0.10;
+      this.maxHp = Math.max(1, Math.ceil(def.baseHp * stageScale * waveScale));
+    }
+
+    this.hp      = this.maxHp;
+    this.dmg     = def.dmg;
+    this.size    = def.size;
+    this.pts     = def.pts;
+    this.xpGain  = def.xpGain;
+    // Speed also scales gently with stage
+    this.spd     = def.spd * (1 + (stage - 1) * 0.05);
 
     if (type === 'boss') {
       this.vx = 1.5; this.vy = 0;
@@ -39,6 +47,7 @@ class Enemy {
     }
   }
 
+  // Returns {type, dmg?} event or null
   update(barrierActive, frame, H) {
     this.wobble += 0.05;
     if (this.hitFlash > 0) this.hitFlash--;
@@ -50,8 +59,8 @@ class Enemy {
       this.bossTimer++;
       if (this.bossTimer >= 120) {
         this.bossTimer = 0;
-        if (!barrierActive) return { type: 'beam', dmg: 8 };
-        else return { type: 'barrier' };
+        if (!barrierActive) return { type: 'beam', dmg: 6 };
+        else                return { type: 'barrier' };
       }
     } else {
       this.x += this.vx + Math.sin(this.wobble) * 0.4;
@@ -60,7 +69,7 @@ class Enemy {
       if (this.y > H - 160) {
         this.dead = true;
         if (!barrierActive) return { type: 'reach', dmg: this.dmg };
-        else return { type: 'barrier' };
+        else                return { type: 'barrier' };
       }
     }
     return null;
@@ -79,12 +88,13 @@ class Enemy {
 class Bullet {
   constructor(x, y, tx, ty, opts) {
     opts = opts || {};
-    this.x      = x; this.y = y;
-    this.damage  = opts.damage    || 2;
-    this.pierceLeft = opts.pierce || 0;
-    this.crit    = opts.crit      || false;
-    this.evolved = opts.evolved   || false;
-    const speed  = (this.evolved ? 7 : 11) * (opts.bulletSpd || 1);
+    this.x          = x;
+    this.y          = y;
+    this.damage     = opts.damage    || 2;
+    this.pierceLeft = opts.pierce    || 0;
+    this.crit       = opts.crit      || false;
+    this.evolved    = opts.evolved   || false;
+    const speed     = (this.evolved ? 7 : 11) * (opts.bulletSpd || 1);
     const dx = tx - x, dy = ty - y;
     const d  = Math.sqrt(dx*dx + dy*dy) || 1;
     this.vx  = dx / d * speed;
@@ -152,6 +162,10 @@ class Particle {
         this.vx=(Math.random()-0.5)*7; this.vy=-Math.random()*5-2;
         this.size=7+Math.random()*12; this.life=this.maxLife=55;
         this.color=['#FFD700','#FF6B6B','#4ECDC4','#FF69B4','#FFFFFF'][~~(Math.random()*5)]; break;
+      case 'stageclear':
+        this.vx=(Math.random()-0.5)*8; this.vy=-Math.random()*6-3;
+        this.size=8+Math.random()*16; this.life=this.maxLife=70;
+        this.color=['#FFD700','#FF6B00','#FFF','#00FF88','#FF88FF'][~~(Math.random()*5)]; break;
       default:
         this.vx=0; this.vy=-1; this.size=8; this.life=this.maxLife=30; this.color='#fff';
     }
