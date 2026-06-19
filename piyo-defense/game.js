@@ -67,6 +67,7 @@ var slowTimer = 0;
 var level = 1, xp = 0;
 var regenTimer = 0, playFrames = 0, frame = 0;
 var shakeX = 0, shakeY = 0, shakeMag = 0;
+var chickHitFx = 0;
 var enemyBullets = [];
 var stageIntroTimer = 0;
 var STAGE_INTRO_FRAMES = 80;
@@ -143,7 +144,7 @@ function initGame() {
   bossWarnTimer = 0; stageClearTimer = 0;
   score = 0; kills = 0; isNewHS = false;
   level = 1; xp = 0; regenTimer = 0; playFrames = 0;
-  isHolding = false;
+  isHolding = false; chickHitFx = 0;
   stageIntroTimer = STAGE_INTRO_FRAMES;
 }
 
@@ -169,7 +170,7 @@ function initGameContinue(fromStage) {
   bossWarnTimer = 0; stageClearTimer = 0;
   score = 0; kills = 0; isNewHS = false;
   level = 1; xp = 0; regenTimer = 0; playFrames = 0;
-  isHolding = false;
+  isHolding = false; chickHitFx = 0;
   stageIntroTimer = STAGE_INTRO_FRAMES;
 }
 
@@ -404,6 +405,7 @@ function updateBattle() {
 
   // Cooldowns
   if (gs.attackCooldown > 0) gs.attackCooldown--;
+  if (chickHitFx > 0) chickHitFx--;
   var k;
   for (k in cds) { if (cds[k] > 0) cds[k]--; }
 
@@ -443,6 +445,7 @@ function updateBattle() {
     if (er) {
       if (er.type === 'beam' || er.type === 'reach') {
         gs.earthHP = Math.max(0, gs.earthHP - er.dmg);
+        chickHitFx = 22;
         shakeMag = er.type === 'beam' ? 8 : 5;
         spawnP(e.x, er.type === 'beam' ? e.y + e.size*0.5 : H-160, 'hit_earth', 5);
         if (er.type === 'beam') { addFloat(W/2, H*0.45, 'ドゴーン！', '#9B59B6', 22); spawnP(e.x,e.y+e.size*0.5,'boss_beam',6); }
@@ -475,6 +478,7 @@ function updateBattle() {
         }
       } else if (er.type === 'bomb') {
         gs.earthHP = Math.max(0, gs.earthHP - er.dmg);
+        chickHitFx = 22;
         shakeMag = 14;
         spawnP(e.x, H - 150, 'explosion', 20);
         spawnP(e.x, H - 150, 'hit_earth', 8);
@@ -494,6 +498,7 @@ function updateBattle() {
     var ebr = eb.update(H);
     if (ebr && ebr.type === 'hit_earth') {
       gs.earthHP = Math.max(0, gs.earthHP - ebr.dmg);
+      chickHitFx = 22;
       shakeMag = 5;
       spawnP(eb.x, H - 160, 'hit_earth', 4);
       addFloat(eb.x, H - 172, '-' + ebr.dmg, '#FF6600', 13);
@@ -718,6 +723,28 @@ function drawBattleScr(frozenBg) {
     ctx.strokeStyle = '#00FFFF'; ctx.lineWidth = 5;
     ctx.beginPath(); ctx.arc(W/2, H*0.48, W*0.7, 0, Math.PI*2); ctx.stroke();
     ctx.globalAlpha = 0.06; ctx.fillStyle = '#00FFFF'; ctx.fill(); ctx.globalAlpha = 1;
+  }
+
+  // Damage flash effect
+  if (chickHitFx > 0 && !frozenBg) {
+    var cfa = chickHitFx / 22;
+    // Red ring around chick
+    ctx.save();
+    ctx.globalAlpha = cfa * 0.85;
+    ctx.shadowColor = '#FF2222';
+    ctx.shadowBlur  = 28;
+    ctx.strokeStyle = '#FF4444';
+    ctx.lineWidth   = 3 + cfa * 4;
+    ctx.beginPath(); ctx.arc(CHICK_X, CHICK_Y, (gs.isEvolved ? 56 : 44) * 0.75, 0, Math.PI * 2); ctx.stroke();
+    ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+    ctx.restore();
+    // Screen edge vignette
+    var dfa = cfa * 0.50;
+    var dfg = ctx.createRadialGradient(W / 2, H * 0.5, H * 0.12, W / 2, H * 0.5, H * 0.82);
+    dfg.addColorStop(0, 'rgba(255,30,30,0)');
+    dfg.addColorStop(1, 'rgba(255,30,30,' + dfa.toFixed(3) + ')');
+    ctx.fillStyle = dfg;
+    ctx.fillRect(0, 0, W, H);
   }
 
   // Hold-to-fire indicator
