@@ -24,7 +24,7 @@ SoundManager.init();
 // ── Constants ────────────────────────────────────────────────────────────────
 var CHICK_X = W / 2, CHICK_Y = H - 148;
 var CD_MAX  = { gunshi: 600, nurse: 900, barrier: 750 };
-var TOTAL_STAGES   = 10;
+var TOTAL_STAGES   = 20;
 var WAVES_PER_STAGE = 5;   // wave 5 = boss
 
 // ── Auto-fire state ───────────────────────────────────────────────────────────
@@ -46,6 +46,7 @@ var BOSS_WARN_FRAMES  = 90;     // 1.5s
 var STAGE_CLEAR_FRAMES = 150;   // 2.5s
 
 var score = 0, kills = 0, isNewHS = false;
+var continueFromStage = 1;
 var level = 1, xp = 0;
 var regenTimer = 0, playFrames = 0, frame = 0;
 var shakeX = 0, shakeY = 0, shakeMag = 0;
@@ -59,22 +60,38 @@ function xpToNext(lv) { return 5 + lv * 2; }
 // ── Wave config ───────────────────────────────────────────────────────────────
 function waveTypes(stg, wv) {
   if (wv === WAVES_PER_STAGE) return ['boss'];
-  // Stage 1: normals only — pure 1-shot satisfaction
+  // Stage 1: normals only
   if (stg === 1) return ['normal'];
   // Stage 2: normals + late-wave fast
   if (stg === 2) return wv <= 2 ? ['normal'] : ['normal','fast'];
-  // Stage 3: introduce ranged enemy
+  // Stage 3: introduce ranged
   if (stg === 3) return wv <= 2 ? ['normal','fast'] : ['normal','fast','ranged'];
-  // Stage 4: ranged focus, less normal
+  // Stage 4: ranged focus
   if (stg === 4) return wv <= 2 ? ['normal','fast','ranged'] : ['fast','ranged'];
   // Stage 5: add tank
   if (stg === 5) return wv <= 2 ? ['fast','ranged'] : ['fast','ranged','tank'];
   // Stage 6: heavier mix
   if (stg === 6) return wv <= 2 ? ['fast','ranged','tank'] : ['fast','ranged','tank'];
   // Stage 7–8: ranged pressure + tanks
-  if (stg <= 8) return wv <= 2 ? ['fast','ranged','tank'] : ['ranged','ranged','tank'];
-  // Stage 9–10: maximum intensity
-  return wv <= 2 ? ['ranged','ranged','tank'] : ['fast','ranged','ranged','tank'];
+  if (stg <= 8)  return wv <= 2 ? ['fast','ranged','tank'] : ['ranged','ranged','tank'];
+  // Stage 9–10: maximum classic intensity
+  if (stg <= 10) return wv <= 2 ? ['ranged','ranged','tank'] : ['fast','ranged','ranged','tank'];
+  // Stage 11: introduce ghost
+  if (stg === 11) return wv <= 2 ? ['fast','ranged','ghost'] : ['ranged','ghost','tank'];
+  // Stage 12: ghost + pressure
+  if (stg === 12) return wv <= 2 ? ['ranged','ghost','tank'] : ['ghost','ranged','tank'];
+  // Stage 13: introduce healer
+  if (stg === 13) return wv <= 2 ? ['ghost','ranged','healer','fast'] : ['ghost','ranged','healer','tank'];
+  // Stage 14: healer becomes core threat
+  if (stg === 14) return wv <= 2 ? ['ghost','healer','tank','fast'] : ['ghost','ghost','healer','tank'];
+  // Stage 15: introduce bomber
+  if (stg === 15) return wv <= 2 ? ['ghost','healer','fast','fast'] : ['ghost','healer','fast','bomber'];
+  // Stage 16: bomber regularly appears
+  if (stg === 16) return wv <= 2 ? ['ghost','healer','tank','fast'] : ['ghost','healer','tank','bomber'];
+  // Stage 17–18: heavy pressure all threats
+  if (stg <= 18) return wv <= 2 ? ['ghost','healer','bomber','fast'] : ['ghost','healer','bomber','tank'];
+  // Stage 19–20: hell difficulty
+  return wv <= 2 ? ['ghost','ghost','healer','bomber','fast'] : ['ghost','healer','healer','bomber','tank'];
 }
 
 function waveCount(stg, wv) {
@@ -100,6 +117,31 @@ function initGame() {
   PlayerUpgrades.reset();
   enemies = []; bullets = []; enemyBullets = []; particles = []; floats = [];
   stage = 1; wave = 1;
+  waveSpawned = 0; waveTotal = 0; waveTimer = 0;
+  bossWarnTimer = 0; stageClearTimer = 0;
+  score = 0; kills = 0; isNewHS = false;
+  level = 1; xp = 0; regenTimer = 0; playFrames = 0;
+  isHolding = false;
+  stageIntroTimer = STAGE_INTRO_FRAMES;
+}
+
+function initGameContinue(fromStage) {
+  gs = {
+    state:          'stageintro',
+    earthHP:        100,
+    maxEarthHP:     100,
+    evoGauge:       0,
+    isEvolved:      false,
+    evoTimer:       0,
+    attackCooldown: 0,
+    barrierActive:  false,
+    barrierTimer:   0,
+  };
+  upg = { gunshi: true, nurse: true, barrier: true };
+  cds = { gunshi: 0, nurse: 0, barrier: 0 };
+  PlayerUpgrades.reset();
+  enemies = []; bullets = []; enemyBullets = []; particles = []; floats = [];
+  stage = fromStage; wave = 1;
   waveSpawned = 0; waveTotal = 0; waveTimer = 0;
   bossWarnTimer = 0; stageClearTimer = 0;
   score = 0; kills = 0; isNewHS = false;
@@ -183,7 +225,13 @@ function onKill(e) {
   kills++;
   var pts = Math.round(e.pts * PlayerUpgrades.scoreMulti);
   score  += pts;
-  gs.evoGauge = Math.min(100, gs.evoGauge + (e.type === 'boss' ? 50 : e.type === 'tank' ? 15 : 10));
+  gs.evoGauge = Math.min(100, gs.evoGauge + (
+    e.type === 'boss'   ? 50 :
+    e.type === 'tank'   ? 15 :
+    e.type === 'healer' ? 18 :
+    e.type === 'bomber' ? 15 :
+    10
+  ));
   spawnP(e.x, e.y, 'poof', 8);
   addFloat(e.x, e.y - 24, '+' + pts, '#FFD700', 14);
   if (e.type === 'boss' || e.type === 'tank') SoundManager.killBig();
@@ -246,6 +294,7 @@ function advanceStage() {
 
 function endGame() {
   isHolding = false;
+  continueFromStage = stage;
   isNewHS   = SaveManager.save(score, stage - 1);  // credit up to previous stage
   gs.state  = 'gameover';
   SoundManager.gameOver();
@@ -322,6 +371,25 @@ function updateBattle() {
         enemyBullets.push(new EnemyBullet(er.x, er.y, er.dmg));
         spawnP(er.x, er.y, 'boss_beam', 3);
         SoundManager.hit();
+      } else if (er.type === 'heal') {
+        var healCount = 0;
+        enemies.forEach(function(en) {
+          if (!en.dead && en.type !== 'boss' && en.type !== 'healer') {
+            en.hp = Math.min(en.maxHp, en.hp + er.amount);
+            healCount++;
+          }
+        });
+        if (healCount > 0) {
+          spawnP(e.x, e.y, 'levelup', 6);
+          addFloat(W/2, H*0.32, '敵が回復した！', '#FF88CC', 18);
+        }
+      } else if (er.type === 'bomb') {
+        gs.earthHP = Math.max(0, gs.earthHP - er.dmg);
+        shakeMag = 14;
+        spawnP(e.x, H - 150, 'explosion', 20);
+        spawnP(e.x, H - 150, 'hit_earth', 8);
+        addFloat(e.x, H - 168, 'BOOM!! -' + er.dmg, '#FF5500', 22);
+        SoundManager.killBig();
       } else if (er.type === 'barrier') {
         addFloat(e.x, H-170, 'バリア！', '#00FFFF', 13);
       }
@@ -577,8 +645,9 @@ function handleMenuTap(tx, ty) {
       else if (ty >= 514 && ty <= 572) { gs.state = 'title'; SoundManager.startBgm('title'); }
       break;
     case 'gameover':
-      if      (ty >= 626 && ty <= 684 && tx >= 44 && tx <= W-44) { initGame(); SoundManager.startBgm('battle'); }
-      else if (ty >= 694 && ty <= 748 && tx >= 44 && tx <= W-44) { gs.state = 'title'; SoundManager.startBgm('title'); }
+      if      (ty >= 494 && ty <= 552 && tx >= 44 && tx <= W-44) { initGameContinue(continueFromStage); SoundManager.startBgm('battle'); }
+      else if (ty >= 562 && ty <= 610 && tx >= 44 && tx <= W-44) { initGame(); SoundManager.startBgm('battle'); }
+      else if (ty >= 620 && ty <= 668 && tx >= 44 && tx <= W-44) { gs.state = 'title'; SoundManager.startBgm('title'); }
       break;
     case 'ending':
       if      (ty >= 664 && ty <= 722 && tx >= 55 && tx <= W-55) { initGame(); SoundManager.startBgm('battle'); }

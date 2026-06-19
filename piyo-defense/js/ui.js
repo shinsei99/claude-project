@@ -403,7 +403,7 @@ function drawTitle(frame, hs, bs, bgmOn, seOn) {
 
   // ── Footer ───────────────────────────────────────────────────────────────
   _ctx.fillStyle = 'rgba(68,78,110,0.72)'; _ctx.font = '11px "Kosugi Maru",sans-serif';
-  _ctx.fillText('全10ステージ × 5Wave構成', _W/2, 708);
+  _ctx.fillText('全20ステージ × 5Wave構成', _W/2, 708);
   _ctx.fillStyle = 'rgba(42,48,68,0.62)'; _ctx.font = '10px sans-serif';
   _ctx.fillText('PIYO-DEFENSE  v3.0', _W/2, _H - 24);
 }
@@ -422,10 +422,10 @@ function drawHowTo(frame) {
     ['🌍','地球のHPが0になるとゲームオーバー'],
     ['💪','敵を倒してレベルアップ！'],
     ['⬆️','Lv.UP時に強化を1つ選ぼう'],
-    ['🔵','青カラス：速い！でも弱い'],
-    ['🔴','赤カラス：遅い…でも硬い'],
-    ['👾','WAVE 5はボス戦！'],
-    ['🏆','全10ステージをクリアせよ！'],
+    ['👻','幽霊カラス：消えたり現れたり！'],
+    ['💗','ヒーラー：仲間の敵を回復させる！'],
+    ['💣','爆弾カラス：地球に激突で大爆発！'],
+    ['🏆','全20ステージをクリアせよ！'],
   ];
   rows.forEach(function(row, i) {
     var rG = _btnGrd(28, 102+i*80, 334, 66, 'rgba(12,12,44,0.92)', 'rgba(6,6,28,0.92)');
@@ -508,21 +508,21 @@ function drawPause(stage, wave, score) {
 // ── Game Over ─────────────────────────────────────────────────────────────────
 function drawGameOver(score, stage, wave, kills, isNewHS, hs, bs, frame) {
   drawBg(frame);
-  _ctx.fillStyle = 'rgba(0,0,0,0.78)'; _ctx.fillRect(0, 0, _W, _H);
+  _ctx.fillStyle = 'rgba(0,0,0,0.80)'; _ctx.fillRect(0, 0, _W, _H);
   _ctx.textAlign = 'center';
   _ctx.shadowColor = '#FF2020'; _ctx.shadowBlur = 28;
-  _ctx.fillStyle = '#FF4444'; _ctx.font = 'bold 48px "Kosugi Maru",sans-serif';
-  _ctx.fillText('EARTH CRASH!', _W/2, 168);
+  _ctx.fillStyle = '#FF4444'; _ctx.font = 'bold 44px "Kosugi Maru",sans-serif';
+  _ctx.fillText('EARTH CRASH!', _W/2, 148);
   _ctx.shadowBlur = 0;
 
-  drawEarth(_W/2, 254, 42);
+  drawEarth(_W/2, 228, 36);
   _ctx.strokeStyle = '#FF4444'; _ctx.lineWidth = 4;
-  _ctx.beginPath(); _ctx.moveTo(_W/2-6, 213); _ctx.lineTo(_W/2+5, 244); _ctx.lineTo(_W/2-10, 296); _ctx.stroke();
+  _ctx.beginPath(); _ctx.moveTo(_W/2-6, 193); _ctx.lineTo(_W/2+5, 218); _ctx.lineTo(_W/2-10, 263); _ctx.stroke();
 
   if (isNewHS) {
-    _ctx.shadowColor = '#FFD700'; _ctx.shadowBlur = 18;
-    _ctx.fillStyle = '#FFD700'; _ctx.font = 'bold 20px "Kosugi Maru",sans-serif';
-    _ctx.fillText('🏆 NEW HIGH SCORE! 🏆', _W/2, 322);
+    _ctx.shadowColor = '#FFD700'; _ctx.shadowBlur = 14;
+    _ctx.fillStyle = '#FFD700'; _ctx.font = 'bold 18px "Kosugi Maru",sans-serif';
+    _ctx.fillText('🏆 NEW HIGH SCORE! 🏆', _W/2, 292);
     _ctx.shadowBlur = 0;
   }
 
@@ -534,29 +534,37 @@ function drawGameOver(score, stage, wave, kills, isNewHS, hs, bs, frame) {
     ['最高クリアST', bs > 0 ? 'STAGE ' + bs : '---'],
   ];
   rows.forEach(function(row, i) {
-    var ry = 340 + i * 54;
-    var rG = _btnGrd(44, ry, _W-88, 44, 'rgba(12,14,36,0.92)', 'rgba(6,8,22,0.92)');
-    rrectGrd(44, ry, _W-88, 44, 8, rG, 'rgba(50,60,100,0.4)', 1.5);
-    _ctx.fillStyle = '#777'; _ctx.font = '12px "Kosugi Maru",sans-serif'; _ctx.textAlign = 'left';
-    _ctx.fillText(row[0], 64, ry + 27);
-    _ctx.fillStyle = '#fff'; _ctx.font = 'bold 15px "Kosugi Maru",sans-serif'; _ctx.textAlign = 'right';
-    _ctx.fillText(row[1], _W - 58, ry + 27);
+    var ry = 308 + i * 46;
+    var rG = _btnGrd(44, ry, _W-88, 38, 'rgba(12,14,36,0.92)', 'rgba(6,8,22,0.92)');
+    rrectGrd(44, ry, _W-88, 38, 7, rG, 'rgba(50,60,100,0.4)', 1.5);
+    _ctx.fillStyle = '#777'; _ctx.font = '11px "Kosugi Maru",sans-serif'; _ctx.textAlign = 'left';
+    _ctx.fillText(row[0], 62, ry + 23);
+    _ctx.fillStyle = '#fff'; _ctx.font = 'bold 14px "Kosugi Maru",sans-serif'; _ctx.textAlign = 'right';
+    _ctx.fillText(row[1], _W - 56, ry + 23);
   });
 
-  // Replay — tap area: y=626-684, x=44-W-44 (unchanged)
-  var pg = _ctx.createLinearGradient(44, 626, 44, 682);
-  pg.addColorStop(0, '#FF6040'); pg.addColorStop(0.5, '#E84B2B'); pg.addColorStop(1, '#B83010');
-  _ctx.shadowColor = '#FF4020'; _ctx.shadowBlur = 12;
-  rrectGrd(44, 626, _W-88, 56, 14, pg, '#FFD700', 2.5);
+  // Continue from same stage — tap area: y=494-552, x=44-W-44
+  var cG = _ctx.createLinearGradient(44, 494, 44, 550);
+  cG.addColorStop(0, '#FF8050'); cG.addColorStop(0.4, '#E84B2B'); cG.addColorStop(1, '#9E2008');
+  _ctx.shadowColor = 'rgba(255,80,30,0.7)'; _ctx.shadowBlur = 20;
+  rrectGrd(44, 494, _W-88, 58, 14, cG, '#FFD700', 3);
   _ctx.shadowBlur = 0;
-  _ctx.fillStyle = '#fff'; _ctx.font = 'bold 20px "Kosugi Maru",sans-serif'; _ctx.textAlign = 'center';
-  _ctx.fillText('もう一度プレイ', _W/2, 661);
+  _ctx.fillStyle = '#fff'; _ctx.font = 'bold 18px "Kosugi Maru",sans-serif'; _ctx.textAlign = 'center';
+  _ctx.fillText('▶ STAGE ' + stage + ' からコンテニュー', _W/2, 523);
+  _ctx.fillStyle = 'rgba(255,220,180,0.75)'; _ctx.font = '11px "Kosugi Maru",sans-serif';
+  _ctx.fillText('スコアはリセット', _W/2, 542);
 
-  // Title — tap area: y=694-748, x=44-W-44 (unchanged)
-  var tG = _btnGrd(44, 694, _W-88, 52, 'rgba(20,22,65,0.95)', 'rgba(8,10,38,0.95)');
-  rrectGrd(44, 694, _W-88, 52, 13, tG, 'rgba(60,80,160,0.5)', 2);
-  _ctx.fillStyle = '#AAC0FF'; _ctx.font = 'bold 18px "Kosugi Maru",sans-serif';
-  _ctx.fillText('タイトルへ', _W/2, 726);
+  // Restart from stage 1 — tap area: y=562-610, x=44-W-44
+  var rG2 = _btnGrd(44, 562, _W-88, 48, 'rgba(30,12,12,0.95)', 'rgba(15,5,5,0.95)');
+  rrectGrd(44, 562, _W-88, 48, 11, rG2, 'rgba(150,50,50,0.5)', 1.5);
+  _ctx.fillStyle = '#F08080'; _ctx.font = 'bold 16px "Kosugi Maru",sans-serif';
+  _ctx.fillText('最初からやり直す', _W/2, 591);
+
+  // Title — tap area: y=620-668, x=44-W-44
+  var tG = _btnGrd(44, 620, _W-88, 48, 'rgba(18,20,60,0.95)', 'rgba(7,9,34,0.95)');
+  rrectGrd(44, 620, _W-88, 48, 11, tG, 'rgba(55,75,155,0.5)', 1.5);
+  _ctx.fillStyle = '#AAC0FF'; _ctx.font = 'bold 16px "Kosugi Maru",sans-serif';
+  _ctx.fillText('タイトルへ', _W/2, 649);
 }
 
 // ── Ending (ALL CLEAR) ────────────────────────────────────────────────────────

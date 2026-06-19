@@ -32,20 +32,30 @@ function rrectGrd(x, y, w, h, r, grd, stroke, lw) {
 
 // ── Background (stage-aware) ─────────────────────────────────────────────────
 var _SBG = [
-  { t:'#04091E', m:'#08142E', b:'#04080E' },  // 1 midnight blue
-  { t:'#060820', m:'#0A1230', b:'#040610' },  // 2
-  { t:'#0C0822', m:'#140C32', b:'#08061A' },  // 3 purple
-  { t:'#160622', m:'#1E082C', b:'#0C0414' },  // 4
-  { t:'#220408', m:'#300606', b:'#180204' },  // 5 red
-  { t:'#1C0604', m:'#280804', b:'#140402' },  // 6 orange
-  { t:'#100A1E', m:'#160C28', b:'#080612' },  // 7 dark indigo
-  { t:'#1C0408', m:'#240406', b:'#0E0204' },  // 8 crimson
-  { t:'#160010', m:'#1E0018', b:'#0C0008' },  // 9 void purple
+  { t:'#04091E', m:'#08142E', b:'#04080E' },  //  1 midnight blue
+  { t:'#060820', m:'#0A1230', b:'#040610' },  //  2
+  { t:'#0C0822', m:'#140C32', b:'#08061A' },  //  3 purple
+  { t:'#160622', m:'#1E082C', b:'#0C0414' },  //  4
+  { t:'#220408', m:'#300606', b:'#180204' },  //  5 red
+  { t:'#1C0604', m:'#280804', b:'#140402' },  //  6 orange
+  { t:'#100A1E', m:'#160C28', b:'#080612' },  //  7 dark indigo
+  { t:'#1C0408', m:'#240406', b:'#0E0204' },  //  8 crimson
+  { t:'#160010', m:'#1E0018', b:'#0C0008' },  //  9 void purple
   { t:'#09000C', m:'#110012', b:'#050006' },  // 10 deep void
+  { t:'#04000A', m:'#06000F', b:'#020007' },  // 11 ultra violet
+  { t:'#000308', m:'#000510', b:'#000204' },  // 12 deep sea
+  { t:'#060009', m:'#08000F', b:'#030004' },  // 13 void indigo
+  { t:'#080002', m:'#0C0004', b:'#040001' },  // 14 void crimson
+  { t:'#050004', m:'#090008', b:'#030003' },  // 15 void magenta
+  { t:'#000008', m:'#00000E', b:'#000004' },  // 16 pure void
+  { t:'#050000', m:'#090000', b:'#030000' },  // 17 blood abyss
+  { t:'#000505', m:'#000A0A', b:'#000303' },  // 18 void teal
+  { t:'#020002', m:'#030003', b:'#010001' },  // 19 near-black
+  { t:'#000000', m:'#010001', b:'#000000' },  // 20 absolute darkness
 ];
 
 function drawBg(frame, stage) {
-  var si = Math.max(0, Math.min(9, (stage || 1) - 1));
+  var si = Math.max(0, Math.min(19, (stage || 1) - 1));
   var bg = _SBG[si];
   var g  = _ctx.createLinearGradient(0, 0, 0, _H);
   g.addColorStop(0,   bg.t);
@@ -54,19 +64,19 @@ function drawBg(frame, stage) {
   _ctx.fillStyle = g; _ctx.fillRect(0, 0, _W, _H);
 
   // Stars
-  var cnt = 58 + si * 4;
+  var cnt = 58 + Math.min(si, 9) * 4;
   for (var i = 0; i < cnt; i++) {
     var sx = (i * 141 + 47) % _W;
     var sy = (i * 233 + 31) % (_H * 0.73);
     _ctx.globalAlpha = (Math.sin(frame * 0.04 + i) * 0.22 + 0.62) * 0.82;
-    _ctx.fillStyle = si >= 7 ? '#FFCCCC' : si >= 4 ? '#FFE8CC' : '#FFFFFF';
+    _ctx.fillStyle = si >= 14 ? '#FFAAFF' : si >= 7 ? '#FFCCCC' : si >= 4 ? '#FFE8CC' : '#FFFFFF';
     _ctx.beginPath(); _ctx.arc(sx, sy, 0.55 + (i % 4) * 0.36, 0, Math.PI * 2); _ctx.fill();
   }
 
   // Nebula at higher stages
   if (si >= 3) {
-    var na = (si - 3) / 7 * 0.13;
-    var nc = si >= 7 ? '200,30,30' : si >= 4 ? '110,30,175' : '55,25,135';
+    var na = Math.min(0.13, (si - 3) / 7 * 0.13);
+    var nc = si >= 14 ? '140,0,160' : si >= 7 ? '200,30,30' : si >= 4 ? '110,30,175' : '55,25,135';
     var ng = _ctx.createRadialGradient(_W * 0.65, _H * 0.25, 0, _W * 0.65, _H * 0.25, _W * 0.72);
     ng.addColorStop(0, 'rgba(' + nc + ',' + na + ')');
     ng.addColorStop(1, 'rgba(' + nc + ',0)');
@@ -76,7 +86,7 @@ function drawBg(frame, stage) {
 }
 
 function drawGround(stage) {
-  var t   = Math.max(0, Math.min(1, ((stage || 1) - 1) / 9));
+  var t   = Math.max(0, Math.min(1, ((stage || 1) - 1) / 19));
   var r1  = Math.round(40 + t * 52),  g1 = Math.round(138 - t * 112), b1 = Math.round(70 - t * 62);
   var r2  = Math.round(30 + t * 42),  g2 = Math.round(106 - t * 92),  b2 = Math.round(54 - t * 50);
   var grd = _ctx.createLinearGradient(0, _H - 128, 0, _H);
@@ -199,10 +209,13 @@ function drawChick(x, y, sz, evolved, acc) {
 
 // ── Crow ─────────────────────────────────────────────────────────────────────
 var CROW_COLORS = {
-  normal: { wing:'#141414', body:'#282828', hi:'#424242', eye:'#FF1A1A', glow:'rgba(255,20,20,0.55)'  },
-  fast:   { wing:'#001166', body:'#163388', hi:'#2850BB', eye:'#00EEFF', glow:'rgba(0,220,255,0.55)'  },
-  ranged: { wing:'#1A3A1A', body:'#1E6B1E', hi:'#3AAA3A', eye:'#FFCC00', glow:'rgba(255,210,0,0.58)' },
-  tank:   { wing:'#3A0000', body:'#7A0000', hi:'#BB1818', eye:'#FF5500', glow:'rgba(255,80,0,0.55)'   },
+  normal: { wing:'#141414', body:'#282828', hi:'#424242', eye:'#FF1A1A', glow:'rgba(255,20,20,0.55)'   },
+  fast:   { wing:'#001166', body:'#163388', hi:'#2850BB', eye:'#00EEFF', glow:'rgba(0,220,255,0.55)'   },
+  ranged: { wing:'#1A3A1A', body:'#1E6B1E', hi:'#3AAA3A', eye:'#FFCC00', glow:'rgba(255,210,0,0.58)'  },
+  tank:   { wing:'#3A0000', body:'#7A0000', hi:'#BB1818', eye:'#FF5500', glow:'rgba(255,80,0,0.55)'    },
+  ghost:  { wing:'#5A6A88', body:'#7A92AF', hi:'#A8C0D0', eye:'#88EEFF', glow:'rgba(100,210,255,0.55)' },
+  healer: { wing:'#7A1A4A', body:'#AA2060', hi:'#D85090', eye:'#FF88CC', glow:'rgba(255,120,200,0.58)' },
+  bomber: { wing:'#3A1800', body:'#8C3200', hi:'#CC5010', eye:'#FF8C00', glow:'rgba(255,110,0,0.60)'   },
 };
 
 function drawCrow(e) {
@@ -211,6 +224,10 @@ function drawCrow(e) {
   var s = e.size;
   var c = CROW_COLORS[e.type] || CROW_COLORS.normal;
   var al = (e.hitFlash > 0 && e.hitFlash % 2 === 0) ? 0.25 : 1.0;
+
+  // Ghost: pulsing transparency (visible 0.2→1.0 on wobble cycle)
+  if (e.type === 'ghost') al *= (0.20 + Math.abs(Math.sin(e.wobble * 0.30)) * 0.80);
+
   _ctx.globalAlpha = al;
 
   // Ground shadow
@@ -218,6 +235,27 @@ function drawCrow(e) {
   _ctx.fillStyle = 'rgba(0,0,0,0.55)';
   _ctx.beginPath(); _ctx.ellipse(0, s * 0.9, s * 0.46, s * 0.1, 0, 0, Math.PI * 2); _ctx.fill();
   _ctx.globalAlpha = al;
+
+  // Healer: pink heal aura pulses when about to fire
+  if (e.type === 'healer' && e.healTimer > 60) {
+    var hr = Math.min(1, (e.healTimer - 60) / 40);
+    _ctx.globalAlpha = al * hr * 0.42;
+    _ctx.shadowColor = '#FF88CC'; _ctx.shadowBlur = 22;
+    _ctx.fillStyle = '#FF88CC';
+    _ctx.beginPath(); _ctx.arc(0, 0, s * 0.88, 0, Math.PI * 2); _ctx.fill();
+    _ctx.shadowBlur = 0; _ctx.globalAlpha = al;
+  }
+
+  // Bomber: fuse glow intensifies as it descends
+  if (e.type === 'bomber' && e.y > 180) {
+    var fuse = Math.min(1, (e.y - 180) / (_H - 320));
+    var fuseFlash = Math.abs(Math.sin(e.wobble * (1.2 + fuse * 3.5)));
+    _ctx.globalAlpha = al * fuse * fuseFlash * 0.55;
+    _ctx.shadowColor = '#FF5500'; _ctx.shadowBlur = 26;
+    _ctx.fillStyle = '#FF7700';
+    _ctx.beginPath(); _ctx.arc(0, 0, s * 0.94, 0, Math.PI * 2); _ctx.fill();
+    _ctx.shadowBlur = 0; _ctx.globalAlpha = al;
+  }
 
   // Ranged enemy: charge-up aura + beam preview
   if (e.type === 'ranged' && e.rangedTimer > 38) {
@@ -278,8 +316,8 @@ function drawCrow(e) {
   _ctx.fillStyle = 'rgba(255,255,255,0.85)';
   _ctx.beginPath(); _ctx.arc(s * 0.37, -s * 0.32, s * 0.025, 0, Math.PI * 2); _ctx.fill();
 
-  // Tank HP bar
-  if (e.type === 'tank' || e.maxHp > 12) {
+  // HP bar for chunky / priority enemies
+  if (e.type === 'tank' || e.type === 'healer' || e.type === 'bomber' || e.maxHp > 12) {
     var bw = s * 1.6, bx = -bw / 2, by = s * 0.65;
     rrect(bx - 1, by - 1, bw + 2, 12, 4, 'rgba(0,0,0,0.75)', null);
     var ratio = e.hp / e.maxHp;

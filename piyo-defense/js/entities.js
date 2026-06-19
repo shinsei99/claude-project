@@ -7,6 +7,9 @@ const ENEMY_DEF = {
   fast:   { baseHp:1,  dmg:4,  size:20, pts:10,  spd:1.9,  xpGain:1 },
   ranged: { baseHp:4,  dmg:8,  size:26, pts:15,  spd:0.65, xpGain:2 },
   tank:   { baseHp:8,  dmg:12, size:44, pts:20,  spd:0.4,  xpGain:2 },
+  ghost:  { baseHp:3,  dmg:6,  size:26, pts:20,  spd:1.1,  xpGain:2 },
+  healer: { baseHp:5,  dmg:4,  size:28, pts:25,  spd:0.55, xpGain:3 },
+  bomber: { baseHp:5,  dmg:18, size:38, pts:30,  spd:0.48, xpGain:3 },
   boss:   { baseHp:60, dmg:0,  size:90, pts:150, spd:0.35, xpGain:5 },
 };
 
@@ -47,6 +50,17 @@ class Enemy {
       this.rangedTimer = 0;
       this.vx = (Math.random() - 0.5) * 1.2;
       this.vy = this.spd;
+    } else if (type === 'healer') {
+      this.stopY     = 128 + Math.random() * 64;
+      this.healTimer = 0;
+      this.vx = (Math.random() - 0.5) * 0.8;
+      this.vy = this.spd;
+    } else if (type === 'ghost') {
+      this.vx = (Math.random() - 0.5) * 2.0;
+      this.vy = this.spd;
+    } else if (type === 'bomber') {
+      this.vx = (Math.random() - 0.5) * 0.4;
+      this.vy = this.spd;
     } else {
       this.vx = (Math.random() - 0.5) * 1.5;
       this.vy = this.spd;
@@ -85,6 +99,41 @@ class Enemy {
           if (!barrierActive) return { type: 'rangedbullet', x: this.x, y: this.y + this.size * 0.5, dmg: this.dmg };
           else                return { type: 'barrier' };
         }
+      }
+    } else if (this.type === 'healer') {
+      if (this.y < this.stopY) {
+        this.x += this.vx + Math.sin(this.wobble) * 0.4;
+        this.y += this.vy;
+        if (this.x < this.size || this.x > 390 - this.size) this.vx *= -1;
+      } else {
+        // Hover and periodically heal all enemies
+        this.x += Math.sin(this.wobble * 0.5) * 1.0;
+        if (this.x < this.size) this.x = this.size;
+        if (this.x > 390 - this.size) this.x = 390 - this.size;
+        this.healTimer++;
+        if (this.healTimer >= 100) {
+          this.healTimer = 0;
+          return { type: 'heal', amount: 2 };
+        }
+      }
+    } else if (this.type === 'ghost') {
+      // Erratic waving motion, semi-transparent
+      this.x += this.vx + Math.sin(this.wobble * 1.5) * 0.8;
+      this.y += this.vy;
+      if (this.x < this.size || this.x > 390 - this.size) this.vx *= -1;
+      if (this.y > H - 160) {
+        this.dead = true;
+        if (!barrierActive) return { type: 'reach', dmg: this.dmg };
+        else                return { type: 'barrier' };
+      }
+    } else if (this.type === 'bomber') {
+      // Falls nearly straight down, explodes on impact
+      this.x += Math.sin(this.wobble * 0.3) * 0.3;
+      this.y += this.vy;
+      if (this.y > H - 150) {
+        this.dead = true;
+        if (!barrierActive) return { type: 'bomb', dmg: this.dmg };
+        else                return { type: 'barrier' };
       }
     } else {
       this.x += this.vx + Math.sin(this.wobble) * 0.4;
