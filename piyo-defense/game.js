@@ -48,6 +48,7 @@ var STAGE_CLEAR_FRAMES = 150;   // 2.5s
 var score = 0, kills = 0, isNewHS = false;
 var level = 1, xp = 0;
 var regenTimer = 0, playFrames = 0, frame = 0;
+var shakeX = 0, shakeY = 0, shakeMag = 0;
 var levelChoices = [];
 
 function xpToNext(lv) { return 5 + lv * 2; }
@@ -296,6 +297,7 @@ function updateBattle() {
     if (er) {
       if (er.type === 'beam' || er.type === 'reach') {
         gs.earthHP = Math.max(0, gs.earthHP - er.dmg);
+        shakeMag = er.type === 'beam' ? 8 : 5;
         spawnP(e.x, er.type === 'beam' ? e.y + e.size*0.5 : H-160, 'hit_earth', 5);
         if (er.type === 'beam') { addFloat(W/2, H*0.45, 'ドゴーン！', '#9B59B6', 22); spawnP(e.x,e.y+e.size*0.5,'boss_beam',6); }
         else addFloat(e.x, H-170, '-' + er.dmg, '#FF4444', 13);
@@ -371,6 +373,13 @@ function updateParticlesFloats() {
 // ── Draw ──────────────────────────────────────────────────────────────────────
 function draw() {
   ctx.clearRect(0, 0, W, H);
+  var doShake = shakeMag > 0.5;
+  if (doShake) {
+    shakeX = (Math.random() - 0.5) * shakeMag * 2;
+    shakeY = (Math.random() - 0.5) * shakeMag * 2;
+    shakeMag *= 0.78;
+    ctx.save(); ctx.translate(shakeX, shakeY);
+  }
   switch (gs.state) {
     case 'title':      drawTitleScr();      break;
     case 'howto':      drawHowToScr();      break;
@@ -381,6 +390,7 @@ function draw() {
     case 'gameover':   drawGameOverScr();   break;
     case 'ending':     drawEndingScr();     break;
   }
+  if (doShake) ctx.restore();
 }
 
 function drawTitleScr() {
@@ -401,8 +411,8 @@ function drawStageClearScr() {
 }
 
 function drawBattleScr(frozenBg) {
-  drawBg(frame);
-  drawGround();
+  drawBg(frame, stage);
+  drawGround(stage);
   drawEvoBar(gs.evoGauge, gs.isEvolved, gs.evoTimer);
   drawHudTop(gs.earthHP, gs.maxEarthHP, gs.barrierActive, stage, wave, WAVES_PER_STAGE, score, level, xp, xpToNext(level), kills, SaveManager.getHigh().score, frame);
 
@@ -411,8 +421,13 @@ function drawBattleScr(frozenBg) {
   bullets.forEach(function(b) {
     if (b.evolved) { drawEgg(b.x, b.y); }
     else {
-      ctx.save(); ctx.translate(b.x, b.y); ctx.rotate(b.rot + Math.PI/2);
-      drawChick(0, 0, 11, false); ctx.restore();
+      ctx.save();
+      ctx.shadowColor = b.crit ? '#FF3333' : '#FFE040';
+      ctx.shadowBlur  = 10;
+      ctx.translate(b.x, b.y); ctx.rotate(b.rot + Math.PI/2);
+      drawChick(0, 0, 11, false);
+      ctx.shadowBlur = 0;
+      ctx.restore();
     }
   });
 
@@ -448,10 +463,12 @@ function drawBattleScr(frozenBg) {
 
   // Hold-to-fire indicator
   if (isHolding && !frozenBg) {
-    ctx.globalAlpha = 0.3;
-    ctx.strokeStyle = '#FFD700'; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.arc(holdX, holdY, 18, 0, Math.PI*2); ctx.stroke();
-    ctx.globalAlpha = 1;
+    var pulseR = 18 + Math.sin(frame * 0.3) * 4;
+    ctx.globalAlpha = 0.42 + Math.sin(frame * 0.3) * 0.14;
+    ctx.shadowColor = '#FFD700'; ctx.shadowBlur = 16;
+    ctx.strokeStyle = '#FFD700'; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.arc(holdX, holdY, pulseR, 0, Math.PI*2); ctx.stroke();
+    ctx.shadowBlur = 0; ctx.globalAlpha = 1;
   }
 
   drawCompanionBtns(upg, cds, CD_MAX, frame);
