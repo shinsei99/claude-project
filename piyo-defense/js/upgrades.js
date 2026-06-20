@@ -17,6 +17,12 @@ const UPGRADE_DEFS = [
   { id:'tower_rapid',   name:'ラピッドタワー 設置', desc:'高速連射の自動砲台を設置',        icon:'🔰'  },
   { id:'tower_sniper',  name:'スナイパータワー 設置',desc:'超長射程の自動砲台を設置',       icon:'🎯'  },
   { id:'tower_support', name:'サポートタワー 設置', desc:'貫通弾で複数敵を攻撃',           icon:'💠'  },
+  // ── ドロップ専用 ─────────────────────────────────────────────────────────
+  { id:'hp_heal',       name:'HP即時回復',          desc:'地球HP +30 即時回復',            icon:'💊'  },
+  { id:'nurse_cd',      name:'ナースCD短縮',         desc:'ナースのCDを30%短縮（永続）',   icon:'⏱️'  },
+  { id:'barrier_ext',   name:'バリア延長',           desc:'バリア持続時間 +120F',          icon:'🛡️'  },
+  { id:'gunshi_boost',  name:'軍師強化',             desc:'軍師ダメージ +20',              icon:'🗡️'  },
+  { id:'cd_reset',      name:'全CDリセット',         desc:'全スキルのCDを即時リセット',    icon:'🔄'  },
 ];
 
 const PlayerUpgrades = {
@@ -34,6 +40,10 @@ const PlayerUpgrades = {
   xpMult:      1.0,
   coinMult:    1.0,
   rapidTimer:  0,
+  // ドロップ強化由来
+  nurseCdMult:   1.0,
+  barrierExt:    0,
+  gunshiBonus:   0,
 
   reset(bonuses) {
     bonuses = bonuses || {};
@@ -51,25 +61,53 @@ const PlayerUpgrades = {
     this.xpMult     = bonuses.xpGain   || 1.0;
     this.coinMult   = bonuses.coinGain  || 1.0;
     this.rapidTimer = 0;
+    this.nurseCdMult  = 1.0;
+    this.barrierExt   = 0;
+    this.gunshiBonus  = 0;
   },
 
   apply(id) {
     switch (id) {
-      case 'atk_up':     this.atk += 2; break;
-      case 'spd_up':     this.atkSpd = Math.min(this.atkSpd * 1.20, 5.0); break;
-      case 'bullet_spd': this.bulletSpd *= 1.25; break;
-      case 'pierce':     this.pierce++; break;
-      case 'double_shot':this.doubleShot = true; break;
-      case 'crit_up':    this.critChance = Math.min(this.critChance + 0.15, 0.85); break;
-      case 'score_up':   this.scoreMulti += 0.5; break;
-      case 'max_hp':     this.maxHp += 25; break;
-      case 'regen':      this.regen += 2; break;
-      case 'range_up':   this.rangeMult *= 1.30; break;
+      case 'atk_up':       this.atk += 2; break;
+      case 'spd_up':       this.atkSpd = Math.min(this.atkSpd * 1.20, 5.0); break;
+      case 'bullet_spd':   this.bulletSpd *= 1.25; break;
+      case 'pierce':       this.pierce++; break;
+      case 'double_shot':  this.doubleShot = true; break;
+      case 'crit_up':      this.critChance = Math.min(this.critChance + 0.15, 0.85); break;
+      case 'score_up':     this.scoreMulti += 0.5; break;
+      case 'max_hp':       this.maxHp += 25; break;
+      case 'regen':        this.regen += 2; break;
+      case 'range_up':     this.rangeMult *= 1.30; break;
       case 'explode_shot': this.explodeShot = true; break;
-      case 'rapid_fire': this.rapidTimer = 300; break;
+      case 'rapid_fire':   this.rapidTimer = 300; break;
+      case 'nurse_cd':     this.nurseCdMult = Math.max(0.3, this.nurseCdMult * 0.7); break;
+      case 'barrier_ext':  this.barrierExt += 120; break;
+      case 'gunshi_boost': this.gunshiBonus += 20; break;
     }
   }
 };
+
+// ── ドロッププール（ステージ帯別重み付き）──────────────────────────────────
+const DROP_POOL_EARLY = [
+  'atk_up','atk_up','spd_up','spd_up','double_shot','crit_up',
+  'bullet_spd','pierce','hp_heal','regen',
+];
+const DROP_POOL_MID = [
+  'atk_up','spd_up','crit_up','pierce','regen','regen',
+  'max_hp','explode_shot','hp_heal','nurse_cd','barrier_ext','gunshi_boost',
+];
+const DROP_POOL_LATE = [
+  'regen','regen','max_hp','hp_heal','nurse_cd','nurse_cd',
+  'barrier_ext','barrier_ext','gunshi_boost','cd_reset','pierce','explode_shot',
+];
+
+function pickDropUpgrade(stg, lastId) {
+  var pool = stg <= 7 ? DROP_POOL_EARLY : stg <= 14 ? DROP_POOL_MID : DROP_POOL_LATE;
+  var available = pool.filter(function(id){ return id !== lastId; });
+  if (!available.length) available = pool.slice();
+  var id = available[~~(Math.random() * available.length)];
+  return UPGRADE_DEFS.find(function(d){ return d.id === id; }) || UPGRADE_DEFS[0];
+}
 
 function pickUpgrades(n) {
   n = n || 3;

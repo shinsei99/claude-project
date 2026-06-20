@@ -379,6 +379,18 @@ function drawCrow(e) {
 function drawBoss(e, frame) {
   if (e.type === 'boss_chicken') { drawBossChicken(e, frame); return; }
   if (e.type === 'boss_snake')   { drawBossSnake(e, frame);   return; }
+  if (e.type.startsWith('boss_s')) {
+    var cfg = typeof BOSS_CONFIG !== 'undefined' ? BOSS_CONFIG[e._stageNum] : null;
+    if (cfg) {
+      switch (cfg.arch) {
+        case 'bird':    drawBossArchBird(e, frame, cfg);    return;
+        case 'beast':   drawBossArchBeast(e, frame, cfg);   return;
+        case 'reptile': drawBossArchReptile(e, frame, cfg); return;
+        case 'mech':    drawBossArchMech(e, frame, cfg);    return;
+        case 'final':   drawBossArchFinal(e, frame, cfg);   return;
+      }
+    }
+  }
   // UFOボス (既存)
   _ctx.save(); _ctx.translate(e.x, e.y);
   var s = e.size;
@@ -728,4 +740,387 @@ function drawParticle(p) {
   else _ctx.arc(p.x,p.y,Math.max(1,p.size*a),0,Math.PI*2);
   _ctx.fill();
   _ctx.shadowBlur=0; _ctx.globalAlpha=1; _ctx.restore();
+}
+
+// ── レーンインジケーター ────────────────────────────────────────────────────────
+function drawLaneIndicators(chickLane, laneWarnings, frame) {
+  var laneXs = typeof LANE_X !== 'undefined' ? LANE_X : [78, 195, 312];
+  var groundY = _H - 128;
+
+  // 薄いレーン縦線（常時）
+  for (var li = 0; li < 3; li++) {
+    _ctx.save();
+    _ctx.globalAlpha = li === chickLane ? 0.18 : 0.07;
+    _ctx.strokeStyle = li === chickLane ? '#AAFFEE' : '#667788';
+    _ctx.lineWidth = li === chickLane ? 2 : 1;
+    _ctx.setLineDash([12, 18]);
+    _ctx.beginPath();
+    _ctx.moveTo(laneXs[li], 90);
+    _ctx.lineTo(laneXs[li], groundY);
+    _ctx.stroke();
+    _ctx.setLineDash([]);
+    _ctx.restore();
+  }
+
+  // 警告カラム（赤フラッシュ）
+  for (var wi = 0; wi < laneWarnings.length; wi++) {
+    var warn = laneWarnings[wi];
+    var ratio = warn.timer / warn.maxTimer;
+    var flashAmt = (ratio > 0.5) ? 0.32 : (Math.abs(Math.sin(frame * 0.55)) * 0.45 + 0.1);
+    for (var wli = 0; wli < warn.lanes.length; wli++) {
+      var lx = laneXs[warn.lanes[wli]];
+      _ctx.save();
+      _ctx.globalAlpha = flashAmt;
+      var wg = _ctx.createLinearGradient(lx - 52, 0, lx + 52, 0);
+      wg.addColorStop(0, 'rgba(255,0,0,0)');
+      wg.addColorStop(0.5, 'rgba(255,30,0,0.9)');
+      wg.addColorStop(1, 'rgba(255,0,0,0)');
+      _ctx.fillStyle = wg;
+      _ctx.fillRect(lx - 52, 80, 104, groundY - 80);
+      _ctx.restore();
+      // ⚠ アイコン
+      _ctx.save();
+      _ctx.globalAlpha = 0.85;
+      _ctx.font = 'bold 22px sans-serif';
+      _ctx.textAlign = 'center';
+      _ctx.fillStyle = '#FF4400';
+      _ctx.shadowColor = '#FF0000';
+      _ctx.shadowBlur = 16;
+      _ctx.fillText('⚠', lx, 145 + Math.sin(frame * 0.25) * 5);
+      _ctx.shadowBlur = 0;
+      _ctx.restore();
+    }
+  }
+}
+
+// ── レーンボタン（左右矢印） ──────────────────────────────────────────────────
+function drawLaneBtns(chickLane, frame) {
+  var btns = [{x:22, dir:'◀', active:chickLane>0}, {x:_W-22, dir:'▶', active:chickLane<2}];
+  btns.forEach(function(b) {
+    _ctx.save();
+    _ctx.globalAlpha = b.active ? (0.65 + Math.sin(frame*0.07)*0.15) : 0.22;
+    _ctx.fillStyle = b.active ? 'rgba(0,255,220,0.15)' : 'rgba(100,100,100,0.1)';
+    _ctx.strokeStyle = b.active ? '#00FFCC' : '#445566';
+    _ctx.lineWidth = 1.5;
+    _ctx.beginPath();
+    _ctx.roundRect ? _ctx.roundRect(b.x-18, _H-242, 36, 88, 10) : _ctx.rect(b.x-18, _H-242, 36, 88);
+    _ctx.fill(); _ctx.stroke();
+    _ctx.fillStyle = b.active ? '#AAFFEE' : '#445566';
+    _ctx.font = 'bold 22px sans-serif';
+    _ctx.textAlign = 'center';
+    _ctx.textBaseline = 'middle';
+    _ctx.shadowColor = b.active ? '#00FFCC' : 'transparent';
+    _ctx.shadowBlur = b.active ? 10 : 0;
+    _ctx.fillText(b.dir, b.x, _H - 198);
+    _ctx.shadowBlur = 0;
+    _ctx.textBaseline = 'alphabetic';
+    _ctx.restore();
+  });
+}
+
+// ── ドロップ強化アイテム ──────────────────────────────────────────────────────
+function drawDropItem(item, frame) {
+  var bob  = Math.sin(item.bob) * 8;
+  var life = item.life / item.maxLife;
+  var fade = life < 0.25 ? (life / 0.25) : 1.0;
+  var pulse = 0.7 + Math.sin(item.bob) * 0.3;
+
+  _ctx.save();
+  _ctx.translate(item.x, item.y + bob);
+  _ctx.globalAlpha = fade;
+
+  // 外周グロー
+  _ctx.shadowColor = '#00FFCC';
+  _ctx.shadowBlur  = 22 * pulse;
+  var grd = _ctx.createRadialGradient(0, 0, 6, 0, 0, 26);
+  grd.addColorStop(0, 'rgba(0,255,210,0.45)');
+  grd.addColorStop(1, 'rgba(0,160,140,0)');
+  _ctx.fillStyle = grd;
+  _ctx.beginPath(); _ctx.arc(0, 0, 26, 0, Math.PI*2); _ctx.fill();
+
+  // 本体
+  _ctx.fillStyle   = 'rgba(0,30,28,0.85)';
+  _ctx.strokeStyle = '#00FFCC';
+  _ctx.lineWidth   = 2.5;
+  _ctx.beginPath(); _ctx.arc(0, 0, 18, 0, Math.PI*2); _ctx.fill(); _ctx.stroke();
+
+  // アイコン
+  _ctx.shadowBlur = 0;
+  _ctx.font = '18px sans-serif';
+  _ctx.textAlign = 'center';
+  _ctx.textBaseline = 'middle';
+  _ctx.fillText(item.upgrade ? item.upgrade.icon : '⬆', 0, 0);
+
+  // 残り時間バー
+  var bw = 38, bx = -bw/2, by = 22;
+  _ctx.fillStyle = 'rgba(0,0,0,0.55)';
+  _ctx.fillRect(bx, by, bw, 4);
+  _ctx.fillStyle = life > 0.5 ? '#00FFCC' : life > 0.25 ? '#FFAA00' : '#FF4444';
+  _ctx.fillRect(bx, by, bw * life, 4);
+
+  _ctx.shadowBlur = 0;
+  _ctx.textBaseline = 'alphabetic';
+  _ctx.globalAlpha = 1;
+  _ctx.restore();
+}
+
+// ── ボスアーキタイプ描画（bird / beast / reptile / mech / final） ─────────────
+
+function _drawBossAuraPhase(e, frame, auraRGB) {
+  var phase = e.phase || 1;
+  var pa = (0.06 + Math.sin(frame * 0.05) * 0.04) * (1 + (phase-1) * 0.5);
+  var aG = _ctx.createRadialGradient(0, 0, e.size*0.3, 0, 0, e.size*1.5);
+  aG.addColorStop(0, 'rgba('+auraRGB+','+pa+')');
+  aG.addColorStop(1, 'rgba('+auraRGB+',0)');
+  _ctx.fillStyle = aG;
+  _ctx.beginPath(); _ctx.arc(0, 0, e.size*1.6, 0, Math.PI*2); _ctx.fill();
+  if (phase >= 2) {
+    _ctx.globalAlpha *= (0.14 + Math.sin(frame*0.10)*0.08);
+    _ctx.strokeStyle = phase===3 ? '#FF4400' : '#FF8800';
+    _ctx.lineWidth = phase===3 ? 5 : 3;
+    _ctx.beginPath(); _ctx.arc(0, 0, e.size*1.35, 0, Math.PI*2); _ctx.stroke();
+    _ctx.globalAlpha = 1;
+  }
+}
+
+// bird アーキタイプ（s1〜s4: カラス/フクロウ/ハゲタカ/ワシ）
+function drawBossArchBird(e, frame, cfg) {
+  _ctx.save(); _ctx.translate(e.x, e.y);
+  var s  = e.size;
+  var al = (e.hitFlash>0 && e.hitFlash%2===0) ? 0.25 : 1.0;
+  _ctx.globalAlpha = al;
+  _drawBossAuraPhase(e, frame, cfg.aura);
+
+  // 羽
+  _ctx.fillStyle = cfg.col;
+  _ctx.strokeStyle = 'rgba(0,0,0,0.55)'; _ctx.lineWidth = 2;
+  var wingFlap = Math.sin(frame*0.18)*0.32;
+  _ctx.save(); _ctx.rotate(-0.3 + wingFlap);
+  _ctx.beginPath(); _ctx.moveTo(-s*0.08,-s*0.05); _ctx.quadraticCurveTo(-s*0.95,-s*0.5,-s*0.70,s*0.25); _ctx.quadraticCurveTo(-s*0.35,s*0.1,-s*0.08,s*0.05); _ctx.closePath(); _ctx.fill(); _ctx.stroke();
+  _ctx.restore();
+  _ctx.save(); _ctx.rotate(0.3 - wingFlap);
+  _ctx.beginPath(); _ctx.moveTo(s*0.08,-s*0.05); _ctx.quadraticCurveTo(s*0.95,-s*0.5,s*0.70,s*0.25); _ctx.quadraticCurveTo(s*0.35,s*0.1,s*0.08,s*0.05); _ctx.closePath(); _ctx.fill(); _ctx.stroke();
+  _ctx.restore();
+
+  // 胴体
+  var bG = _ctx.createRadialGradient(-s*0.14,-s*0.08,s*0.04,0,0,s*0.5);
+  bG.addColorStop(0,'rgba(255,255,255,0.18)'); bG.addColorStop(1, cfg.col);
+  _ctx.fillStyle=bG; _ctx.strokeStyle='rgba(0,0,0,0.6)'; _ctx.lineWidth=1.5;
+  _ctx.beginPath(); _ctx.ellipse(0,0,s*0.46,s*0.42,0,0,Math.PI*2); _ctx.fill(); _ctx.stroke();
+  // 頭
+  _ctx.fillStyle=cfg.col;
+  _ctx.beginPath(); _ctx.arc(0,-s*0.32,s*0.32,0,Math.PI*2); _ctx.fill(); _ctx.stroke();
+  // 目
+  _ctx.shadowColor=cfg.eyeCol; _ctx.shadowBlur=s*0.28;
+  _ctx.fillStyle=cfg.eyeCol;
+  _ctx.beginPath(); _ctx.arc(-s*0.12,-s*0.33,s*0.09,0,Math.PI*2); _ctx.fill();
+  _ctx.beginPath(); _ctx.arc( s*0.12,-s*0.33,s*0.09,0,Math.PI*2); _ctx.fill();
+  _ctx.shadowBlur=0; _ctx.fillStyle='#000';
+  _ctx.beginPath(); _ctx.arc(-s*0.12,-s*0.33,s*0.05,0,Math.PI*2); _ctx.fill();
+  _ctx.beginPath(); _ctx.arc( s*0.12,-s*0.33,s*0.05,0,Math.PI*2); _ctx.fill();
+  // くちばし
+  _ctx.fillStyle='#FFCC00'; _ctx.strokeStyle='#AA8800'; _ctx.lineWidth=1.5;
+  _ctx.beginPath(); _ctx.moveTo(-s*0.1,-s*0.18); _ctx.lineTo(s*0.1,-s*0.18); _ctx.lineTo(0,-s*0.05); _ctx.closePath(); _ctx.fill(); _ctx.stroke();
+
+  _drawBossHpBar(e, s, cfg.name, cfg.eyeCol, cfg.col, cfg.col, '#442200');
+  _ctx.globalAlpha=1; _ctx.restore();
+}
+
+// beast アーキタイプ（s5〜s8: タイガー/ウルフ/グリズリー/デモン）
+function drawBossArchBeast(e, frame, cfg) {
+  _ctx.save(); _ctx.translate(e.x, e.y);
+  var s  = e.size;
+  var al = (e.hitFlash>0 && e.hitFlash%2===0) ? 0.25 : 1.0;
+  _ctx.globalAlpha = al;
+  _drawBossAuraPhase(e, frame, cfg.aura);
+
+  // 耳
+  _ctx.fillStyle=cfg.col; _ctx.strokeStyle='rgba(0,0,0,0.5)'; _ctx.lineWidth=1.5;
+  [[-s*0.26,-s*0.62],[s*0.26,-s*0.62]].forEach(function(p) {
+    _ctx.beginPath(); _ctx.moveTo(p[0]-s*0.1,p[1]+s*0.12); _ctx.lineTo(p[0],p[1]-s*0.18); _ctx.lineTo(p[0]+s*0.1,p[1]+s*0.12); _ctx.closePath(); _ctx.fill(); _ctx.stroke();
+  });
+  // 胴体
+  var bG2 = _ctx.createRadialGradient(-s*0.14,-s*0.08,s*0.04,0,0,s*0.55);
+  bG2.addColorStop(0,'rgba(255,255,255,0.22)'); bG2.addColorStop(1,cfg.col);
+  _ctx.fillStyle=bG2; _ctx.lineWidth=2;
+  _ctx.beginPath(); _ctx.ellipse(0,s*0.05,s*0.52,s*0.45,0,0,Math.PI*2); _ctx.fill(); _ctx.stroke();
+  // 頭
+  _ctx.fillStyle=cfg.col;
+  _ctx.beginPath(); _ctx.arc(0,-s*0.28,s*0.38,0,Math.PI*2); _ctx.fill(); _ctx.stroke();
+  // 鼻
+  _ctx.fillStyle='#222'; _ctx.beginPath(); _ctx.ellipse(0,-s*0.14,s*0.09,s*0.06,0,0,Math.PI*2); _ctx.fill();
+  // 目
+  _ctx.shadowColor=cfg.eyeCol; _ctx.shadowBlur=s*0.3;
+  _ctx.fillStyle=cfg.eyeCol;
+  _ctx.beginPath(); _ctx.arc(-s*0.14,-s*0.31,s*0.1,0,Math.PI*2); _ctx.fill();
+  _ctx.beginPath(); _ctx.arc( s*0.14,-s*0.31,s*0.1,0,Math.PI*2); _ctx.fill();
+  _ctx.shadowBlur=0; _ctx.fillStyle='#111';
+  _ctx.beginPath(); _ctx.arc(-s*0.14,-s*0.31,s*0.055,0,Math.PI*2); _ctx.fill();
+  _ctx.beginPath(); _ctx.arc( s*0.14,-s*0.31,s*0.055,0,Math.PI*2); _ctx.fill();
+  // ひっかき傷
+  _ctx.strokeStyle='rgba(255,255,255,0.22)'; _ctx.lineWidth=1.5;
+  [[-s*0.22,s*0.05],[-s*0.1,s*0.2],[s*0.1,s*0.05],[s*0.22,s*0.2]].forEach(function(p,i) {
+    if (i%2===0) { _ctx.beginPath(); _ctx.moveTo(p[0],p[1]-s*0.12); _ctx.lineTo(p[0]+s*0.04,p[1]+s*0.12); _ctx.stroke(); }
+  });
+
+  _drawBossHpBar(e, s, cfg.name, cfg.eyeCol, cfg.col, cfg.col, '#333');
+  _ctx.globalAlpha=1; _ctx.restore();
+}
+
+// reptile アーキタイプ（s9〜s12: ワニ/ヘビ王/カメレオン/ドラゴン）
+function drawBossArchReptile(e, frame, cfg) {
+  _ctx.save(); _ctx.translate(e.x, e.y);
+  var s  = e.size;
+  var al = (e.hitFlash>0 && e.hitFlash%2===0) ? 0.25 : 1.0;
+  _ctx.globalAlpha = al;
+  _drawBossAuraPhase(e, frame, cfg.aura);
+
+  // 尾（後ろに）
+  _ctx.strokeStyle=cfg.col; _ctx.lineWidth=s*0.45; _ctx.lineCap='round';
+  _ctx.beginPath();
+  _ctx.moveTo(0,s*0.3);
+  _ctx.quadraticCurveTo(s*0.7,s*0.7,s*0.5,s*1.35);
+  _ctx.quadraticCurveTo(-s*0.2,s*1.7,-s*0.5,s*1.15);
+  _ctx.stroke();
+  _ctx.strokeStyle='rgba(255,255,255,0.15)'; _ctx.lineWidth=s*0.18;
+  _ctx.stroke();
+
+  // 胴体
+  var bG3 = _ctx.createRadialGradient(-s*0.12,-s*0.1,s*0.05,0,0,s*0.58);
+  bG3.addColorStop(0,'rgba(255,255,255,0.18)'); bG3.addColorStop(1,cfg.col);
+  _ctx.fillStyle=bG3; _ctx.strokeStyle='rgba(0,0,0,0.55)'; _ctx.lineWidth=2;
+  _ctx.beginPath(); _ctx.ellipse(0,s*0.08,s*0.52,s*0.44,0,0,Math.PI*2); _ctx.fill(); _ctx.stroke();
+  // 鱗
+  _ctx.strokeStyle='rgba(255,255,255,0.15)'; _ctx.lineWidth=1.5;
+  for (var ri=0;ri<3;ri++) { _ctx.beginPath(); _ctx.arc(0,s*0.08,s*(0.2+ri*0.1),0,Math.PI*2); _ctx.stroke(); }
+  // 頭（扁平）
+  var hG3 = _ctx.createRadialGradient(-s*0.08,-s*0.32,s*0.02,0,-s*0.28,s*0.42);
+  hG3.addColorStop(0,'rgba(255,255,255,0.2)'); hG3.addColorStop(1,cfg.col);
+  _ctx.fillStyle=hG3; _ctx.lineWidth=2;
+  _ctx.beginPath(); _ctx.ellipse(0,-s*0.28,s*0.44,s*0.30,0,0,Math.PI*2); _ctx.fill(); _ctx.stroke();
+  // 縦長の瞳
+  _ctx.fillStyle=cfg.eyeCol; _ctx.shadowColor=cfg.eyeCol; _ctx.shadowBlur=s*0.28;
+  _ctx.beginPath(); _ctx.ellipse(-s*0.16,-s*0.3,s*0.1,s*0.13,0,0,Math.PI*2); _ctx.fill();
+  _ctx.beginPath(); _ctx.ellipse( s*0.16,-s*0.3,s*0.1,s*0.13,0,0,Math.PI*2); _ctx.fill();
+  _ctx.shadowBlur=0; _ctx.fillStyle='#000';
+  _ctx.beginPath(); _ctx.ellipse(-s*0.16,-s*0.3,s*0.035,s*0.11,0,0,Math.PI*2); _ctx.fill();
+  _ctx.beginPath(); _ctx.ellipse( s*0.16,-s*0.3,s*0.035,s*0.11,0,0,Math.PI*2); _ctx.fill();
+  // 舌
+  _ctx.strokeStyle='#FF3333'; _ctx.lineWidth=2.5; _ctx.lineCap='round';
+  _ctx.beginPath(); _ctx.moveTo(0,-s*0.02); _ctx.lineTo(0,-s*0.14);
+  _ctx.moveTo(0,-s*0.14); _ctx.lineTo(-s*0.06,-s*0.23);
+  _ctx.moveTo(0,-s*0.14); _ctx.lineTo( s*0.06,-s*0.23);
+  _ctx.stroke();
+
+  _drawBossHpBar(e, s, cfg.name, cfg.eyeCol, cfg.col, cfg.col, '#1A3A10');
+  _ctx.globalAlpha=1; _ctx.restore();
+}
+
+// mech アーキタイプ（s13〜s16: メカ戦士/サイボーグ/ロボット/戦闘機）
+function drawBossArchMech(e, frame, cfg) {
+  _ctx.save(); _ctx.translate(e.x, e.y);
+  var s  = e.size;
+  var al = (e.hitFlash>0 && e.hitFlash%2===0) ? 0.25 : 1.0;
+  _ctx.globalAlpha = al;
+  _drawBossAuraPhase(e, frame, cfg.aura);
+
+  // メインボディ（四角形）
+  _ctx.shadowColor=cfg.eyeCol; _ctx.shadowBlur=12;
+  var mG = _ctx.createLinearGradient(-s*0.5,-s*0.5,s*0.5,s*0.5);
+  mG.addColorStop(0,'rgba(255,255,255,0.3)'); mG.addColorStop(1,cfg.col);
+  _ctx.fillStyle=mG; _ctx.strokeStyle=cfg.eyeCol; _ctx.lineWidth=2.5;
+  rrect(-s*0.48,-s*0.42,s*0.96,s*0.88,s*0.08,mG,cfg.eyeCol,2.5);
+  _ctx.shadowBlur=0;
+  // 装甲リベット
+  [[-.35,-.32],[.35,-.32],[-.35,.32],[.35,.32]].forEach(function(p) {
+    _ctx.fillStyle='rgba(255,255,255,0.4)';
+    _ctx.beginPath(); _ctx.arc(s*p[0],s*p[1],s*0.055,0,Math.PI*2); _ctx.fill();
+  });
+  // スキャンアイ
+  var scanX = Math.sin(frame * 0.09) * s * 0.15;
+  _ctx.fillStyle=cfg.eyeCol; _ctx.shadowColor=cfg.eyeCol; _ctx.shadowBlur=14;
+  _ctx.fillRect(-s*0.35,-s*0.15+scanX-s*0.08,s*0.70,s*0.16);
+  _ctx.shadowBlur=0;
+  // バイザーライン
+  _ctx.strokeStyle='rgba(255,255,255,0.3)'; _ctx.lineWidth=1;
+  _ctx.beginPath(); _ctx.moveTo(-s*0.35,-s*0.05+scanX); _ctx.lineTo(s*0.35,-s*0.05+scanX); _ctx.stroke();
+  // 排気口
+  _ctx.fillStyle='rgba(0,0,0,0.55)';
+  [-s*0.25,0,s*0.25].forEach(function(bx) {
+    _ctx.fillRect(bx-s*0.04,s*0.38,s*0.08,s*0.14);
+  });
+  // 点滅ライト
+  var blink = Math.floor(frame/8)%2===0;
+  _ctx.fillStyle=blink?cfg.eyeCol:'rgba(255,255,255,0.15)';
+  _ctx.shadowColor=cfg.eyeCol; _ctx.shadowBlur=blink?10:0;
+  _ctx.beginPath(); _ctx.arc(-s*0.38,s*0.18,s*0.055,0,Math.PI*2); _ctx.fill();
+  _ctx.shadowBlur=0;
+
+  _drawBossHpBar(e, s, cfg.name, cfg.eyeCol, cfg.col, cfg.col, '#111133');
+  _ctx.globalAlpha=1; _ctx.restore();
+}
+
+// final アーキタイプ（s17〜s20: 最終形態、宇宙存在）
+function drawBossArchFinal(e, frame, cfg) {
+  _ctx.save(); _ctx.translate(e.x, e.y);
+  var s  = e.size;
+  var al = (e.hitFlash>0 && e.hitFlash%2===0) ? 0.25 : 1.0;
+  _ctx.globalAlpha = al;
+
+  // 超強力オーラ（脈動）
+  var phase = e.phase || 1;
+  var pulseR = s * (1.4 + Math.sin(frame*0.07)*0.2) * (1+(phase-1)*0.25);
+  var aG = _ctx.createRadialGradient(0,0,s*0.2,0,0,pulseR);
+  aG.addColorStop(0,'rgba('+cfg.aura+','+(0.25+Math.sin(frame*0.05)*0.1)+')');
+  aG.addColorStop(0.7,'rgba('+cfg.aura+',0.05)');
+  aG.addColorStop(1,'rgba('+cfg.aura+',0)');
+  _ctx.fillStyle=aG; _ctx.beginPath(); _ctx.arc(0,0,pulseR,0,Math.PI*2); _ctx.fill();
+  // 回転リング
+  for (var ri2=0;ri2<3;ri2++) {
+    _ctx.save();
+    _ctx.rotate(frame*(0.018+ri2*0.009)*(ri2%2===0?1:-1));
+    _ctx.globalAlpha = al*(0.30+ri2*0.08);
+    _ctx.strokeStyle=cfg.eyeCol; _ctx.lineWidth=ri2===2?3:2;
+    _ctx.setLineDash(ri2===1?[s*0.18,s*0.12]:[]); _ctx.beginPath(); _ctx.arc(0,0,s*(0.72+ri2*0.28),0,Math.PI*2); _ctx.stroke();
+    _ctx.setLineDash([]);
+    _ctx.restore();
+  }
+
+  // コア（複合形状）
+  _ctx.shadowColor=cfg.eyeCol; _ctx.shadowBlur=22;
+  var cG = _ctx.createRadialGradient(-s*0.18,-s*0.18,s*0.05,0,0,s*0.6);
+  cG.addColorStop(0,'rgba(255,255,255,0.65)'); cG.addColorStop(0.4,'rgba(255,255,255,0.22)'); cG.addColorStop(1,cfg.col);
+  _ctx.fillStyle=cG; _ctx.strokeStyle=cfg.eyeCol; _ctx.lineWidth=3;
+  // 六角形コア
+  _ctx.beginPath();
+  for (var hi2=0;hi2<6;hi2++) {
+    var ha = (hi2/6)*Math.PI*2 - Math.PI/2 + Math.sin(frame*0.04)*0.12;
+    var hx = Math.cos(ha)*s*0.52, hy = Math.sin(ha)*s*0.52;
+    hi2===0 ? _ctx.moveTo(hx,hy) : _ctx.lineTo(hx,hy);
+  }
+  _ctx.closePath(); _ctx.fill(); _ctx.stroke();
+  _ctx.shadowBlur=0;
+
+  // 眼（中央に単眼）
+  _ctx.shadowColor=cfg.eyeCol; _ctx.shadowBlur=18;
+  _ctx.fillStyle=cfg.eyeCol;
+  _ctx.beginPath(); _ctx.arc(0,0,s*0.22,0,Math.PI*2); _ctx.fill();
+  _ctx.shadowBlur=0; _ctx.fillStyle='#000';
+  _ctx.beginPath(); _ctx.arc(Math.sin(frame*0.04)*s*0.06,Math.cos(frame*0.03)*s*0.06,s*0.10,0,Math.PI*2); _ctx.fill();
+  _ctx.fillStyle='rgba(255,255,255,0.8)';
+  _ctx.beginPath(); _ctx.arc(s*0.06,s*-0.06,s*0.04,0,Math.PI*2); _ctx.fill();
+
+  // フェーズ2以上：追加の触手
+  if (phase >= 2) {
+    for (var ti=0;ti<4;ti++) {
+      var ta = (ti/4)*Math.PI*2 + frame*0.04;
+      var tx2=Math.cos(ta)*s*0.55, ty2=Math.sin(ta)*s*0.55;
+      _ctx.strokeStyle=cfg.eyeCol; _ctx.lineWidth=3; _ctx.globalAlpha=al*0.55;
+      _ctx.beginPath(); _ctx.moveTo(tx2,ty2); _ctx.quadraticCurveTo(tx2*1.4+Math.sin(frame*0.08+ti)*s*0.25,ty2*1.4,Math.cos(ta+0.6)*s*0.95,Math.sin(ta+0.6)*s*0.95); _ctx.stroke();
+      _ctx.globalAlpha=al;
+    }
+  }
+
+  _drawBossHpBar(e, s, cfg.name, cfg.eyeCol, cfg.col, cfg.col, '#110022');
+  _ctx.globalAlpha=1; _ctx.restore();
 }

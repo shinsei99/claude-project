@@ -20,7 +20,7 @@ const ACHIEVEMENT_DEFS = [
   { id:'bestiary_10',  name:'図鑑コレクター',  desc:'10種の敵を撃破',          icon:'📚', reward:50  },
   { id:'bestiary_all', name:'全敵図鑑完成',    desc:'全種類の敵を撃破',        icon:'🏆', reward:300 },
   { id:'no_dmg_wave',  name:'守護天使',        desc:'HP満タンでWaveクリア',    icon:'🛡️', reward:40  },
-  { id:'kill_boss_3',  name:'ボスハンター',    desc:'ボスを3種類全て討伐',     icon:'💀', reward:150 },
+  { id:'kill_boss_3',  name:'ボスハンター',    desc:'ボスを3体以上討伐',        icon:'💀', reward:150 },
 ];
 
 // enemy types to track in bestiary
