@@ -99,15 +99,42 @@ function drawGround(stage) {
 }
 
 // ── Chick ────────────────────────────────────────────────────────────────────
-function drawChick(x, y, sz, evolved, acc) {
+function drawChick(x, y, sz, evolved, acc, angel) {
   sz      = sz      === undefined ? 40    : sz;
   evolved = evolved === undefined ? false : evolved;
   acc     = acc     === undefined ? null  : acc;
+  angel   = angel   === undefined ? false : angel;
   _ctx.save(); _ctx.translate(x, y);
   _ctx.shadowColor = 'rgba(0,0,0,0.5)'; _ctx.shadowBlur = sz*0.45;
   _ctx.shadowOffsetX = sz*0.05; _ctx.shadowOffsetY = sz*0.09;
 
-  if (evolved) {
+  // ── エンジェル形態: ハロー＋白い翼（胴体の後ろに描く）──────────────────────
+  if (angel) {
+    _ctx.shadowBlur = 0; _ctx.shadowOffsetX = 0; _ctx.shadowOffsetY = 0;
+    // 金色のハロー
+    _ctx.shadowColor = '#FFD700'; _ctx.shadowBlur = sz*0.5;
+    _ctx.strokeStyle = '#FFE840'; _ctx.lineWidth = sz*0.065;
+    _ctx.beginPath(); _ctx.ellipse(0, -sz*0.76, sz*0.32, sz*0.09, 0, 0, Math.PI*2); _ctx.stroke();
+    _ctx.shadowBlur = 0;
+    // 胴体の影を復元
+    _ctx.shadowColor = 'rgba(0,0,0,0.5)'; _ctx.shadowBlur = sz*0.45;
+    _ctx.shadowOffsetX = sz*0.05; _ctx.shadowOffsetY = sz*0.09;
+    // 白い大きな翼（胴体の後ろ）
+    _ctx.fillStyle = 'rgba(255,255,255,0.92)'; _ctx.strokeStyle = '#C0C8EE'; _ctx.lineWidth = 1.5;
+    _ctx.beginPath();
+    _ctx.moveTo(-sz*0.12, sz*0.0);
+    _ctx.quadraticCurveTo(-sz*1.1, -sz*0.5, -sz*0.82, sz*0.32);
+    _ctx.quadraticCurveTo(-sz*0.4, sz*0.14, -sz*0.12, sz*0.08);
+    _ctx.closePath(); _ctx.fill(); _ctx.stroke();
+    _ctx.beginPath();
+    _ctx.moveTo(sz*0.12, sz*0.0);
+    _ctx.quadraticCurveTo(sz*1.1, -sz*0.5, sz*0.82, sz*0.32);
+    _ctx.quadraticCurveTo(sz*0.4, sz*0.14, sz*0.12, sz*0.08);
+    _ctx.closePath(); _ctx.fill(); _ctx.stroke();
+  }
+
+  // ── 進化（エンジェル以外）: 赤いトサカ ──────────────────────────────────
+  if (evolved && !angel) {
     _ctx.fillStyle = '#E74C3C'; _ctx.strokeStyle = '#922B21'; _ctx.lineWidth = 2;
     _ctx.beginPath();
     _ctx.moveTo(-7, -sz*0.72); _ctx.quadraticCurveTo(-13, -sz*1.0, -4, -sz*0.88);
@@ -116,26 +143,44 @@ function drawChick(x, y, sz, evolved, acc) {
   }
 
   var bg = _ctx.createRadialGradient(-sz*0.12, sz*0.0, sz*0.04, 0, sz*0.1, sz*0.56);
-  bg.addColorStop(0,'#FFF9C4'); bg.addColorStop(0.45,'#FFE135'); bg.addColorStop(1,'#CC8800');
-  _ctx.fillStyle = bg; _ctx.strokeStyle = '#B8860B'; _ctx.lineWidth = 2;
+  if (angel) {
+    bg.addColorStop(0,'#FFFFFF'); bg.addColorStop(0.45,'#E8EEFF'); bg.addColorStop(1,'#B8B8EE');
+    _ctx.fillStyle = bg; _ctx.strokeStyle = '#9898C8'; _ctx.lineWidth = 2;
+  } else {
+    bg.addColorStop(0,'#FFF9C4'); bg.addColorStop(0.45,'#FFE135'); bg.addColorStop(1,'#CC8800');
+    _ctx.fillStyle = bg; _ctx.strokeStyle = '#B8860B'; _ctx.lineWidth = 2;
+  }
   _ctx.beginPath(); _ctx.ellipse(0, sz*0.1, sz*0.52, sz*0.48, 0, 0, Math.PI*2); _ctx.fill(); _ctx.stroke();
 
   var hg = _ctx.createRadialGradient(-sz*0.08, -sz*0.38, sz*0.02, 0, -sz*0.3, sz*0.38);
-  hg.addColorStop(0,'#FFFDE7'); hg.addColorStop(0.4,'#FFE135'); hg.addColorStop(1,'#C08000');
+  if (angel) {
+    hg.addColorStop(0,'#FFFFFF'); hg.addColorStop(0.4,'#E8EEFF'); hg.addColorStop(1,'#C0C8FF');
+  } else {
+    hg.addColorStop(0,'#FFFDE7'); hg.addColorStop(0.4,'#FFE135'); hg.addColorStop(1,'#C08000');
+  }
   _ctx.fillStyle = hg;
   _ctx.beginPath(); _ctx.arc(0, -sz*0.3, sz*0.36, 0, Math.PI*2); _ctx.fill(); _ctx.stroke();
   _ctx.shadowBlur = 0; _ctx.shadowOffsetX = 0; _ctx.shadowOffsetY = 0;
 
-  _ctx.fillStyle = '#F0BF00'; _ctx.strokeStyle = '#B8860B'; _ctx.lineWidth = 1.5;
-  _ctx.beginPath(); _ctx.ellipse(-sz*0.52, sz*0.08, sz*0.18, sz*0.26, -0.4, 0, Math.PI*2); _ctx.fill(); _ctx.stroke();
-  _ctx.beginPath(); _ctx.ellipse( sz*0.52, sz*0.08, sz*0.18, sz*0.26,  0.4, 0, Math.PI*2); _ctx.fill(); _ctx.stroke();
+  // 小さな翼（エンジェルは大きな翼があるのでスキップ）
+  if (!angel) {
+    _ctx.fillStyle = '#F0BF00'; _ctx.strokeStyle = '#B8860B'; _ctx.lineWidth = 1.5;
+    _ctx.beginPath(); _ctx.ellipse(-sz*0.52, sz*0.08, sz*0.18, sz*0.26, -0.4, 0, Math.PI*2); _ctx.fill(); _ctx.stroke();
+    _ctx.beginPath(); _ctx.ellipse( sz*0.52, sz*0.08, sz*0.18, sz*0.26,  0.4, 0, Math.PI*2); _ctx.fill(); _ctx.stroke();
+  } else {
+    // エンジェル: 小さな金色の肩飾り
+    _ctx.fillStyle = '#FFD700'; _ctx.strokeStyle = '#CC8800'; _ctx.lineWidth = 1;
+    _ctx.beginPath(); _ctx.ellipse(-sz*0.48, sz*0.06, sz*0.11, sz*0.16, -0.4, 0, Math.PI*2); _ctx.fill(); _ctx.stroke();
+    _ctx.beginPath(); _ctx.ellipse( sz*0.48, sz*0.06, sz*0.11, sz*0.16,  0.4, 0, Math.PI*2); _ctx.fill(); _ctx.stroke();
+  }
 
-  if (evolved) {
+  // 進化（エンジェル以外）: 肉垂
+  if (evolved && !angel) {
     _ctx.fillStyle = '#E74C3C'; _ctx.strokeStyle = '#922B21'; _ctx.lineWidth = 1.5;
     _ctx.beginPath(); _ctx.arc(sz*0.12, -sz*0.1, sz*0.1, 0, Math.PI*2); _ctx.fill(); _ctx.stroke();
   }
 
-  _ctx.fillStyle = '#222';
+  _ctx.fillStyle = angel ? '#3344BB' : '#222';
   _ctx.beginPath(); _ctx.arc(-sz*0.12, -sz*0.33, sz*0.078, 0, Math.PI*2); _ctx.fill();
   _ctx.beginPath(); _ctx.arc( sz*0.12, -sz*0.33, sz*0.078, 0, Math.PI*2); _ctx.fill();
   _ctx.fillStyle = '#fff';
@@ -145,11 +190,11 @@ function drawChick(x, y, sz, evolved, acc) {
   _ctx.beginPath(); _ctx.arc(-sz*0.07, -sz*0.375, sz*0.019, 0, Math.PI*2); _ctx.fill();
   _ctx.beginPath(); _ctx.arc( sz*0.17, -sz*0.375, sz*0.019, 0, Math.PI*2); _ctx.fill();
 
-  _ctx.fillStyle = '#FF8C00'; _ctx.strokeStyle = '#CC5500'; _ctx.lineWidth = 1.5;
+  _ctx.fillStyle = angel ? '#FFD700' : '#FF8C00'; _ctx.strokeStyle = angel ? '#CC8800' : '#CC5500'; _ctx.lineWidth = 1.5;
   _ctx.beginPath();
   _ctx.moveTo(-sz*0.1, -sz*0.22); _ctx.lineTo(sz*0.1, -sz*0.22); _ctx.lineTo(0, -sz*0.1); _ctx.closePath(); _ctx.fill(); _ctx.stroke();
 
-  _ctx.strokeStyle = '#FF8C00'; _ctx.lineWidth = 2.5; _ctx.lineCap = 'round';
+  _ctx.strokeStyle = angel ? '#CC8800' : '#FF8C00'; _ctx.lineWidth = 2.5; _ctx.lineCap = 'round';
   [[-sz*0.18, sz*0.55],[sz*0.18, sz*0.55]].forEach(function(ft) {
     _ctx.beginPath(); _ctx.moveTo(ft[0], ft[1]); _ctx.lineTo(ft[0]-sz*0.12, ft[1]+sz*0.12); _ctx.stroke();
     _ctx.beginPath(); _ctx.moveTo(ft[0], ft[1]); _ctx.lineTo(ft[0]+sz*0.12, ft[1]+sz*0.12); _ctx.stroke();
@@ -653,6 +698,23 @@ function drawEgg(x, y) {
   _ctx.beginPath(); _ctx.ellipse(0,0,10,14,0,0,Math.PI*2); _ctx.fill(); _ctx.stroke();
   _ctx.shadowBlur=0;
   _ctx.fillStyle='#FF8C00'; _ctx.font='12px sans-serif'; _ctx.textAlign='center'; _ctx.textBaseline='middle'; _ctx.fillText('✨',0,0);
+  _ctx.restore();
+}
+
+// ── Angel Bullet ─────────────────────────────────────────────────────────────
+function drawAngelBullet(x, y) {
+  _ctx.save(); _ctx.translate(x, y);
+  _ctx.shadowColor = '#FFD700'; _ctx.shadowBlur = 16;
+  var g = _ctx.createRadialGradient(0, 0, 0, 0, 0, 9);
+  g.addColorStop(0, '#FFFFFF');
+  g.addColorStop(0.5, '#FFE840');
+  g.addColorStop(1, '#FF8800');
+  _ctx.fillStyle = g;
+  _ctx.beginPath(); _ctx.arc(0, 0, 9, 0, Math.PI*2); _ctx.fill();
+  _ctx.strokeStyle = 'rgba(255,255,255,0.8)'; _ctx.lineWidth = 1.5; _ctx.lineCap = 'round';
+  _ctx.shadowBlur = 0;
+  _ctx.beginPath(); _ctx.moveTo(-11, 0); _ctx.lineTo(11, 0); _ctx.stroke();
+  _ctx.beginPath(); _ctx.moveTo(0, -11); _ctx.lineTo(0, 11); _ctx.stroke();
   _ctx.restore();
 }
 

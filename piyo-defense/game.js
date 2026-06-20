@@ -157,7 +157,7 @@ function waveCount(stg, wv) {
 function initGame() {
   var bonuses = getShopBonuses();
   var startHp = 100 + bonuses.startHp + bonuses.startEarth;
-  gs = {state:'stageintro',earthHP:startHp,maxEarthHP:startHp,evoGauge:0,isEvolved:false,evoTimer:0,attackCooldown:0,barrierActive:false,barrierTimer:0};
+  gs = {state:'stageintro',earthHP:startHp,maxEarthHP:startHp,evoGauge:0,isEvolved:false,evoTimer:0,isAngel:false,angelTimer:0,attackCooldown:0,barrierActive:false,barrierTimer:0};
   upg = {gunshi:true,nurse:true,barrier:true};
   cds = {gunshi:0,nurse:0,barrier:0};
   coinGainMult = bonuses.coinGain;
@@ -181,7 +181,7 @@ function initGame() {
 function initGameContinue(fromStage) {
   var bonuses = getShopBonuses();
   var startHp = 100 + bonuses.startHp + bonuses.startEarth;
-  gs = {state:'stageintro',earthHP:startHp,maxEarthHP:startHp,evoGauge:0,isEvolved:false,evoTimer:0,attackCooldown:0,barrierActive:false,barrierTimer:0};
+  gs = {state:'stageintro',earthHP:startHp,maxEarthHP:startHp,evoGauge:0,isEvolved:false,evoTimer:0,isAngel:false,angelTimer:0,attackCooldown:0,barrierActive:false,barrierTimer:0};
   upg = {gunshi:true,nurse:true,barrier:true};
   cds = {gunshi:0,nurse:0,barrier:0};
   coinGainMult = bonuses.coinGain;
@@ -266,15 +266,21 @@ function activateSkill(id) {
 function fireBullet(tx, ty) {
   var pu = PlayerUpgrades;
   var crit = Math.random()<pu.critChance;
-  var opts = {damage:pu.atk,pierce:pu.pierce,crit:crit,evolved:gs.isEvolved,bulletSpd:pu.bulletSpd,rangeMult:pu.rangeMult,explode:pu.explodeShot};
+  var angelMult = gs.isAngel ? 3 : 1;
+  var opts = {damage:pu.atk*angelMult,pierce:pu.pierce,crit:crit,evolved:gs.isEvolved&&!gs.isAngel,angel:gs.isAngel,bulletSpd:pu.bulletSpd,rangeMult:pu.rangeMult,explode:pu.explodeShot};
   bullets.push(new Bullet(CHICK_X,CHICK_Y-20,tx,ty,opts));
   if (pu.doubleShot) {
     bullets.push(new Bullet(CHICK_X-14,CHICK_Y-20,tx,ty,opts));
     bullets.push(new Bullet(CHICK_X+14,CHICK_Y-20,tx,ty,opts));
   }
+  if (pu.spreadShot) {
+    bullets.push(new Bullet(CHICK_X,CHICK_Y-20,tx-90,ty,opts));
+    bullets.push(new Bullet(CHICK_X,CHICK_Y-20,tx+90,ty,opts));
+  }
   SoundManager.shoot();
+  var piyoColor = gs.isAngel ? '#AADDFF' : '#FF6B6B';
   spawnP(CHICK_X+(Math.random()-0.5)*30,CHICK_Y-50,'hit',1);
-  addFloat(CHICK_X+(Math.random()-0.5)*40,CHICK_Y-56,'ピヨ！','#FF6B6B',13);
+  addFloat(CHICK_X+(Math.random()-0.5)*40,CHICK_Y-56,'ピヨ！',piyoColor,13);
 }
 
 // ── 撃破 ──────────────────────────────────────────────────────────────────────
@@ -362,10 +368,15 @@ function applyDropUpgrade(upg) {
   } else if (upg.id === 'cd_reset') {
     cds.gunshi=0; cds.nurse=0; cds.barrier=0;
     addFloat(CHICK_X, CHICK_Y-40, 'CD全リセット！', '#00FFFF', 18);
+  } else if (upg.id === 'angel_evo') {
+    gs.isAngel = true; gs.angelTimer = 900;
+    addFloat(CHICK_X, CHICK_Y-50, '😇 エンジェル進化！', '#AADDFF', 24);
+    spawnP(CHICK_X, CHICK_Y, 'levelup', 22);
   } else {
     PlayerUpgrades.apply(upg.id);
     if (upg.id === 'max_hp') gs.maxEarthHP = PlayerUpgrades.maxHp;
-    addFloat(CHICK_X, CHICK_Y-40, upg.name+'！', '#FFD700', 16);
+    var c = (upg.id==='spread_shot'||upg.id==='leech_shot'||upg.id==='angel_atk') ? '#AADDFF' : '#FFD700';
+    addFloat(CHICK_X, CHICK_Y-40, upg.name+'！', c, 16);
   }
 }
 
@@ -409,7 +420,7 @@ function advanceStage() {
   } else {
     stage++; wave=1;
     gs.earthHP=Math.min(gs.maxEarthHP,gs.earthHP+20);
-    gs.evoGauge=0; gs.isEvolved=false;
+    gs.evoGauge=0; gs.isEvolved=false; gs.isAngel=false; gs.angelTimer=0;
     var bonuses2 = getShopBonuses();
     PlayerUpgrades.reset({startAtk:bonuses2.startAtk,startSpd:bonuses2.startSpd,xpGain:bonuses2.xpGain,coinGain:bonuses2.coinGain});
     level=1; xp=0; regenTimer=0; gs.maxEarthHP=100+bonuses2.startHp+bonuses2.startEarth;
@@ -534,6 +545,11 @@ function updateBattle() {
     gs.evoTimer--;
     if (gs.evoTimer<=0) { gs.isEvolved=false; gs.evoGauge=0; addFloat(W/2,H*0.4,'ひよこに戻った...','#aaa',16); }
   }
+  // エンジェル進化タイマー
+  if (gs.isAngel) {
+    gs.angelTimer--;
+    if (gs.angelTimer<=0) { gs.isAngel=false; addFloat(W/2,H*0.4,'エンジェル終了...','#AADDFF',16); }
+  }
 
   // 敵更新
   for (var ei=0; ei<enemies.length; ei++) {
@@ -629,6 +645,7 @@ function updateBattle() {
         addFloat(br.x,br.y-20,'+HP','#2ECC71',14);
       } else if (br.type==='hit') {
         if (br.killed) onKill(br.enemy);
+        if (PlayerUpgrades.leechShot) gs.earthHP = Math.min(gs.maxEarthHP, gs.earthHP + 1);
         spawnP(b.x,b.y,br.crit?'crit':'hit',br.crit?6:2);
         if (br.crit) { addFloat(b.x,b.y-10,'CRIT!','#FF3333',15); spawnP(b.x,b.y,'crit',3); }
         SoundManager.hit();
@@ -745,7 +762,7 @@ function drawBattleScr(frozenBg) {
   drawGround(stage);
   // レーンインジケーター（警告より先に描画）
   drawLaneIndicators(chickLane, laneWarnings, frame);
-  drawEvoBar(gs.evoGauge,gs.isEvolved,gs.evoTimer);
+  drawEvoBar(gs.evoGauge,gs.isEvolved,gs.evoTimer,gs.isAngel,gs.angelTimer);
   var cdCurr = {gunshi:getCdMax('gunshi'),nurse:getCdMax('nurse'),barrier:getCdMax('barrier')};
   drawHudTop(gs.earthHP,gs.maxEarthHP,gs.barrierActive,stage,wave,WAVES_PER_STAGE,score,level,xp,xpToNext(level),kills,SaveManager.getHigh().score,frame,runCoins,poisonDebuff);
   TOWER_SLOTS.forEach(function(slot){drawTower(slot,!!frozenBg);});
@@ -759,6 +776,7 @@ function drawBattleScr(frozenBg) {
 
   bullets.forEach(function(b){
     if (b.evolved){drawEgg(b.x,b.y);}
+    else if (b.angel){drawAngelBullet(b.x,b.y);}
     else {
       ctx.save();
       ctx.shadowColor=b.crit?'#FF3333':'#FFE040'; ctx.shadowBlur=10;
@@ -783,7 +801,12 @@ function drawBattleScr(frozenBg) {
   });
 
   var bob = Math.sin(frame*0.1)*3;
-  if (gs.isEvolved) {
+  if (gs.isAngel) {
+    ctx.globalAlpha=0.20+Math.sin(frame*0.1)*0.10; ctx.fillStyle='#AACCFF';
+    ctx.shadowColor='#4488FF'; ctx.shadowBlur=28;
+    ctx.beginPath(); ctx.arc(CHICK_X,CHICK_Y,72,0,Math.PI*2); ctx.fill();
+    ctx.shadowBlur=0; ctx.globalAlpha=1;
+  } else if (gs.isEvolved) {
     ctx.globalAlpha=0.18+Math.sin(frame*0.12)*0.08; ctx.fillStyle='#FFD700';
     ctx.beginPath(); ctx.arc(CHICK_X,CHICK_Y,65,0,Math.PI*2); ctx.fill(); ctx.globalAlpha=1;
   }
@@ -791,7 +814,8 @@ function drawBattleScr(frozenBg) {
     var pa2=Math.min(1,poisonDebuff/60)*0.12+Math.abs(Math.sin(frame*0.08))*0.04;
     ctx.globalAlpha=pa2; ctx.fillStyle='#44FF44'; ctx.fillRect(0,0,W,H); ctx.globalAlpha=1;
   }
-  drawChick(CHICK_X,CHICK_Y+bob,gs.isEvolved?56:44,gs.isEvolved);
+  var chickSz = gs.isAngel ? 62 : gs.isEvolved ? 56 : 44;
+  drawChick(CHICK_X,CHICK_Y+bob,chickSz,gs.isEvolved&&!gs.isAngel,null,gs.isAngel);
 
   if (gs.barrierActive) {
     ctx.globalAlpha=0.22+Math.sin(frame*0.15)*0.08; ctx.strokeStyle='#00FFFF'; ctx.lineWidth=5;
@@ -803,7 +827,7 @@ function drawBattleScr(frozenBg) {
     var cfa=chickHitFx/22;
     ctx.save(); ctx.globalAlpha=cfa*0.85; ctx.shadowColor='#FF2222'; ctx.shadowBlur=28;
     ctx.strokeStyle='#FF4444'; ctx.lineWidth=3+cfa*4;
-    ctx.beginPath(); ctx.arc(CHICK_X,CHICK_Y,(gs.isEvolved?56:44)*0.75,0,Math.PI*2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(CHICK_X,CHICK_Y,(gs.isAngel?62:gs.isEvolved?56:44)*0.75,0,Math.PI*2); ctx.stroke();
     ctx.globalAlpha=1; ctx.shadowBlur=0; ctx.restore();
     var dfa=cfa*0.52;
     var dfg=ctx.createRadialGradient(W/2,H*0.5,H*0.12,W/2,H*0.5,H*0.82);

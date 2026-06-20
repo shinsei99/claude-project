@@ -91,18 +91,27 @@ function drawHudTop(earthHP, maxEarthHP, barrierActive, stage, wave, wavesPerSta
   _ctx.fillStyle='#FFD700'; _ctx.fillText('HS:'+hs,_W-52,68);
 }
 
-function drawEvoBar(evoGauge, isEvolved, evoTimer) {
-  if (evoGauge<=0&&!isEvolved) return;
+function drawEvoBar(evoGauge, isEvolved, evoTimer, isAngel, angelTimer) {
+  if (evoGauge<=0&&!isEvolved&&!isAngel) return;
   var bx=8,by=83,bw=_W-16,bh=8;
   rrect(bx-1,by-1,bw+2,bh+2,bh/2+1,'rgba(0,0,0,0.6)','rgba(60,60,80,0.4)',1);
-  if (evoGauge>0) {
-    var eg=_ctx.createLinearGradient(bx,by,bx,by+bh);
-    eg.addColorStop(0,isEvolved?'#FF9060':'#FFE040'); eg.addColorStop(1,isEvolved?'#CC4400':'#E8A000');
-    rrectGrd(bx,by,bw*(evoGauge/100),bh,bh/2,eg,null);
-  }
-  if (isEvolved) {
-    _ctx.fillStyle='#FF6B35'; _ctx.font='bold 9px "Kosugi Maru",sans-serif'; _ctx.textAlign='right';
-    _ctx.fillText('にわトリ変身中！ '+Math.ceil(evoTimer/60)+'s',_W-10,by-1);
+  if (isAngel) {
+    // エンジェルタイマーバー（青）
+    var ea=_ctx.createLinearGradient(bx,by,bx,by+bh);
+    ea.addColorStop(0,'#88CCFF'); ea.addColorStop(1,'#4488CC');
+    rrectGrd(bx,by,bw*Math.max(0,Math.min(1,(angelTimer||0)/900)),bh,bh/2,ea,null);
+    _ctx.fillStyle='#AADDFF'; _ctx.font='bold 9px "Kosugi Maru",sans-serif'; _ctx.textAlign='right';
+    _ctx.fillText('😇 エンジェル変身中！ '+Math.ceil((angelTimer||0)/60)+'s',_W-10,by-1);
+  } else {
+    if (evoGauge>0) {
+      var eg=_ctx.createLinearGradient(bx,by,bx,by+bh);
+      eg.addColorStop(0,isEvolved?'#FF9060':'#FFE040'); eg.addColorStop(1,isEvolved?'#CC4400':'#E8A000');
+      rrectGrd(bx,by,bw*(evoGauge/100),bh,bh/2,eg,null);
+    }
+    if (isEvolved) {
+      _ctx.fillStyle='#FF6B35'; _ctx.font='bold 9px "Kosugi Maru",sans-serif'; _ctx.textAlign='right';
+      _ctx.fillText('にわトリ変身中！ '+Math.ceil(evoTimer/60)+'s',_W-10,by-1);
+    }
   }
 }
 

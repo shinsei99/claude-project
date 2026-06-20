@@ -536,6 +536,7 @@ class Bullet {
     this.pierceLeft = opts.pierce || 0;
     this.crit    = opts.crit     || false;
     this.evolved = opts.evolved  || false;
+    this.angel  = opts.angel    || false;
     this.explode = opts.explode  || false;
     const speed  = (this.evolved ? 7 : 11) * (opts.bulletSpd || 1);
     const dx = tx - x, dy = ty - y;

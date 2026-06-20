@@ -23,6 +23,11 @@ const UPGRADE_DEFS = [
   { id:'barrier_ext',   name:'バリア延長',           desc:'バリア持続時間 +120F',          icon:'🛡️'  },
   { id:'gunshi_boost',  name:'軍師強化',             desc:'軍師ダメージ +20',              icon:'🗡️'  },
   { id:'cd_reset',      name:'全CDリセット',         desc:'全スキルのCDを即時リセット',    icon:'🔄'  },
+  // ── ステージ10以降限定 ────────────────────────────────────────────────────
+  { id:'angel_evo',     name:'エンジェル進化',       desc:'エンジェルにわとりに変身！攻撃力3倍（15秒）', icon:'😇'  },
+  { id:'spread_shot',   name:'スプレッドショット',   desc:'斜め2方向にも同時発射（永続）',  icon:'🌈'  },
+  { id:'leech_shot',    name:'ライフスティール',     desc:'弾命中ごとに地球HP+1回復（永続）', icon:'🩸'  },
+  { id:'angel_atk',     name:'天使の加護',           desc:'攻撃力 +8（永続）',              icon:'💫'  },
 ];
 
 const PlayerUpgrades = {
@@ -40,6 +45,8 @@ const PlayerUpgrades = {
   xpMult:      1.0,
   coinMult:    1.0,
   rapidTimer:  0,
+  spreadShot:  false,
+  leechShot:   false,
   // ドロップ強化由来
   nurseCdMult:   1.0,
   barrierExt:    0,
@@ -61,6 +68,8 @@ const PlayerUpgrades = {
     this.xpMult     = bonuses.xpGain   || 1.0;
     this.coinMult   = bonuses.coinGain  || 1.0;
     this.rapidTimer = 0;
+    this.spreadShot = false;
+    this.leechShot  = false;
     this.nurseCdMult  = 1.0;
     this.barrierExt   = 0;
     this.gunshiBonus  = 0;
@@ -83,6 +92,9 @@ const PlayerUpgrades = {
       case 'nurse_cd':     this.nurseCdMult = Math.max(0.3, this.nurseCdMult * 0.7); break;
       case 'barrier_ext':  this.barrierExt += 120; break;
       case 'gunshi_boost': this.gunshiBonus += 20; break;
+      case 'spread_shot':  this.spreadShot = true; break;
+      case 'leech_shot':   this.leechShot  = true; break;
+      case 'angel_atk':    this.atk += 8; break;
     }
   }
 };
@@ -92,17 +104,21 @@ const DROP_POOL_EARLY = [
   'atk_up','atk_up','spd_up','spd_up','double_shot','crit_up',
   'bullet_spd','pierce','hp_heal','regen',
 ];
+// ステージ10-14: エンジェル系アイテム追加
 const DROP_POOL_MID = [
   'atk_up','spd_up','crit_up','pierce','regen','regen',
   'max_hp','explode_shot','hp_heal','nurse_cd','barrier_ext','gunshi_boost',
+  'angel_evo','spread_shot','leech_shot','angel_atk','angel_atk',
 ];
+// ステージ15+: さらに強力なアイテム追加
 const DROP_POOL_LATE = [
-  'regen','regen','max_hp','hp_heal','nurse_cd','nurse_cd',
-  'barrier_ext','barrier_ext','gunshi_boost','cd_reset','pierce','explode_shot',
+  'regen','max_hp','hp_heal','nurse_cd','nurse_cd',
+  'barrier_ext','gunshi_boost','cd_reset','pierce','explode_shot',
+  'angel_evo','angel_evo','spread_shot','leech_shot','angel_atk',
 ];
 
 function pickDropUpgrade(stg, lastId) {
-  var pool = stg <= 7 ? DROP_POOL_EARLY : stg <= 14 ? DROP_POOL_MID : DROP_POOL_LATE;
+  var pool = stg <= 9 ? DROP_POOL_EARLY : stg <= 14 ? DROP_POOL_MID : DROP_POOL_LATE;
   var available = pool.filter(function(id){ return id !== lastId; });
   if (!available.length) available = pool.slice();
   var id = available[~~(Math.random() * available.length)];
