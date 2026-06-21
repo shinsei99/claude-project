@@ -227,7 +227,26 @@ body.t-graph .page::after{display:none;}
   transition:all .2s;}
 #trash-zone i{font-size:19px;}
 #trash-zone.drag-active{color:#ff8080;background:rgba(200,60,60,.15);transform:scale(1.08);}
-#trash-zone.drop-ready{color:#fff;background:rgba(200,60,60,.4);transform:scale(1.18);}
+#trash-zone.drop-ready{color:#fff;background:rgba(200,60,60,.5);transform:scale(1.2);}
+/* drag over entire bottom bar */
+#bot.drag-over{background:rgba(180,30,30,.25);}
+#bot.drag-over .tbt{opacity:.3;pointer-events:none;}
+#bot.drag-over #trash-zone{flex:3;color:#ff8080;}
+/* delete confirmation bubble */
+#del-confirm{position:fixed;bottom:calc(var(--safe-b) + 72px);left:50%;
+  transform:translateX(-50%);z-index:9000;display:none;flex-direction:column;align-items:center;}
+.del-bubble{background:rgba(18,8,2,.96);border:1.5px solid rgba(220,70,70,.5);
+  border-radius:18px;padding:14px 22px 12px;text-align:center;
+  color:#f0ddb0;font-size:14px;font-family:'Georgia',serif;
+  box-shadow:0 6px 24px rgba(0,0,0,.6);white-space:nowrap;}
+.del-bubble p{margin:0 0 10px;font-size:13px;}
+.del-actions{display:flex;gap:10px;justify-content:center;}
+.del-yes{background:rgba(210,50,50,.85);color:#fff;border:none;border-radius:10px;
+  padding:8px 22px;font-size:14px;font-family:'Georgia',serif;cursor:pointer;}
+.del-no{background:rgba(255,255,255,.1);color:#f0ddb0;border:none;border-radius:10px;
+  padding:8px 22px;font-size:14px;font-family:'Georgia',serif;cursor:pointer;}
+.del-arrow{width:0;height:0;border-left:10px solid transparent;border-right:10px solid transparent;
+  border-top:10px solid rgba(220,70,70,.5);}
 
 /* ══════════════════════════════════════════
    SHEETS (shared)
@@ -262,7 +281,7 @@ body.t-graph .page::after{display:none;}
   line-height:1.65;padding:10px 36px 10px 12px;resize:none;}
 .block-textarea::placeholder{color:rgba(200,170,120,.38);}
 .block-img-wrap{position:relative;line-height:0;}
-.block-img-wrap img{width:100%;max-height:220px;object-fit:cover;display:block;}
+.block-img-wrap img{width:100%;height:auto;max-height:260px;object-fit:contain;display:block;background:#111;}
 .block-cap{font-size:11px;color:rgba(200,170,120,.55);padding:5px 36px 6px 10px;background:rgba(255,255,255,.04);}
 .block-del{position:absolute;top:6px;right:6px;width:24px;height:24px;
   background:rgba(192,80,80,.8);color:#fff;border:none;border-radius:50%;
@@ -383,6 +402,17 @@ body.t-graph .page::after{display:none;}
     <button id="trash-zone"><i class="fas fa-trash-can"></i><span>ゴミ箱</span></button>
     <button class="tbt c4" onclick="openWCSheet()"><i class="fas fa-globe"></i><span>クリップ</span></button>
     <button class="tbt c5" onclick="openSettings()"><i class="fas fa-gear"></i><span>設定</span></button>
+  </div>
+  <!-- delete confirmation bubble -->
+  <div id="del-confirm">
+    <div class="del-bubble">
+      <p>削除しますか？</p>
+      <div class="del-actions">
+        <button class="del-yes" id="del-yes">はい</button>
+        <button class="del-no" id="del-no">いいえ</button>
+      </div>
+    </div>
+    <div class="del-arrow"></div>
   </div>
 </div>
 
@@ -790,6 +820,7 @@ function setupScrapDrag(div, el, canvas, rz) {
         liftedTop=parseInt(div.style.top)||0;
         lifted=true;
         document.getElementById('trash-zone').classList.add('drag-active');
+        document.getElementById('bot').classList.remove('drag-over');
       }
       if (!moved) return;
       const nx=liftedLeft+(ev.clientX-ox);
@@ -813,6 +844,7 @@ function setupScrapDrag(div, el, canvas, rz) {
       const cy = ev.clientY || lastY;
 
       if (!moved) {
+        document.getElementById('bot').classList.remove('drag-over');
         if (lifted) { dropToCanvas(div, el); }
         else if (el.type==='webclip' && el.sourceUrl) {
           const a=Object.assign(document.createElement('a'),{href:el.sourceUrl,target:'_blank',rel:'noopener noreferrer'});
@@ -822,16 +854,13 @@ function setupScrapDrag(div, el, canvas, rz) {
         return;
       }
 
-      // Check trash: pointer coords OR dragged-element center (covers iOS pointercancel with wrong coords)
-      const dr=div.getBoundingClientRect();
-      const dCX=(dr.left+dr.right)/2, dCY=(dr.top+dr.bottom)/2;
-      if (isOverTrash(cx, cy) || isOverTrash(dCX, dCY)) {
-        div.remove(); if(selEl===div) selEl=null;
-        touchPage(); save(); toast('削除しました 🗑️');
-        edgeDragEl=null; edgeDragDiv=null;
+      // Check trash by pointer pos OR by last known pos (iOS pointercancel workaround)
+      if (isOverTrash(cx, cy) || isOverTrash(lastX, lastY)) {
+        showDeleteConfirm(div, el);
         return;
       }
 
+      document.getElementById('bot').classList.remove('drag-over');
       dropToCanvas(div, el);
     };
 
@@ -884,15 +913,37 @@ function selectScrap(div) {
 //  TRASH DETECTION
 // ══════════════════════════════════════════
 function isOverTrash(cx,cy) {
-  const tz=document.getElementById('trash-zone');
-  const r=tz.getBoundingClientRect();
-  // Wide hit area: ±60px horizontal, 80px above trash top (element center often above finger)
-  return cx>=r.left-60 && cx<=r.right+60 && cy>=r.top-80 && cy<=window.innerHeight;
+  const bot=document.getElementById('bot');
+  if (!bot) return false;
+  const br=bot.getBoundingClientRect();
+  // Trigger when pointer enters bottom bar area (+80px margin above for iOS pointer-cancel)
+  return cy >= br.top - 80;
 }
 function checkTrash(cx,cy) {
+  const bot=document.getElementById('bot');
   const tz=document.getElementById('trash-zone');
-  if (isOverTrash(cx,cy)) { tz.classList.add('drop-ready'); tz.classList.remove('drag-active'); }
-  else { tz.classList.remove('drop-ready'); tz.classList.add('drag-active'); }
+  const near=isOverTrash(cx,cy);
+  bot.classList.toggle('drag-over', near);
+  tz.classList.toggle('drop-ready', near);
+  tz.classList.toggle('drag-active', !near);
+}
+let _delDiv=null, _delEl=null;
+function showDeleteConfirm(div, el) {
+  _delDiv=div; _delEl=el;
+  document.getElementById('del-confirm').style.display='flex';
+  document.getElementById('del-yes').onclick=()=>{
+    document.getElementById('del-confirm').style.display='none';
+    document.getElementById('bot').classList.remove('drag-over');
+    if(_delDiv){ _delDiv.remove(); if(selEl===_delDiv) selEl=null; }
+    touchPage(); save(); toast('削除しました 🗑️');
+    edgeDragEl=null; edgeDragDiv=null; _delDiv=null; _delEl=null;
+  };
+  document.getElementById('del-no').onclick=()=>{
+    document.getElementById('del-confirm').style.display='none';
+    document.getElementById('bot').classList.remove('drag-over');
+    if(_delDiv && _delEl) dropToCanvas(_delDiv, _delEl);
+    _delDiv=null; _delEl=null;
+  };
 }
 
 // ══════════════════════════════════════════
