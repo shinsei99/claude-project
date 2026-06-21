@@ -190,8 +190,8 @@ body.t-graph .page::after{display:none;}
 .todo-item-text.done{text-decoration:line-through;color:#aaa;}
 
 /* todo editor */
-.todo-edit-row{position:relative;display:flex;align-items:flex-start;gap:8px;
-  padding:8px 38px 8px 12px;background:rgba(255,255,255,.04);
+.todo-edit-row{position:relative;display:flex;align-items:center;gap:8px;
+  padding:12px 38px 12px 12px;background:rgba(255,255,255,.04);
   border-radius:10px;margin-bottom:6px;}
 
 /* search results */
@@ -308,11 +308,14 @@ body.t-graph .page::after{display:none;}
 .sh-btn.danger{background:var(--red);color:#fff;}
 
 /* ── MEMO EDITOR ── */
-#memo-editor{flex:1;overflow-y:auto;padding:10px 14px 6px;-webkit-overflow-scrolling:touch;}
+#memo-editor{flex:1;overflow-y:auto;padding:10px 14px 6px;-webkit-overflow-scrolling:touch;
+  display:flex;flex-direction:column;}
 .block-wrap{position:relative;margin-bottom:8px;background:rgba(255,255,255,.04);border-radius:10px;overflow:hidden;}
-.block-textarea{width:100%;min-height:72px;background:transparent;border:none;outline:none;
+.block-wrap.text-block{flex:1;display:flex;flex-direction:column;margin-bottom:0;}
+.block-wrap.text-block .block-del{display:none;}
+.block-textarea{width:100%;flex:1;min-height:120px;background:transparent;border:none;outline:none;
   color:#f0e0c0;font-size:15px;font-family:'Georgia',serif;
-  line-height:1.65;padding:10px 36px 10px 12px;resize:none;}
+  line-height:1.65;padding:10px 12px;resize:none;box-sizing:border-box;}
 .block-textarea::placeholder{color:rgba(200,170,120,.38);}
 .block-img-wrap{position:relative;line-height:0;}
 .block-img-wrap img{width:100%;height:auto;max-height:260px;object-fit:contain;display:block;background:#111;}
@@ -324,8 +327,8 @@ body.t-graph .page::after{display:none;}
 .block-check{width:18px;height:18px;flex-shrink:0;margin-top:3px;cursor:pointer;
   accent-color:var(--blue);}
 .block-check-text{flex:1;background:transparent;border:none;outline:none;
-  color:#f0e0c0;font-size:15px;font-family:'Georgia',serif;line-height:1.65;
-  resize:none;min-height:36px;padding:0;}
+  color:#f0e0c0;font-size:16px;font-family:'Georgia',serif;line-height:1.5;
+  resize:none;padding:2px 0;height:28px;}
 .ed-actions{display:flex;gap:8px;padding:8px 14px;
   border-top:1px solid rgba(255,255,255,.07);flex-shrink:0;flex-wrap:wrap;}
 .ed-btn{flex:1;padding:10px 6px;border:none;border-radius:10px;font-size:12px;
@@ -342,10 +345,10 @@ body.t-graph .page::after{display:none;}
 #memo-charcount{text-align:right;font-size:11px;color:rgba(160,130,90,.6);padding:0 16px 4px;}
 
 /* ── DECO PICKER ── */
-#deco-picker{display:flex;gap:12px;padding:8px 14px 6px;border-top:1px solid rgba(255,255,255,.07);flex-shrink:0;}
-.dp-group{display:flex;align-items:center;gap:6px;flex:1;}
+#deco-picker{display:flex;gap:8px;padding:7px 14px 5px;border-top:1px solid rgba(255,255,255,.07);flex-shrink:0;align-items:center;}
+.dp-group{display:flex;align-items:center;gap:5px;flex:1;}
 .dp-label{font-size:11px;color:rgba(200,170,120,.6);flex-shrink:0;}
-.dp-swatches{display:flex;gap:5px;flex-wrap:wrap;}
+.dp-swatches{display:flex;gap:5px;flex-wrap:nowrap;}
 .dp-swatch{width:22px;height:22px;border-radius:3px;border:2px solid transparent;cursor:pointer;position:relative;flex-shrink:0;}
 .dp-swatch.round{border-radius:50%;}
 .dp-swatch.sel{border-color:#fff;box-shadow:0 0 0 1px rgba(0,0,0,.4);}
@@ -487,16 +490,8 @@ body.t-graph .page::after{display:none;}
       </div>
     </div>
     <div id="memo-editor"></div>
-    <div class="ed-actions">
-      <button class="ed-btn" onclick="addTextBlock()"><i class="fas fa-font"></i> テキスト</button>
-      <button class="ed-btn" onclick="addCheckBlock()"><i class="fas fa-check-square"></i> チェック</button>
-      <button class="ed-btn" onclick="document.getElementById('fi-block').click()"><i class="fas fa-image"></i> 写真</button>
-      <input type="file" id="fi-block" accept="image/*" style="display:none" onchange="addImageBlock(event)">
-    </div>
-    <div class="url-field">
-      <i class="fas fa-link"></i>
-      <input type="url" id="memo-url-input" placeholder="元記事URL (任意)">
-    </div>
+    <input type="file" id="fi-block" accept="image/*" style="display:none" onchange="addImageBlock(event)">
+    <input type="hidden" id="memo-url-input" value="">
     <div class="sh-foot">
       <button class="sh-btn cancel" onclick="closeMemo()">キャンセル</button>
       <button class="sh-btn ok" onclick="saveMemo()">完了</button>
@@ -568,9 +563,6 @@ body.t-graph .page::after{display:none;}
     <div class="sh-handle"></div>
     <div class="sh-head"><h3><i class="fas fa-check-square"></i> TODOリスト</h3></div>
     <div id="todo-editor" style="flex:1;overflow-y:auto;padding:10px 14px;-webkit-overflow-scrolling:touch;"></div>
-    <div class="ed-actions">
-      <button class="ed-btn" onclick="addTodoItem()"><i class="fas fa-plus"></i> 項目を追加</button>
-    </div>
     <div class="sh-foot">
       <button class="sh-btn cancel" onclick="closeTodo()">キャンセル</button>
       <button class="sh-btn ok" onclick="saveTodo()">完了</button>
@@ -676,8 +668,8 @@ const esc  = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt
 const fmtD = iso => { const d=new Date(iso); return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; };
 const touchPage = () => { if (pages[curIdx]) pages[curIdx].lastAccessed = nowS(); };
 
-const TAPE_COLORS = ['#FFE87C','#B5D5FF','#FFB5C2','#B5FFD0','#D5B5FF','#FFD5A0','#F0ECD8'];
-const PIN_COLORS  = ['#e04040','#4080e0','#e0c020','#40b050','#9040c0','#e07020','#909090'];
+const TAPE_COLORS = ['#FFE87C','#B5D5FF','#FFB5C2','#B5FFD0','#D5B5FF'];
+const PIN_COLORS  = ['#e04040','#4080e0','#e0c020','#40b050','#9040c0'];
 function randDeco() {
   if (Math.random() > .5) return { type:'tape', color: TAPE_COLORS[Math.floor(Math.random()*TAPE_COLORS.length)] };
   return { type:'pin', color: PIN_COLORS[Math.floor(Math.random()*PIN_COLORS.length)] };
@@ -828,8 +820,8 @@ function openTodo(el) {
     if (box) box.style.maxHeight=Math.round(window.visualViewport.height*0.97)+'px';
   }
   setTimeout(()=>{
-    const ta=document.querySelector('#todo-editor .block-check-text');
-    if (ta) { ta.focus(); autoSize(ta); }
+    const inp=document.querySelector('#todo-editor .block-check-text');
+    if (inp) inp.focus();
   },360);
 }
 function closeTodo() {
@@ -847,14 +839,24 @@ function makeTodoItemDOM(it) {
   const cb=document.createElement('input'); cb.type='checkbox'; cb.className='block-check';
   cb.checked=it.checked||false;
   cb.addEventListener('change',()=>{ it.checked=cb.checked; });
-  const ta=document.createElement('textarea'); ta.className='block-check-text';
-  ta.placeholder='タスク内容…'; ta.value=it.text||'';
-  ta.addEventListener('input',()=>{ autoSize(ta); it.text=ta.value; });
+  const inp=document.createElement('input'); inp.type='text'; inp.className='block-check-text';
+  inp.placeholder='タスク内容…'; inp.value=it.text||'';
+  inp.addEventListener('input',()=>{ it.text=inp.value; });
+  inp.addEventListener('keydown',e=>{
+    if (e.key==='Enter') {
+      e.preventDefault();
+      const newIt={id:nid(),text:'',checked:false};
+      const dom=makeTodoItemDOM(newIt);
+      const next=wrap.nextElementSibling;
+      if (next) document.getElementById('todo-editor').insertBefore(dom,next);
+      else document.getElementById('todo-editor').appendChild(dom);
+      dom.querySelector('.block-check-text')?.focus();
+    }
+  });
   const del=document.createElement('button'); del.className='block-del';
   del.innerHTML='<i class="fas fa-times"></i>';
   del.addEventListener('click',()=>wrap.remove());
-  wrap.appendChild(cb); wrap.appendChild(ta); wrap.appendChild(del);
-  requestAnimationFrame(()=>autoSize(ta));
+  wrap.appendChild(cb); wrap.appendChild(inp); wrap.appendChild(del);
   return wrap;
 }
 function addTodoItem() {
@@ -863,8 +865,8 @@ function addTodoItem() {
   editTodoEl.items=editTodoEl.items||[]; editTodoEl.items.push(it);
   const ed=document.getElementById('todo-editor');
   const dom=makeTodoItemDOM(it); ed.appendChild(dom);
-  const ta=dom.querySelector('.block-check-text');
-  if (ta) setTimeout(()=>{ ta.focus(); autoSize(ta); },50);
+  const inp=dom.querySelector('.block-check-text');
+  if (inp) setTimeout(()=>inp.focus(),50);
 }
 function saveTodo() {
   if (!editTodoEl) return;
@@ -1447,6 +1449,15 @@ function openMemo(el) {
   },360);
 }
 function closeMemo() {
+  // Remove newly-created empty memos on cancel
+  if (editEl) {
+    const allEmpty=(editEl.blocks||[]).every(b=>b.type==='text'&&!(b.content||'').trim());
+    if (allEmpty) {
+      pages[curIdx].elements=pages[curIdx].elements.filter(e=>e.id!==editEl.id);
+      document.querySelector(`[data-id="${editEl.id}"]`)?.remove();
+      save();
+    }
+  }
   document.getElementById('memo-sheet').classList.remove('open');
   editEl=null;
 }
@@ -1464,11 +1475,12 @@ function makeBlockDOM(b) {
   del.innerHTML='<i class="fas fa-times"></i>';
   del.addEventListener('click',()=>{ wrap.remove(); updateCharCount(); });
   if (b.type==='text') {
+    wrap.classList.add('text-block');
     const ta=document.createElement('textarea'); ta.className='block-textarea';
     ta.placeholder='テキストを入力…'; ta.value=b.content||'';
-    ta.addEventListener('input',()=>{ autoSize(ta); updateCharCount(); });
+    ta.addEventListener('input',()=>{ updateCharCount(); });
+    ta.addEventListener('contextmenu',e=>{ e.preventDefault(); document.getElementById('fi-block').click(); });
     wrap.appendChild(ta); wrap.appendChild(del);
-    requestAnimationFrame(()=>autoSize(ta));
   } else if (b.type==='checkbox') {
     const row=document.createElement('div'); row.className='block-check-row';
     const cb=document.createElement('input'); cb.type='checkbox'; cb.className='block-check';
@@ -1528,8 +1540,16 @@ function saveMemo() {
     else if (ta) { newBlocks.push({id:bid,type:'text',content:ta.value}); }
     else { const orig=editEl.blocks.find(b=>b.id===bid); if(orig) newBlocks.push({...orig}); }
   });
+  // Empty memo: remove from canvas instead of saving
+  const hasContent=newBlocks.some(b=>(b.type==='text'&&b.content.trim())||(b.type==='checkbox'&&b.content.trim())||b.type==='image');
+  if (!hasContent) {
+    pages[curIdx].elements=pages[curIdx].elements.filter(e=>e.id!==editEl.id);
+    document.querySelector(`[data-id="${editEl.id}"]`)?.remove();
+    touchPage(); save();
+    document.getElementById('memo-sheet').classList.remove('open'); editEl=null; return;
+  }
   editEl.blocks=newBlocks;
-  editEl.sourceUrl=document.getElementById('memo-url-input').value.trim();
+  editEl.sourceUrl=document.getElementById('memo-url-input')?.value?.trim()||editEl.sourceUrl||'';
   const dom=document.querySelector(`[data-id="${editEl.id}"]`);
   if (dom) rebuildPreview(dom, editEl);
   touchPage(); save(); closeMemo(); toast('保存しました ✓');
