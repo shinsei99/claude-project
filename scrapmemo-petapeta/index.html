@@ -742,57 +742,56 @@ function rebuildPreview(div, el) {
 //  SCRAP DRAG & RESIZE
 // ══════════════════════════════════════════
 function setupScrapDrag(div, el, canvas, rz) {
-  let ox,oy,sl,st,moved=false,lifted=false;
+  let _move=null, _up=null;
 
   div.addEventListener('pointerdown', e => {
     if (e.target.closest('.el-del,.src-link')) return;
     if (e.target === rz) return;
     e.stopPropagation();
     selectScrap(div);
-    ox=e.clientX; oy=e.clientY;
-    sl=parseInt(div.style.left)||0; st=parseInt(div.style.top)||0;
-    moved=false; lifted=false;
+
+    // Remove any accumulated listeners from previous pointerdowns
+    if (_move) div.removeEventListener('pointermove', _move);
+    if (_up)   { div.removeEventListener('pointerup', _up); div.removeEventListener('pointercancel', _up); }
+
+    const ox=e.clientX, oy=e.clientY;
+    let moved=false, lifted=false, liftedLeft=0, liftedTop=0;
     div.setPointerCapture(e.pointerId);
 
-    const onMove = ev => {
+    _move = ev => {
       const dx=ev.clientX-ox, dy=ev.clientY-oy;
       if (!moved && Math.abs(dx)+Math.abs(dy)>6) {
         moved=true;
-        // Lift to page-wrap for cross-page drag
         liftToDragLevel(div, el, canvas);
+        liftedLeft=parseInt(div.style.left)||0;
+        liftedTop=parseInt(div.style.top)||0;
         lifted=true;
-        // Show trash zone as drag-active
         document.getElementById('trash-zone').classList.add('drag-active');
       }
       if (!moved) return;
-      const wr=document.getElementById('page-wrap');
-      const wRect=wr.getBoundingClientRect();
-      const nx=ev.clientX-wRect.left-(div.offsetWidth/2);
-      const ny=ev.clientY-wRect.top-(div.offsetHeight/2);
+      const nx=liftedLeft+(ev.clientX-ox);
+      const ny=liftedTop+(ev.clientY-oy);
       div.style.left=Math.max(-20,nx)+'px';
       div.style.top=Math.max(-20,ny)+'px';
-      el.x=nx; el.y=ny;
       checkTrash(ev.clientX, ev.clientY);
       checkEdge(ev.clientX, el, div, canvas);
     };
 
-    const onUp = ev => {
-      div.removeEventListener('pointermove', onMove);
-      div.removeEventListener('pointerup', onUp);
-      div.removeEventListener('pointercancel', onUp);
+    _up = ev => {
+      div.removeEventListener('pointermove', _move);
+      div.removeEventListener('pointerup', _up);
+      div.removeEventListener('pointercancel', _up);
+      _move=null; _up=null;
       clearEdge();
       document.getElementById('trash-zone').classList.remove('drag-active','drop-ready');
 
       if (!moved) {
-        // tap → open edit
         if (lifted) { dropToCanvas(div, el); }
         else openMemo(el);
         return;
       }
 
-      // Check if dropped on trash
       if (isOverTrash(ev.clientX, ev.clientY)) {
-        pages[curIdx].elements = pages[curIdx].elements.filter(x=>x.id!==el.id);
         div.remove(); if(selEl===div) selEl=null;
         touchPage(); save(); toast('削除しました 🗑️');
         edgeDragEl=null; edgeDragDiv=null;
@@ -802,9 +801,9 @@ function setupScrapDrag(div, el, canvas, rz) {
       dropToCanvas(div, el);
     };
 
-    div.addEventListener('pointermove', onMove);
-    div.addEventListener('pointerup', onUp);
-    div.addEventListener('pointercancel', onUp);
+    div.addEventListener('pointermove', _move);
+    div.addEventListener('pointerup', _up);
+    div.addEventListener('pointercancel', _up);
   });
 
   // Resize
@@ -853,7 +852,8 @@ function selectScrap(div) {
 function isOverTrash(cx,cy) {
   const tz=document.getElementById('trash-zone');
   const r=tz.getBoundingClientRect();
-  return cx>=r.left && cx<=r.right && cy>=r.top && cy<=r.bottom;
+  // Expand hit area for mobile
+  return cx>=r.left-40 && cx<=r.right+40 && cy>=r.top-50 && cy<=r.bottom+30;
 }
 function checkTrash(cx,cy) {
   const tz=document.getElementById('trash-zone');
@@ -1125,21 +1125,47 @@ function openWCSheet() {
 function closeWCSheet() { document.getElementById('wc-sheet').classList.remove('open'); wcData=null; }
 
 async function fetchOGP(url) {
-  try {
-    const res=await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
-    const {contents}=await res.json();
-    const doc=new DOMParser().parseFromString(contents,'text/html');
-    const og=prop=>doc.querySelector(`meta[property="${prop}"]`)?.getAttribute('content')||doc.querySelector(`meta[name="${prop}"]`)?.getAttribute('content')||'';
-    return {
-      title:og('og:title')||doc.title||url,
-      description:og('og:description')||og('description')||'',
-      image:og('og:image')||'',
-      siteName:og('og:site_name')||new URL(url).hostname,
-      favicon:`https://www.google.com/s2/favicons?domain=${new URL(url).hostname}&sz=32`
-    };
-  } catch(e) {
-    return {title:url,description:'情報を取得できませんでした',image:'',siteName:(()=>{try{return new URL(url).hostname;}catch(e){return url;}})(),favicon:''};
+  const hostname=(()=>{try{return new URL(url).hostname;}catch(e){return url;}})();
+  const fallback={title:url,description:'情報を取得できませんでした',image:'',siteName:hostname,favicon:''};
+
+  // Try multiple CORS proxies in order
+  const attempts=[
+    async()=>{
+      const ctrl=new AbortController(); setTimeout(()=>ctrl.abort(),8000);
+      const res=await fetch(`https://corsproxy.io/?${encodeURIComponent(url)}`,{signal:ctrl.signal});
+      if(!res.ok) throw new Error('corsproxy fail');
+      return await res.text();
+    },
+    async()=>{
+      const ctrl=new AbortController(); setTimeout(()=>ctrl.abort(),8000);
+      const res=await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,{signal:ctrl.signal});
+      if(!res.ok) throw new Error('allorigins fail');
+      const j=await res.json(); return j.contents||'';
+    },
+    async()=>{
+      const ctrl=new AbortController(); setTimeout(()=>ctrl.abort(),8000);
+      const res=await fetch(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,{signal:ctrl.signal});
+      if(!res.ok) throw new Error('codetabs fail');
+      return await res.text();
+    }
+  ];
+
+  for (const attempt of attempts) {
+    try {
+      const html=await attempt();
+      if (!html) continue;
+      const doc=new DOMParser().parseFromString(html,'text/html');
+      const og=prop=>doc.querySelector(`meta[property="${prop}"]`)?.getAttribute('content')||doc.querySelector(`meta[name="${prop}"]`)?.getAttribute('content')||'';
+      return {
+        title:og('og:title')||doc.title||url,
+        description:og('og:description')||og('description')||'',
+        image:og('og:image')||'',
+        siteName:og('og:site_name')||hostname,
+        favicon:`https://www.google.com/s2/favicons?domain=${hostname}&sz=32`
+      };
+    } catch(e) { /* try next proxy */ }
   }
+  return fallback;
 }
 
 async function doFetchOGP() {
