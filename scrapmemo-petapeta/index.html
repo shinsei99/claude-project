@@ -679,13 +679,6 @@ function drawScrap(el, canvas) {
   });
   div.appendChild(del);
 
-  if (el.type !== 'webclip') {
-    const edt = document.createElement('button'); edt.className='el-edit';
-    edt.innerHTML='<i class="fas fa-pen"></i>';
-    edt.addEventListener('pointerdown', e => e.stopPropagation());
-    edt.addEventListener('click', e => { e.stopPropagation(); openMemo(el); });
-    div.appendChild(edt);
-  }
 
   const rz = document.createElement('div'); rz.className='el-rz';
   div.appendChild(rz);
@@ -710,13 +703,6 @@ function buildMemoPreview(div, el) {
     im.addEventListener('click', e=>{ e.stopPropagation(); openImgLightbox(b.src); });
     inner.appendChild(im);
   });
-  const totalC = allText.length;
-  if (totalC > 0 || imgs.length > 0) {
-    const badge = document.createElement('div'); badge.className='sp-badge';
-    let bt=''; if(totalC>60) bt+=`${totalC}字`; if(imgs.length>0) bt+=(bt?' · ':'')+`📷${imgs.length}`;
-    badge.innerHTML=`<i class="fas fa-pen-to-square"></i>${bt||'メモ'}`;
-    inner.appendChild(badge);
-  }
   div.appendChild(inner);
 }
 
@@ -761,8 +747,7 @@ function addSrcLink(div, url) {
 function rebuildPreview(div, el) {
   // remove old preview nodes, keep handles/deco/srclink
   [...div.children].forEach(c => {
-    if (!c.classList.contains('el-del') && !c.classList.contains('el-edit') &&
-        !c.classList.contains('el-rz') &&
+    if (!c.classList.contains('el-del') && !c.classList.contains('el-rz') &&
         !c.classList.contains('deco-tape') && !c.classList.contains('deco-pin') &&
         !c.classList.contains('src-link')) c.remove();
   });
@@ -781,7 +766,7 @@ function setupScrapDrag(div, el, canvas, rz) {
   let _move=null, _up=null;
 
   div.addEventListener('pointerdown', e => {
-    if (e.target.closest('.el-del,.el-edit,.src-link')) return;
+    if (e.target.closest('.el-del,.src-link')) return;
     if (e.target === rz) return;
     e.stopPropagation();
     selectScrap(div);
@@ -833,7 +818,7 @@ function setupScrapDrag(div, el, canvas, rz) {
           const a=Object.assign(document.createElement('a'),{href:el.sourceUrl,target:'_blank',rel:'noopener noreferrer'});
           a.click();
         }
-        // memo: tap just selects (no editor open); long-tap or del button to edit
+        else openMemo(el);
         return;
       }
 
