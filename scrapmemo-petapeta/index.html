@@ -175,6 +175,8 @@ body.t-graph .page::after{display:none;}
 .wc-desc{font-size:11px;color:#555;line-height:1.45;padding:0 10px 5px;
   display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;word-break:break-all;}
 .wc-img{width:100%;max-height:100px;object-fit:cover;display:block;}
+.wc-tap{font-size:9px;color:var(--blue);padding:4px 10px 6px;opacity:.7;display:flex;align-items:center;gap:4px;}
+.wc-tap i{font-size:8px;}
 
 /* source link */
 .src-link{position:absolute;bottom:5px;right:6px;
@@ -711,6 +713,7 @@ function buildWebClipPreview(div, el) {
   const t=document.createElement('div'); t.className='wc-title'; t.textContent=el.title||''; wc.appendChild(t);
   if (el.description){const d=document.createElement('div');d.className='wc-desc';d.textContent=el.description;wc.appendChild(d);}
   if (el.image){const im=document.createElement('img');im.className='wc-img';im.src=el.image;im.referrerpolicy='no-referrer';im.draggable=false;im.onerror=()=>im.style.display='none';wc.appendChild(im);}
+  if (el.sourceUrl){const ft=document.createElement('div');ft.className='wc-tap';ft.innerHTML='<i class="fas fa-arrow-up-right-from-square"></i> タップして開く';wc.appendChild(ft);}
   div.appendChild(wc);
 }
 
@@ -756,9 +759,11 @@ function setupScrapDrag(div, el, canvas, rz) {
 
     const ox=e.clientX, oy=e.clientY;
     let moved=false, lifted=false, liftedLeft=0, liftedTop=0;
+    let lastX=ox, lastY=oy;  // track last known position for pointercancel
     div.setPointerCapture(e.pointerId);
 
     _move = ev => {
+      lastX=ev.clientX; lastY=ev.clientY;
       const dx=ev.clientX-ox, dy=ev.clientY-oy;
       if (!moved && Math.abs(dx)+Math.abs(dy)>6) {
         moved=true;
@@ -785,13 +790,24 @@ function setupScrapDrag(div, el, canvas, rz) {
       clearEdge();
       document.getElementById('trash-zone').classList.remove('drag-active','drop-ready');
 
+      // pointercancel on iOS may have clientX/Y=0; fall back to last known position
+      const cx = ev.clientX || lastX;
+      const cy = ev.clientY || lastY;
+
       if (!moved) {
         if (lifted) { dropToCanvas(div, el); }
+        else if (el.type==='webclip' && el.sourceUrl) {
+          const a=Object.assign(document.createElement('a'),{href:el.sourceUrl,target:'_blank',rel:'noopener noreferrer'});
+          a.click();
+        }
         else openMemo(el);
         return;
       }
 
-      if (isOverTrash(ev.clientX, ev.clientY)) {
+      // Check trash: pointer coords OR dragged-element center (covers iOS pointercancel with wrong coords)
+      const dr=div.getBoundingClientRect();
+      const dCX=(dr.left+dr.right)/2, dCY=(dr.top+dr.bottom)/2;
+      if (isOverTrash(cx, cy) || isOverTrash(dCX, dCY)) {
         div.remove(); if(selEl===div) selEl=null;
         touchPage(); save(); toast('削除しました 🗑️');
         edgeDragEl=null; edgeDragDiv=null;
@@ -852,8 +868,8 @@ function selectScrap(div) {
 function isOverTrash(cx,cy) {
   const tz=document.getElementById('trash-zone');
   const r=tz.getBoundingClientRect();
-  // Expand hit area for mobile
-  return cx>=r.left-40 && cx<=r.right+40 && cy>=r.top-50 && cy<=r.bottom+30;
+  // Wide hit area: ±60px horizontal, 80px above trash top (element center often above finger)
+  return cx>=r.left-60 && cx<=r.right+60 && cy>=r.top-80 && cy<=window.innerHeight;
 }
 function checkTrash(cx,cy) {
   const tz=document.getElementById('trash-zone');
