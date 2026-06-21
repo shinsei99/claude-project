@@ -166,7 +166,7 @@ body.t-graph .page::after{display:none;}
 .sp-check-text{line-height:1.4;word-break:break-all;flex:1;}
 .sp-check-text.done{text-decoration:line-through;color:#999;}
 .sp-text{font-size:11px;color:#333;line-height:1.4;white-space:pre-wrap;word-break:break-all;
-  display:-webkit-box;-webkit-line-clamp:6;-webkit-box-orient:vertical;
+  display:-webkit-box;-webkit-line-clamp:8;-webkit-box-orient:vertical;
   overflow:hidden;padding:6px 10px 1px;}
 .sp-img{width:100%;height:auto;display:block;cursor:pointer;
   border-top:1px solid rgba(0,0,0,.05);}
@@ -313,7 +313,7 @@ body.t-graph .page::after{display:none;}
 .block-wrap{position:relative;margin-bottom:8px;background:rgba(255,255,255,.04);border-radius:10px;overflow:hidden;}
 .block-wrap.text-block{flex:1;display:flex;flex-direction:column;margin-bottom:0;}
 .block-wrap.text-block .block-del{display:none;}
-.block-textarea{width:100%;flex:1;min-height:120px;background:transparent;border:none;outline:none;
+.block-textarea{width:100%;flex:1;min-height:480px;background:transparent;border:none;outline:none;
   color:#f0e0c0;font-size:15px;font-family:'Georgia',serif;
   line-height:1.65;padding:10px 12px;resize:none;box-sizing:border-box;}
 .block-textarea::placeholder{color:rgba(200,170,120,.38);}
@@ -344,7 +344,9 @@ body.t-graph .page::after{display:none;}
 .url-field input::placeholder{color:rgba(200,170,120,.35);}
 #memo-charcount{text-align:right;font-size:11px;color:rgba(160,130,90,.6);padding:0 16px 4px;}
 /* ── ROTATION CONTROL ── */
-#rot-strip{display:flex;align-items:center;gap:3px;}
+#rot-strip{display:flex;align-items:center;gap:3px;padding:10px 14px 10px;border-top:1px solid rgba(255,255,255,.07);}
+#rot-preview{margin-left:6px;width:32px;height:40px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+#rot-preview-card{width:26px;height:34px;background:rgba(255,253,240,.2);border:1.5px solid rgba(240,220,150,.5);border-radius:2px;transition:transform .18s ease;box-shadow:1px 2px 6px rgba(0,0,0,.3);}
 .rot-btn{padding:5px 7px;border:1px solid rgba(255,255,255,.14);
   border-radius:7px;background:rgba(255,255,255,.06);
   color:#d0b888;font-size:11px;cursor:pointer;font-family:'Georgia',serif;line-height:1;}
@@ -352,10 +354,11 @@ body.t-graph .page::after{display:none;}
 #rot-display{font-size:11px;color:rgba(200,170,100,.8);min-width:30px;text-align:center;}
 
 /* ── DECO PICKER ── */
-#deco-picker{display:flex;gap:8px;padding:7px 14px 5px;border-top:1px solid rgba(255,255,255,.07);flex-shrink:0;align-items:center;}
-.dp-group{display:flex;align-items:center;gap:5px;flex:1;}
+#deco-picker{display:flex;flex-direction:row;gap:10px;padding:10px 14px 8px;border-top:1px solid rgba(255,255,255,.07);}
+.dp-group{display:flex;flex-direction:column;gap:5px;flex:1;}
 .dp-label{font-size:11px;color:rgba(200,170,120,.6);flex-shrink:0;}
-.dp-swatches{display:flex;gap:5px;flex-wrap:nowrap;}
+.dp-swatches{display:grid;grid-template-columns:repeat(8,1fr);gap:3px;}
+.dp-swatch{width:auto;height:20px;}
 .dp-swatch{width:22px;height:22px;border-radius:3px;border:2px solid transparent;cursor:pointer;position:relative;flex-shrink:0;}
 .dp-swatch.round{border-radius:50%;}
 .dp-swatch.sel{border-color:#fff;box-shadow:0 0 0 1px rgba(0,0,0,.4);}
@@ -414,6 +417,15 @@ body.t-graph .page::after{display:none;}
 .si-date{font-size:11px;color:rgba(160,130,90,.8);margin-top:2px;}
 .si-bar{height:4px;background:rgba(255,255,255,.07);border-radius:2px;margin-top:5px;overflow:hidden;}
 .si-fill{height:100%;background:var(--gold);border-radius:2px;}
+
+
+/* ── DECO PANEL (collapsible) ── */
+#deco-panel{overflow:hidden;max-height:0;transition:max-height .25s ease;flex-shrink:0;}
+#deco-panel.open{max-height:200px;}
+.deco-toggle{background:none;border:none;color:rgba(200,170,120,.65);font-size:18px;
+  cursor:pointer;padding:5px 7px;border-radius:8px;line-height:1;transition:color .15s;}
+.deco-toggle:active,.deco-toggle.on{color:var(--gold);}
+#memo-charcount{text-align:right;font-size:11px;color:rgba(200,170,100,.45);padding:2px 16px 0;flex-shrink:0;}
 
 /* ── TOAST ── */
 #toast{position:fixed;bottom:calc(var(--safe-b) + 80px);left:50%;
@@ -484,25 +496,31 @@ body.t-graph .page::after{display:none;}
     <div class="sh-handle"></div>
     <div class="sh-head">
       <h3><i class="fas fa-paste"></i> スクラップ編集</h3>
+      <button class="deco-toggle" id="deco-toggle-btn" onclick="toggleDecoPanel()" title="デコ設定"><i class="fas fa-palette"></i></button>
+    </div>
+    <div id="deco-panel">
+      <div id="deco-picker">
+        <div class="dp-group">
+          <span class="dp-label">テープ</span>
+          <div class="dp-swatches" id="dp-tapes"></div>
+        </div>
+        <div class="dp-group">
+          <span class="dp-label">ピン</span>
+          <div class="dp-swatches" id="dp-pins"></div>
+        </div>
+      </div>
       <div id="rot-strip">
-        <button class="rot-btn" onclick="rotMemo(-15)">-15°</button>
+        <span class="dp-label">角度</span>
         <button class="rot-btn" onclick="rotMemo(-5)">-5°</button>
+        <button class="rot-btn" onclick="rotMemo(-1)">-1°</button>
+        <button class="rot-btn" onclick="rotMemo(0)">0°</button>
         <span id="rot-display">0°</span>
+        <button class="rot-btn" onclick="rotMemo(1)">+1°</button>
         <button class="rot-btn" onclick="rotMemo(5)">+5°</button>
-        <button class="rot-btn" onclick="rotMemo(15)">+15°</button>
+        <div id="rot-preview"><div id="rot-preview-card"></div></div>
       </div>
     </div>
-    <div style="text-align:right;padding:2px 16px 0;"><span id="memo-charcount" style="font-size:11px;color:rgba(200,170,100,.5)"></span></div>
-    <div id="deco-picker">
-      <div class="dp-group">
-        <span class="dp-label">テープ</span>
-        <div class="dp-swatches" id="dp-tapes"></div>
-      </div>
-      <div class="dp-group">
-        <span class="dp-label">ピン</span>
-        <div class="dp-swatches" id="dp-pins"></div>
-      </div>
-    </div>
+    <div id="memo-charcount"></div>
     <div id="memo-editor"></div>
     <input type="file" id="fi-block" accept="image/*" style="display:none" onchange="addImageBlock(event)">
     <input type="hidden" id="memo-url-input" value="">
@@ -690,8 +708,14 @@ const esc  = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt
 const fmtD = iso => { const d=new Date(iso); return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; };
 const touchPage = () => { if (pages[curIdx]) pages[curIdx].lastAccessed = nowS(); };
 
-const TAPE_COLORS = ['#FFE87C','#B5D5FF','#FFB5C2','#B5FFD0','#D5B5FF'];
-const PIN_COLORS  = ['#e04040','#4080e0','#e0c020','#40b050','#9040c0'];
+const TAPE_COLORS = [
+  '#FFE87C','#FFD080','#FFBA80','#FFB5C2','#FF9898','#FF80B0','#F0A0D0','#D5A0D5',
+  '#B5FFD0','#90E8B8','#A0D8E8','#B5D5FF','#90C4FF','#C0B8FF','#D5B5FF','#F0D5FF'
+];
+const PIN_COLORS  = [
+  '#E03030','#E06020','#E09020','#D0C010','#80C020','#30A030','#20A070','#20B0C0',
+  '#3070D0','#4050C0','#7030B0','#9020A0','#C020A0','#D04080','#904020','#606060'
+];
 const randRot = () => memoRotMode==='straight' ? 0 : (Math.floor(Math.random()*7)-3);
 function randDeco() {
   if (Math.random() > .5) return { type:'tape', color: TAPE_COLORS[Math.floor(Math.random()*TAPE_COLORS.length)] };
@@ -713,21 +737,21 @@ function makeTornPath() {
 function mkData() {
   return [
     { id:'p1', title:'PetaPetaの使い方', lastAccessed:ago(0), elements:[
-      { id:'e1', type:'memo', x:18, y:18, w:188, rot:-2, sourceUrl:'', deco:{type:'tape',color:'#FFE87C'}, blocks:[
+      { id:'e1', type:'memo', x:50, y:65, w:300, rot:0, sourceUrl:'', deco:{type:'tape',color:'#FFE87C'}, blocks:[
         {id:'b1',type:'text',content:'📌 メモの基本操作\n\n① 下の ✏️ ボタンでメモを追加\n② メモをタップ → 編集・テキスト・写真追加\n③ メモをドラッグで自由に配置\n④ 右下の ◼︎ をドラッグでサイズ変更'}
       ]},
-      { id:'e2', type:'memo', x:170, y:160, w:174, rot:2, sourceUrl:'', deco:{type:'pin',color:'#4080e0'}, blocks:[
+      { id:'e2', type:'memo', x:15, y:218, w:250, rot:2, sourceUrl:'', deco:{type:'pin',color:'#4080e0'}, blocks:[
         {id:'b2',type:'text',content:'🌐 Webクリップ\n\n下の 🌐 ボタンでURLを入力\n→ サイトの内容をカードで保存\n\nカードをタップすると\nブラウザでサイトが開きます'}
       ]},
-      { id:'e3', type:'memo', x:16, y:298, w:180, rot:1, sourceUrl:'', deco:{type:'tape',color:'#B5D5FF'}, blocks:[
+      { id:'e3', type:'memo', x:75, y:370, w:250, rot:-2, sourceUrl:'', deco:{type:'tape',color:'#B5D5FF'}, blocks:[
         {id:'b3',type:'text',content:'📖 ページ操作\n\n← → ボタンでページ切り替え\nメモをドラッグして端に近づけると\n隣のページへ移動できます\n\n＋ボタンでページを追加'}
       ]},
     ]},
     { id:'p2', title:'古いメモ 📂', lastAccessed:ago(6), elements:[
-      { id:'e4', type:'memo', x:20, y:22, w:196, rot:-1, sourceUrl:'', deco:{type:'tape',color:'#FFD5A0'}, blocks:[
+      { id:'e4', type:'memo', x:30, y:100, w:300, rot:-1, sourceUrl:'', deco:{type:'tape',color:'#FFD5A0'}, blocks:[
         {id:'b4',type:'text',content:'📉 古いメモとは？\n\nしばらく開いていないページは\n自動的に後ろに移動します。\n\n下のメニュー「鮮度」ボタンを押すと\n最近見たページが前に来て\n古いページは後ろへさがります。'}
       ]},
-      { id:'e5', type:'memo', x:100, y:268, w:202, rot:2, sourceUrl:'', deco:{type:'pin',color:'#9040c0'}, blocks:[
+      { id:'e5', type:'memo', x:30, y:310, w:300, rot:2, sourceUrl:'', deco:{type:'pin',color:'#9040c0'}, blocks:[
         {id:'b5',type:'text',content:'💡 整理のヒント\n\n使わないページは\nそのままにしておくと\n自然と後ろへ流れます。\n\n削除したいときはメモをゴミ箱🗑️へ\nドラッグ＆ドロップ'}
       ]},
     ]},
@@ -1353,8 +1377,8 @@ function jumpTo(idx) {
 //  ADD ELEMENTS
 // ══════════════════════════════════════════
 function addMemo() {
-  const el={id:nid(),type:'memo',x:Math.floor(Math.random()*120+16),y:Math.floor(Math.random()*100+16),
-    w:184,rot:randRot(),sourceUrl:'',deco:randDeco(),
+  const el={id:nid(),type:'memo',x:Math.floor(Math.random()*100+16),y:Math.floor(Math.random()*80+16),
+    w:300,rot:randRot(),sourceUrl:'',deco:randDeco(),
     blocks:[{id:nid(),type:'text',content:''}]};
   pages[curIdx].elements.push(el);
   const cv=document.getElementById('canvas');
@@ -1425,18 +1449,35 @@ function syncDecoSel() {
     s.classList.toggle('sel', !!match);
   });
 }
+function toggleDecoPanel() {
+  const panel = document.getElementById('deco-panel');
+  const btn = document.getElementById('deco-toggle-btn');
+  const isOpen = panel.classList.toggle('open');
+  btn.classList.toggle('on', isOpen);
+}
+
 function openMemo(el) {
-  editEl=el;
+  editEl = el;
   renderBlocks();
-  document.getElementById('memo-url-input').value = el.sourceUrl||'';
+  document.getElementById('memo-url-input').value = el.sourceUrl || '';
   buildDecoPicker();
   syncDecoSel();
-  document.getElementById('rot-display').textContent = (el.rot||0)+'°';
-  document.getElementById('memo-sheet').classList.add('open');
-  setTimeout(()=>{
-    const ta=document.querySelector('#memo-editor .block-textarea');
-    if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length,ta.value.length); }
-  },360);
+  document.getElementById('rot-display').textContent = (el.rot || 0) + '°';
+  const pc=document.getElementById('rot-preview-card');
+  if (pc) pc.style.transform=`rotate(${el.rot||0}deg)`;
+  // collapse deco panel on open
+  document.getElementById('deco-panel').classList.remove('open');
+  document.getElementById('deco-toggle-btn').classList.remove('on');
+  const sheet = document.getElementById('memo-sheet');
+  sheet.classList.add('open');
+  if (window.visualViewport) {
+    const box = sheet.querySelector('.sh-box');
+    if (box) box.style.maxHeight = Math.round(window.visualViewport.height * 0.97) + 'px';
+  }
+  setTimeout(() => {
+    const ta = document.querySelector('#memo-editor .block-textarea');
+    if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }
+  }, 360);
 }
 function rotMemo(delta) {
   if (!editEl) return;
@@ -1444,9 +1485,10 @@ function rotMemo(delta) {
   document.getElementById('rot-display').textContent = editEl.rot+'°';
   const div=document.querySelector(`.scrap[data-id="${editEl.id}"]`);
   if (div) div.style.transform=`rotate(${editEl.rot}deg)`;
+  const pc=document.getElementById('rot-preview-card');
+  if (pc) pc.style.transform=`rotate(${editEl.rot}deg)`;
 }
 function closeMemo() {
-  // Remove newly-created empty memos on cancel
   if (editEl) {
     const allEmpty=(editEl.blocks||[]).every(b=>b.type==='text'&&!(b.content||'').trim());
     if (allEmpty) {
@@ -1455,7 +1497,11 @@ function closeMemo() {
       save();
     }
   }
-  document.getElementById('memo-sheet').classList.remove('open');
+  const sheet = document.getElementById('memo-sheet');
+  sheet.classList.remove('open');
+  const box = sheet.querySelector('.sh-box'); if (box) box.style.maxHeight = '';
+  document.getElementById('deco-panel').classList.remove('open');
+  document.getElementById('deco-toggle-btn').classList.remove('on');
   editEl=null;
 }
 
@@ -1555,7 +1601,8 @@ function saveMemo() {
 function autoSize(ta) { ta.style.height='auto'; ta.style.height=ta.scrollHeight+'px'; }
 function updateCharCount() {
   const tot=[...document.querySelectorAll('#memo-editor .block-textarea')].reduce((s,ta)=>s+ta.value.length,0);
-  document.getElementById('memo-charcount').textContent=`${tot}字`;
+  const el=document.getElementById('memo-charcount');
+  if (el) el.textContent=tot>0?`${tot}字`:'';
 }
 
 // ══════════════════════════════════════════
@@ -1867,6 +1914,25 @@ document.getElementById('page-wrap').addEventListener('pointerdown',e=>{
 });
 
 setInterval(save,60000);
+
+// ── CHROME拡張機能からのクリップ受信 ──
+window.addEventListener('petapeta-clip', e => {
+  const { type, content, sourceUrl } = e.detail;
+  const el = {
+    id: nid(), type: 'memo',
+    x: Math.floor(Math.random()*100+16),
+    y: Math.floor(Math.random()*80+16),
+    w: 300, rot: randRot(), sourceUrl: sourceUrl||'', deco: randDeco(),
+    blocks: type === 'image'
+      ? [{ id: nid(), type: 'image', src: content, caption: '' }]
+      : [{ id: nid(), type: 'text', content: content||'' }]
+  };
+  pages[curIdx].elements.push(el);
+  const cv = document.getElementById('canvas');
+  if (cv) { cv.querySelector('.empty-hint')?.remove(); drawScrap(el, cv); }
+  soundPeta(); touchPage(); save();
+  toast(type === 'image' ? '画像をクリップしました 📷' : 'テキストをクリップしました ✓');
+});
 
 // ══════════════════════════════════════════
 //  BOOT
