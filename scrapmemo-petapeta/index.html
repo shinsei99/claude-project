@@ -155,14 +155,17 @@ body.t-graph .page::after{display:none;}
 
 /* memo card inner */
 .scrap-inner{overflow:hidden;border-radius:2px;}
-.sp-text{font-size:12px;color:#333;line-height:1.55;white-space:pre-wrap;word-break:break-all;
-  display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;
-  overflow:hidden;padding:10px 10px 2px;}
-.sp-img{width:100%;max-height:90px;object-fit:cover;display:block;
+.sp-text{font-size:11px;color:#333;line-height:1.4;white-space:pre-wrap;word-break:break-all;
+  display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;
+  overflow:hidden;padding:8px 10px 2px;}
+.sp-img{width:100%;height:auto;display:block;cursor:pointer;
   border-top:1px solid rgba(0,0,0,.05);}
 .sp-badge{font-size:10px;color:rgba(100,75,40,.6);
-  padding:3px 28px 6px 10px;display:flex;align-items:center;gap:4px;}
+  padding:3px 28px 5px 10px;display:flex;align-items:center;gap:4px;}
 .sp-badge i{font-size:9px;}
+#img-lightbox{position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:9999;
+  display:none;align-items:center;justify-content:center;cursor:pointer;}
+#img-lightbox img{max-width:92vw;max-height:88vh;object-fit:contain;border-radius:4px;}
 
 /* webclip card */
 .wc-card{background:#fff;border-radius:2px;overflow:hidden;}
@@ -191,10 +194,15 @@ body.t-graph .page::after{display:none;}
   background:var(--red);color:#fff;border:none;border-radius:50%;font-size:9px;
   display:none;align-items:center;justify-content:center;cursor:pointer;z-index:70;
   box-shadow:0 2px 6px rgba(0,0,0,.3);}
+.el-edit{position:absolute;top:-10px;left:-10px;width:22px;height:22px;
+  background:var(--blue);color:#fff;border:none;border-radius:50%;font-size:9px;
+  display:none;align-items:center;justify-content:center;cursor:pointer;z-index:70;
+  box-shadow:0 2px 6px rgba(0,0,0,.3);}
 .el-rz{position:absolute;bottom:-7px;right:-7px;width:16px;height:16px;
   background:var(--blue);border-radius:50%;display:none;cursor:se-resize;z-index:70;
   box-shadow:0 2px 6px rgba(0,0,0,.3);}
 .scrap.sel .el-del,.scrap.sel .el-rz{display:flex;}
+.scrap.sel .el-edit{display:flex;}
 
 /* ══════════════════════════════════════════
    BOTTOM TOOLBAR
@@ -660,7 +668,7 @@ function drawScrap(el, canvas) {
   // Source URL link icon
   if (el.sourceUrl) addSrcLink(div, el.sourceUrl);
 
-  // Delete / resize handles
+  // Delete / edit / resize handles
   const del = document.createElement('button'); del.className='el-del';
   del.innerHTML='<i class="fas fa-times"></i>';
   del.addEventListener('pointerdown', e => {
@@ -671,6 +679,14 @@ function drawScrap(el, canvas) {
   });
   div.appendChild(del);
 
+  if (el.type !== 'webclip') {
+    const edt = document.createElement('button'); edt.className='el-edit';
+    edt.innerHTML='<i class="fas fa-pen"></i>';
+    edt.addEventListener('pointerdown', e => e.stopPropagation());
+    edt.addEventListener('click', e => { e.stopPropagation(); openMemo(el); });
+    div.appendChild(edt);
+  }
+
   const rz = document.createElement('div'); rz.className='el-rz';
   div.appendChild(rz);
 
@@ -680,24 +696,40 @@ function drawScrap(el, canvas) {
 
 function buildMemoPreview(div, el) {
   const inner = document.createElement('div'); inner.className='scrap-inner';
-  const firstText = el.blocks?.find(b => b.type==='text');
-  const firstImg  = el.blocks?.find(b => b.type==='image');
-  const totalC    = el.blocks?.filter(b=>b.type==='text').reduce((s,b)=>s+b.content.length,0)||0;
-  const imgCnt    = el.blocks?.filter(b=>b.type==='image').length||0;
+  const allText = el.blocks?.filter(b=>b.type==='text').map(b=>b.content).join('\n').trim()||'';
+  const imgs    = el.blocks?.filter(b=>b.type==='image')||[];
 
-  if (firstText) {
+  if (allText) {
     const tp = document.createElement('div'); tp.className='sp-text';
-    tp.textContent = firstText.content; inner.appendChild(tp);
+    tp.textContent = allText; inner.appendChild(tp);
   }
-  if (firstImg) {
+  imgs.forEach(b => {
     const im = document.createElement('img'); im.className='sp-img';
-    im.src=firstImg.src; im.draggable=false; inner.appendChild(im);
+    im.src=b.src; im.draggable=false;
+    im.addEventListener('pointerdown', e=>e.stopPropagation());
+    im.addEventListener('click', e=>{ e.stopPropagation(); openImgLightbox(b.src); });
+    inner.appendChild(im);
+  });
+  const totalC = allText.length;
+  if (totalC > 0 || imgs.length > 0) {
+    const badge = document.createElement('div'); badge.className='sp-badge';
+    let bt=''; if(totalC>60) bt+=`${totalC}字`; if(imgs.length>0) bt+=(bt?' · ':'')+`📷${imgs.length}`;
+    badge.innerHTML=`<i class="fas fa-pen-to-square"></i>${bt||'メモ'}`;
+    inner.appendChild(badge);
   }
-  const badge = document.createElement('div'); badge.className='sp-badge';
-  let bt = ''; if (totalC>60) bt+=`${totalC}字`; if (imgCnt>0) bt+=(bt?' · ':'')+`📷${imgCnt}`;
-  badge.innerHTML=`<i class="fas fa-pen-to-square"></i>${bt?bt+' · ':''}タップで編集`;
-  inner.appendChild(badge);
   div.appendChild(inner);
+}
+
+function openImgLightbox(src) {
+  let lb=document.getElementById('img-lightbox');
+  if (!lb) {
+    lb=document.createElement('div'); lb.id='img-lightbox';
+    const im=document.createElement('img'); lb.appendChild(im);
+    lb.addEventListener('click',()=>lb.style.display='none');
+    document.body.appendChild(lb);
+  }
+  lb.querySelector('img').src=src;
+  lb.style.display='flex';
 }
 
 function buildWebClipPreview(div, el) {
@@ -729,7 +761,8 @@ function addSrcLink(div, url) {
 function rebuildPreview(div, el) {
   // remove old preview nodes, keep handles/deco/srclink
   [...div.children].forEach(c => {
-    if (!c.classList.contains('el-del') && !c.classList.contains('el-rz') &&
+    if (!c.classList.contains('el-del') && !c.classList.contains('el-edit') &&
+        !c.classList.contains('el-rz') &&
         !c.classList.contains('deco-tape') && !c.classList.contains('deco-pin') &&
         !c.classList.contains('src-link')) c.remove();
   });
@@ -748,7 +781,7 @@ function setupScrapDrag(div, el, canvas, rz) {
   let _move=null, _up=null;
 
   div.addEventListener('pointerdown', e => {
-    if (e.target.closest('.el-del,.src-link')) return;
+    if (e.target.closest('.el-del,.el-edit,.src-link')) return;
     if (e.target === rz) return;
     e.stopPropagation();
     selectScrap(div);
@@ -800,7 +833,7 @@ function setupScrapDrag(div, el, canvas, rz) {
           const a=Object.assign(document.createElement('a'),{href:el.sourceUrl,target:'_blank',rel:'noopener noreferrer'});
           a.click();
         }
-        else openMemo(el);
+        // memo: tap just selects (no editor open); long-tap or del button to edit
         return;
       }
 
