@@ -166,7 +166,7 @@ body.t-graph .page::after{display:none;}
 .sp-check-text{line-height:1.4;word-break:break-all;flex:1;}
 .sp-check-text.done{text-decoration:line-through;color:#999;}
 .sp-text{font-size:11px;color:#333;line-height:1.4;white-space:pre-wrap;word-break:break-all;
-  display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;
+  display:-webkit-box;-webkit-line-clamp:6;-webkit-box-orient:vertical;
   overflow:hidden;padding:6px 10px 1px;}
 .sp-img{width:100%;height:auto;display:block;cursor:pointer;
   border-top:1px solid rgba(0,0,0,.05);}
@@ -343,6 +343,13 @@ body.t-graph .page::after{display:none;}
   border-radius:8px;padding:8px 10px;color:#f0e0c0;font-size:13px;outline:none;}
 .url-field input::placeholder{color:rgba(200,170,120,.35);}
 #memo-charcount{text-align:right;font-size:11px;color:rgba(160,130,90,.6);padding:0 16px 4px;}
+/* ── ROTATION CONTROL ── */
+#rot-strip{display:flex;align-items:center;gap:3px;}
+.rot-btn{padding:5px 7px;border:1px solid rgba(255,255,255,.14);
+  border-radius:7px;background:rgba(255,255,255,.06);
+  color:#d0b888;font-size:11px;cursor:pointer;font-family:'Georgia',serif;line-height:1;}
+.rot-btn:active{background:rgba(255,255,255,.2);}
+#rot-display{font-size:11px;color:rgba(200,170,100,.8);min-width:30px;text-align:center;}
 
 /* ── DECO PICKER ── */
 #deco-picker{display:flex;gap:8px;padding:7px 14px 5px;border-top:1px solid rgba(255,255,255,.07);flex-shrink:0;align-items:center;}
@@ -477,8 +484,15 @@ body.t-graph .page::after{display:none;}
     <div class="sh-handle"></div>
     <div class="sh-head">
       <h3><i class="fas fa-paste"></i> スクラップ編集</h3>
-      <span id="memo-charcount" style="font-size:11px;color:rgba(200,170,100,.5)"></span>
+      <div id="rot-strip">
+        <button class="rot-btn" onclick="rotMemo(-15)">-15°</button>
+        <button class="rot-btn" onclick="rotMemo(-5)">-5°</button>
+        <span id="rot-display">0°</span>
+        <button class="rot-btn" onclick="rotMemo(5)">+5°</button>
+        <button class="rot-btn" onclick="rotMemo(15)">+15°</button>
+      </div>
     </div>
+    <div style="text-align:right;padding:2px 16px 0;"><span id="memo-charcount" style="font-size:11px;color:rgba(200,170,100,.5)"></span></div>
     <div id="deco-picker">
       <div class="dp-group">
         <span class="dp-label">テープ</span>
@@ -607,6 +621,13 @@ body.t-graph .page::after{display:none;}
         </div>
       </div>
       <div class="settings-section">
+        <h4>新規メモの角度</h4>
+        <div class="theme-btns">
+          <button class="theme-btn" id="rot-rnd-btn" onclick="setMemoRot('random')">↗ ランダム</button>
+          <button class="theme-btn" id="rot-str-btn" onclick="setMemoRot('straight')">▬ 真っ直ぐ</button>
+        </div>
+      </div>
+      <div class="settings-section">
         <h4>ページ管理</h4>
         <div class="settings-list">
           <div class="settings-row" onclick="openSort();closeSettings()">
@@ -651,6 +672,7 @@ let isAnim  = false;
 let selEl   = null;
 let editEl  = null;
 let currentTheme = 't-cork';
+let memoRotMode = 'random'; // 'random' | 'straight'
 
 // drag-to-edge state
 let edgeDragEl  = null; // the element data being edge-dragged
@@ -670,6 +692,7 @@ const touchPage = () => { if (pages[curIdx]) pages[curIdx].lastAccessed = nowS()
 
 const TAPE_COLORS = ['#FFE87C','#B5D5FF','#FFB5C2','#B5FFD0','#D5B5FF'];
 const PIN_COLORS  = ['#e04040','#4080e0','#e0c020','#40b050','#9040c0'];
+const randRot = () => memoRotMode==='straight' ? 0 : (Math.floor(Math.random()*7)-3);
 function randDeco() {
   if (Math.random() > .5) return { type:'tape', color: TAPE_COLORS[Math.floor(Math.random()*TAPE_COLORS.length)] };
   return { type:'pin', color: PIN_COLORS[Math.floor(Math.random()*PIN_COLORS.length)] };
@@ -883,7 +906,7 @@ function saveTodo() {
 function addTodoToPage() {
   const el={id:nid(),type:'todo',
     x:Math.floor(Math.random()*100+16),y:Math.floor(Math.random()*80+16),
-    w:200,rot:0,deco:randDeco(),
+    w:200,rot:randRot(),deco:randDeco(),
     items:[{id:nid(),text:'',checked:false}]};
   pages[curIdx].elements.push(el);
   const cv=document.getElementById('canvas');
@@ -992,44 +1015,12 @@ function rebuildPreview(div, el) {
 // ══════════════════════════════════════════
 function setupScrapDrag(div, el, canvas, rz) {
   let _move=null, _up=null;
-  let _p1id=-1, _p1x=0, _p1y=0;   // first pointer tracking
-  let _p2id=-1, _p2x=0, _p2y=0;   // second pointer (rotation)
-  let _rotBase=null;                 // {angle, rot} at rotation start
-
-  // Two-finger rotation via second pointer
-  function _onRot2Move(ev) {
-    if (ev.pointerId===_p2id) { _p2x=ev.clientX; _p2y=ev.clientY; }
-    else { _p1x=ev.clientX; _p1y=ev.clientY; }
-    if (!_rotBase) return;
-    const ang=Math.atan2(_p2y-_p1y,_p2x-_p1x)*180/Math.PI;
-    const steps=Math.round((ang-_rotBase.angle)/15);
-    const nr=_rotBase.rot+steps*15;
-    if (nr!==el.rot){ el.rot=nr; div.style.transform=`rotate(${nr}deg)`; }
-  }
-  function _onRot2Up(ev) {
-    if (ev.pointerId!==_p2id) return;
-    div.removeEventListener('pointermove',_onRot2Move);
-    div.removeEventListener('pointerup',_onRot2Up);
-    div.removeEventListener('pointercancel',_onRot2Up);
-    _p2id=-1; _rotBase=null;
-    touchPage(); save();
-  }
+  let _p1id=-1, _p1x=0, _p1y=0;
 
   div.addEventListener('pointerdown', e => {
     if (e.target.closest('.el-del,.src-link')) return;
     if (e.target === rz) return;
-
-    // Second finger → rotation mode
-    if (_p1id>=0 && _p2id<0 && e.pointerId!==_p1id) {
-      e.stopPropagation();
-      _p2id=e.pointerId; _p2x=e.clientX; _p2y=e.clientY;
-      div.setPointerCapture(e.pointerId);
-      _rotBase={angle:Math.atan2(_p2y-_p1y,_p2x-_p1x)*180/Math.PI, rot:el.rot||0};
-      div.addEventListener('pointermove',_onRot2Move);
-      div.addEventListener('pointerup',_onRot2Up);
-      div.addEventListener('pointercancel',_onRot2Up);
-      return;
-    }
+    if (_p1id>=0) return;  // ignore extra fingers
 
     e.stopPropagation();
     selectScrap(div);
@@ -1048,7 +1039,6 @@ function setupScrapDrag(div, el, canvas, rz) {
     div.setPointerCapture(e.pointerId);
 
     _move = ev => {
-      if (_p2id>=0) return;  // rotation mode handles its own events
       _p1x=ev.clientX; _p1y=ev.clientY;
       lastX=ev.clientX; lastY=ev.clientY;
       const dx=ev.clientX-ox, dy=ev.clientY-oy;
@@ -1073,7 +1063,6 @@ function setupScrapDrag(div, el, canvas, rz) {
     };
 
     _up = ev => {
-      if (ev.pointerId===_p2id) return;  // handled by _onRot2Up
       _p1id=-1;
       div.removeEventListener('pointermove', _move);
       div.removeEventListener('pointerup', _up);
@@ -1365,7 +1354,7 @@ function jumpTo(idx) {
 // ══════════════════════════════════════════
 function addMemo() {
   const el={id:nid(),type:'memo',x:Math.floor(Math.random()*120+16),y:Math.floor(Math.random()*100+16),
-    w:184,rot:0,sourceUrl:'',deco:randDeco(),
+    w:184,rot:randRot(),sourceUrl:'',deco:randDeco(),
     blocks:[{id:nid(),type:'text',content:''}]};
   pages[curIdx].elements.push(el);
   const cv=document.getElementById('canvas');
@@ -1378,7 +1367,7 @@ function addPhotoToPage(ev) {
   const reader=new FileReader();
   reader.onload=e=>{
     const el={id:nid(),type:'memo',x:Math.floor(Math.random()*80+16),y:Math.floor(Math.random()*70+16),
-      w:196,rot:0,sourceUrl:'',deco:randDeco(),
+      w:196,rot:randRot(),sourceUrl:'',deco:randDeco(),
       blocks:[{id:nid(),type:'image',src:e.target.result,caption:file.name.replace(/\.[^.]+$/,'')}]};
     pages[curIdx].elements.push(el);
     const cv=document.getElementById('canvas');
@@ -1442,11 +1431,19 @@ function openMemo(el) {
   document.getElementById('memo-url-input').value = el.sourceUrl||'';
   buildDecoPicker();
   syncDecoSel();
+  document.getElementById('rot-display').textContent = (el.rot||0)+'°';
   document.getElementById('memo-sheet').classList.add('open');
   setTimeout(()=>{
     const ta=document.querySelector('#memo-editor .block-textarea');
     if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length,ta.value.length); }
   },360);
+}
+function rotMemo(delta) {
+  if (!editEl) return;
+  editEl.rot = delta===0 ? 0 : Math.round(((editEl.rot||0)+delta)*10)/10;
+  document.getElementById('rot-display').textContent = editEl.rot+'°';
+  const div=document.querySelector(`.scrap[data-id="${editEl.id}"]`);
+  if (div) div.style.transform=`rotate(${editEl.rot}deg)`;
 }
 function closeMemo() {
   // Remove newly-created empty memos on cancel
@@ -1653,7 +1650,7 @@ function placeWebClip() {
   const el={
     id:nid(),type:'webclip',
     x:Math.floor(Math.random()*80+16), y:Math.floor(Math.random()*60+16),
-    w:210, rot:0,
+    w:210, rot:randRot(),
     sourceUrl:wcData.sourceUrl, title:wcData.title,
     description:wcData.description, image:wcData.image,
     siteName:wcData.siteName, favicon:wcData.favicon,
@@ -1731,11 +1728,18 @@ function doSearch(q) {
   });
 }
 
+function setMemoRot(mode) {
+  memoRotMode=mode;
+  localStorage.setItem('snb6rot',mode);
+  document.getElementById('rot-rnd-btn').classList.toggle('active',mode==='random');
+  document.getElementById('rot-str-btn').classList.toggle('active',mode==='straight');
+}
 function openSettings() {
-  // Mark active theme
   document.querySelectorAll('.theme-btn').forEach(btn=>{
     btn.classList.toggle('active', btn.dataset.theme===currentTheme);
   });
+  document.getElementById('rot-rnd-btn').classList.toggle('active',memoRotMode==='random');
+  document.getElementById('rot-str-btn').classList.toggle('active',memoRotMode==='straight');
   document.getElementById('settings-sheet').classList.add('open');
 }
 function closeSettings() { document.getElementById('settings-sheet').classList.remove('open'); }
@@ -1869,6 +1873,8 @@ setInterval(save,60000);
 // ══════════════════════════════════════════
 const savedTheme = localStorage.getItem('snb6t');
 if (savedTheme) { document.body.classList.remove('t-cork'); document.body.classList.add(savedTheme); currentTheme=savedTheme; }
+const savedRot = localStorage.getItem('snb6rot');
+if (savedRot) memoRotMode=savedRot;
 if (!load()) pages=mkData();
 renderPage();
 </script>
