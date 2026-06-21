@@ -155,6 +155,7 @@ body.t-graph .page::after{display:none;}
 
 /* memo card inner */
 .scrap-inner{overflow:hidden;border-radius:2px;}
+.sp-link{color:#4a7bc0;text-decoration:underline;word-break:break-all;}
 .sp-text{font-size:11px;color:#333;line-height:1.4;white-space:pre-wrap;word-break:break-all;
   display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;
   overflow:hidden;padding:8px 10px 2px;}
@@ -168,7 +169,7 @@ body.t-graph .page::after{display:none;}
 #img-lightbox img{max-width:92vw;max-height:88vh;object-fit:contain;border-radius:4px;}
 
 /* webclip card */
-.wc-card{background:transparent;border-radius:0;overflow:hidden;}
+.wc-card{background:transparent;border-radius:2px;overflow:hidden;}
 .wc-site{display:flex;align-items:center;gap:6px;padding:7px 10px 4px;
   border-bottom:1px solid rgba(0,0,0,.06);}
 .wc-favicon{width:14px;height:14px;border-radius:2px;flex-shrink:0;}
@@ -616,37 +617,26 @@ function makeTornPath() {
 // ══════════════════════════════════════════
 function mkData() {
   return [
-    { id:'p1', title:'旅のメモ ✈️', lastAccessed:ago(0), elements:[
-      { id:'e1', type:'memo', x:22, y:16, w:180, rot:-3, sourceUrl:'', deco:{type:'tape',color:'#FFE87C'}, blocks:[
-        {id:'b1',type:'text',content:'京都の朝\n金閣寺の庭園は早朝が特に美しい ☀️\n\n7時前なら人も少なく、鏡湖池の金閣を独占できる。入場料400円。'}
+    { id:'p1', title:'PetaPetaの使い方', lastAccessed:ago(0), elements:[
+      { id:'e1', type:'memo', x:18, y:18, w:188, rot:-2, sourceUrl:'', deco:{type:'tape',color:'#FFE87C'}, blocks:[
+        {id:'b1',type:'text',content:'📌 メモの基本操作\n\n① 下の ✏️ ボタンでメモを追加\n② メモをタップ → 編集・テキスト・写真追加\n③ メモをドラッグで自由に配置\n④ 右下の ◼︎ をドラッグでサイズ変更'}
       ]},
-      { id:'e2', type:'memo', x:178, y:144, w:164, rot:2, sourceUrl:'', deco:{type:'pin',color:'#e04040'}, blocks:[
-        {id:'b2',type:'text',content:'🍜 京都ラーメン ★★★★★\n\n麺屋たけ井のつけ麺が絶品！\n開店30分前には並ぶこと。また絶対来たい！'}
+      { id:'e2', type:'memo', x:170, y:160, w:174, rot:2, sourceUrl:'', deco:{type:'pin',color:'#4080e0'}, blocks:[
+        {id:'b2',type:'text',content:'🌐 Webクリップ\n\n下の 🌐 ボタンでURLを入力\n→ サイトの内容をカードで保存\n\nカードをタップすると\nブラウザでサイトが開きます'}
       ]},
-      { id:'e3', type:'memo', x:18, y:260, w:172, rot:1, sourceUrl:'', deco:{type:'tape',color:'#B5FFD0'}, blocks:[
-        {id:'b3',type:'text',content:'📍 嵐山竹林 → 早朝6時前が穴場✨\n\n次の旅先\n□ 奈良（鹿！）\n□ 大阪ミナミ\n□ 神戸港・異人館'}
-      ]},
-    ]},
-    { id:'p2', title:'アイデアメモ 💡', lastAccessed:ago(2), elements:[
-      { id:'e4', type:'memo', x:20, y:18, w:184, rot:0, sourceUrl:'', deco:{type:'tape',color:'#B5D5FF'}, blocks:[
-        {id:'b4',type:'text',content:'新プロジェクト案\n\n・ユーザーインタビュー（10人以上）\n・プロトタイプ作成（Figma）\n・ベータ版リリース\n\n期限：3ヶ月以内'}
-      ]},
-      { id:'e5', type:'memo', x:182, y:165, w:160, rot:-2, sourceUrl:'', deco:{type:'pin',color:'#4080e0'}, blocks:[
-        {id:'b5',type:'text',content:'⚡ 今週のTODO\n□ 企画書を書く\n□ チームに共有\n□ スケジュール確認\n□ 予算申請'}
-      ]},
-      { id:'e6', type:'memo', x:24, y:318, w:202, rot:0, sourceUrl:'', deco:{type:'tape',color:'#FFB5C2'}, blocks:[
-        {id:'b6',type:'text',content:'"シンプルに考えよう"\n— Steve Jobs\n\n複雑さは簡単に作れる。シンプルさを作るのは難しい。'}
+      { id:'e3', type:'memo', x:16, y:298, w:180, rot:1, sourceUrl:'', deco:{type:'tape',color:'#B5D5FF'}, blocks:[
+        {id:'b3',type:'text',content:'📖 ページ操作\n\n← → ボタンでページ切り替え\nメモをドラッグして端に近づけると\n隣のページへ移動できます\n\n＋ボタンでページを追加'}
       ]},
     ]},
-    { id:'p3', title:'古いメモ 📂', lastAccessed:ago(7), elements:[
-      { id:'e7', type:'memo', x:24, y:28, w:182, rot:-1, sourceUrl:'', deco:{type:'tape',color:'#FFE87C'}, blocks:[
-        {id:'b7',type:'text',content:'先月の会議メモ\n\n・予算確認 → Q3は前年比+15%確保\n・目標設定：新規獲得100件\n・次回MTG：来月第1火曜'}
+    { id:'p2', title:'古いメモ 📂', lastAccessed:ago(6), elements:[
+      { id:'e4', type:'memo', x:20, y:22, w:196, rot:-1, sourceUrl:'', deco:{type:'tape',color:'#FFD5A0'}, blocks:[
+        {id:'b4',type:'text',content:'📉 古いメモとは？\n\nしばらく開いていないページは\n自動的に後ろに移動します。\n\n下のメニュー「鮮度」ボタンを押すと\n最近見たページが前に来て\n古いページは後ろへさがります。'}
       ]},
-      { id:'e8', type:'memo', x:88, y:255, w:202, rot:3, sourceUrl:'', deco:{type:'pin',color:'#40b050'}, blocks:[
-        {id:'b8',type:'text',content:'このページは最近触っていないので後ろへ下がります 📉\n\n「鮮度」ボタンで並べ替えると古いページが後ろに移動します。'}
+      { id:'e5', type:'memo', x:100, y:268, w:202, rot:2, sourceUrl:'', deco:{type:'pin',color:'#9040c0'}, blocks:[
+        {id:'b5',type:'text',content:'💡 整理のヒント\n\n使わないページは\nそのままにしておくと\n自然と後ろへ流れます。\n\n削除したいときはメモをゴミ箱🗑️へ\nドラッグ＆ドロップ'}
       ]},
     ]},
-    { id:'p4', title:'空白ページ 📄', lastAccessed:ago(3), elements:[] },
+    { id:'p3', title:'', lastAccessed:ago(1), elements:[] },
   ];
 }
 
@@ -735,6 +725,15 @@ function drawScrap(el, canvas) {
   canvas.appendChild(div);
 }
 
+function linkifyText(raw) {
+  const esc = raw.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  return esc.replace(/(https?:\/\/[^\s<>"']+|[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})/g, m => {
+    const isEmail = !m.startsWith('http') && m.includes('@');
+    const href = isEmail ? 'mailto:'+m : m;
+    return `<a href="${href}" target="_blank" rel="noopener noreferrer" class="sp-link">${m}</a>`;
+  });
+}
+
 function buildMemoPreview(div, el) {
   const inner = document.createElement('div'); inner.className='scrap-inner';
   const allText = el.blocks?.filter(b=>b.type==='text').map(b=>b.content).join('\n').trim()||'';
@@ -742,7 +741,7 @@ function buildMemoPreview(div, el) {
 
   if (allText) {
     const tp = document.createElement('div'); tp.className='sp-text';
-    tp.textContent = allText; inner.appendChild(tp);
+    tp.innerHTML = linkifyText(allText); inner.appendChild(tp);
   }
   imgs.forEach(b => {
     const im = document.createElement('img'); im.className='sp-img';
@@ -840,19 +839,17 @@ function setupScrapDrag(div, el, canvas, rz) {
         liftToDragLevel(div, el, canvas);
         liftedLeft=parseInt(div.style.left)||0;
         liftedTop=parseInt(div.style.top)||0;
-        // Cache rects here — only once per drag, not every frame
         _wrRect=document.getElementById('page-wrap').getBoundingClientRect();
         _botRect=document.getElementById('bot').getBoundingClientRect();
-        div.style.willChange='left,top';
+        // Use transform for GPU-composited drag (no layout reflow per frame)
+        div.style.willChange='transform';
         lifted=true;
         document.getElementById('trash-zone').classList.add('drag-active');
         document.getElementById('bot').classList.remove('drag-over');
       }
       if (!moved) return;
-      const nx=liftedLeft+(ev.clientX-ox);
-      const ny=liftedTop+(ev.clientY-oy);
-      div.style.left=Math.max(-20,nx)+'px';
-      div.style.top=Math.max(-20,ny)+'px';
+      const ndx=ev.clientX-ox, ndy=ev.clientY-oy;
+      div.style.transform=`translate(${ndx}px,${ndy}px) rotate(${el.rot||0}deg)`;
       checkTrash(ev.clientX, ev.clientY, _botRect);
       checkEdge(ev.clientX, el, div, canvas, _wrRect);
     };
@@ -865,7 +862,6 @@ function setupScrapDrag(div, el, canvas, rz) {
       clearEdge();
       document.getElementById('trash-zone').classList.remove('drag-active','drop-ready');
 
-      // pointercancel on iOS may have clientX/Y=0; fall back to last known position
       const cx = ev.clientX || lastX;
       const cy = ev.clientY || lastY;
 
@@ -876,18 +872,27 @@ function setupScrapDrag(div, el, canvas, rz) {
           const a=Object.assign(document.createElement('a'),{href:el.sourceUrl,target:'_blank',rel:'noopener noreferrer'});
           a.click();
         }
-        else if (tapTarget?.closest('.sp-img')) { /* let click handler on sp-img open lightbox */ }
+        else if (tapTarget?.closest('.sp-img')) { /* click handler on sp-img opens lightbox */ }
+        else if (tapTarget?.closest('.sp-link')) {
+          const lnk=tapTarget.closest('.sp-link');
+          window.open(lnk.href,'_blank','noopener,noreferrer');
+        }
         else openMemo(el);
         return;
       }
 
-      // Check trash by pointer pos OR by last known pos (iOS pointercancel workaround)
+      // Commit translate to left/top so dropToCanvas reads correct values
+      const finalDx=cx-ox, finalDy=cy-oy;
+      div.style.left=Math.max(-20,liftedLeft+finalDx)+'px';
+      div.style.top=Math.max(-20,liftedTop+finalDy)+'px';
+      div.style.transform=`rotate(${el.rot||0}deg)`;
+      div.style.willChange='';
+
       if (isOverTrash(cx, cy) || isOverTrash(lastX, lastY)) {
         showDeleteConfirm(div, el);
         return;
       }
 
-      div.style.willChange='';
       document.getElementById('bot').classList.remove('drag-over');
       dropToCanvas(div, el);
     };
@@ -993,19 +998,18 @@ function startEdgeTimer(side, el, div, canvas) {
   const ind = document.getElementById('edge-'+side[0]);
   ind.classList.add('on');
 
-  // Progressive page peel: start flip card and animate toward 85° over 700ms
+  // Progressive page peel: animate toward 80° over 700ms then complete
   const fc = document.getElementById('fc');
   fc.style.display = 'block';
   fc.style.transition = 'none';
   fc.style.transformOrigin = side==='right' ? 'left center' : 'right center';
   fc.style.transform = 'rotateY(0deg)';
   requestAnimationFrame(() => {
-    fc.style.transition = 'transform 700ms ease-in';
-    fc.style.transform = `rotateY(${side==='right'?-85:85}deg)`;
+    fc.style.transition = 'transform 750ms cubic-bezier(0.25,0.1,0.25,1)';
+    fc.style.transform = `rotateY(${side==='right'?-80:80}deg)`;
   });
 
   edgeTimer = setTimeout(() => {
-    // Don't reverse — complete the flip
     edgeTimer=null; edgeSide=null;
     ['edge-l','edge-r'].forEach(id=>{
       const e2=document.getElementById(id);
@@ -1019,9 +1023,9 @@ function startEdgeTimer(side, el, div, canvas) {
     isAnim=true;
     soundFlip();
     fc.style.transition='none';
-    fc.style.transform=`rotateY(${side==='right'?-85:85}deg)`;
+    fc.style.transform=`rotateY(${side==='right'?-80:80}deg)`;
     requestAnimationFrame(()=>{
-      fc.style.transition='transform .28s ease-in';
+      fc.style.transition='transform .38s cubic-bezier(0.4,0,0.6,1)';
       fc.style.transform=`rotateY(${side==='right'?-180:180}deg)`;
     });
     setTimeout(()=>{
@@ -1033,7 +1037,7 @@ function startEdgeTimer(side, el, div, canvas) {
         document.getElementById('page-wrap').appendChild(edgeDragDiv);
         edgeDragDiv.style.zIndex='80';
       }
-    },280);
+    },380);
   }, 800);
 }
 
@@ -1050,9 +1054,9 @@ function clearEdge() {
   if (!isAnim) {
     const fc=document.getElementById('fc');
     if (fc && fc.style.display!=='none') {
-      fc.style.transition='transform .22s ease-out';
+      fc.style.transition='transform .28s cubic-bezier(0.25,0.1,0.25,1)';
       fc.style.transform='rotateY(0deg)';
-      setTimeout(()=>{ if(!isAnim){fc.style.display='none';fc.style.transition='';} },220);
+      setTimeout(()=>{ if(!isAnim){fc.style.display='none';fc.style.transition='';} },280);
     }
   }
 }
@@ -1483,11 +1487,11 @@ function soundPeta(){try{
   n.connect(f); f.connect(gn); gn.connect(ac.destination); n.start(t);
 }catch(e){}}
 function soundFlip(){try{
-  const ac=_getAC(),t=ac.currentTime,dur=.2;
+  const ac=_getAC(),t=ac.currentTime,dur=.32;
   const n=_noise(ac,dur); const f=ac.createBiquadFilter();
-  f.type='bandpass'; f.frequency.setValueAtTime(2200,t); f.frequency.exponentialRampToValueAtTime(500,t+dur); f.Q.value=.7;
+  f.type='lowpass'; f.frequency.setValueAtTime(1200,t); f.frequency.exponentialRampToValueAtTime(300,t+dur); f.Q.value=.4;
   const g=ac.createGain();
-  g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(.22,t+.02); g.gain.exponentialRampToValueAtTime(.001,t+dur);
+  g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(.09,t+.04); g.gain.exponentialRampToValueAtTime(.001,t+dur);
   n.connect(f); f.connect(g); g.connect(ac.destination); n.start(t);
 }catch(e){}}
 function soundTrash(){try{
