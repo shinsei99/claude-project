@@ -689,8 +689,7 @@ function drawScrap(el, canvas) {
   }
 
   if (el.type === 'webclip') {
-    div.style.clipPath = el.tornPath;
-    buildWebClipPreview(div, el);
+    buildWebClipPreview(div, el);  // tornPath applied inside to wc-card
   } else {
     buildMemoPreview(div, el);
   }
@@ -729,7 +728,7 @@ function buildMemoPreview(div, el) {
   imgs.forEach(b => {
     const im = document.createElement('img'); im.className='sp-img';
     im.src=b.src; im.draggable=false;
-    im.addEventListener('pointerdown', e=>e.stopPropagation());
+    // No pointerdown stopPropagation — drag must bubble to .scrap
     im.addEventListener('click', e=>{ e.stopPropagation(); openImgLightbox(b.src); });
     inner.appendChild(im);
   });
@@ -749,7 +748,9 @@ function openImgLightbox(src) {
 }
 
 function buildWebClipPreview(div, el) {
+  div.style.clipPath = '';  // clear any old clipPath from outer .scrap
   const wc = document.createElement('div'); wc.className='wc-card';
+  if (el.tornPath) wc.style.clipPath = el.tornPath;  // clip only inner card — deco-tape/pin won't be clipped
   const site = document.createElement('div'); site.className='wc-site';
   if (el.favicon) {
     const fav=document.createElement('img'); fav.className='wc-favicon';
@@ -806,6 +807,7 @@ function setupScrapDrag(div, el, canvas, rz) {
     if (_up)   { div.removeEventListener('pointerup', _up); div.removeEventListener('pointercancel', _up); }
 
     const ox=e.clientX, oy=e.clientY;
+    const tapTarget=e.target;  // capture for tap-action decision in _up
     let moved=false, lifted=false, liftedLeft=0, liftedTop=0;
     let lastX=ox, lastY=oy;
     // Cache rects once at lift time to avoid getBoundingClientRect() on every pointermove
@@ -856,6 +858,7 @@ function setupScrapDrag(div, el, canvas, rz) {
           const a=Object.assign(document.createElement('a'),{href:el.sourceUrl,target:'_blank',rel:'noopener noreferrer'});
           a.click();
         }
+        else if (tapTarget?.closest('.sp-img')) { /* let click handler on sp-img open lightbox */ }
         else openMemo(el);
         return;
       }
@@ -907,7 +910,7 @@ function dropToCanvas(div, el) {
   pages[curIdx].elements.push(el);
   div.style.zIndex=''; div.remove();
   drawScrap(el,canvas);
-  touchPage(); save();
+  soundPeta(); touchPage(); save();
   edgeDragEl=null; edgeDragDiv=null;
 }
 
@@ -940,7 +943,7 @@ function showDeleteConfirm(div, el) {
     document.getElementById('del-confirm').style.display='none';
     document.getElementById('bot').classList.remove('drag-over');
     if(_delDiv){ _delDiv.remove(); if(selEl===_delDiv) selEl=null; }
-    touchPage(); save(); toast('削除しました 🗑️');
+    soundTrash(); touchPage(); save(); toast('削除しました 🗑️');
     edgeDragEl=null; edgeDragDiv=null; _delDiv=null; _delEl=null;
   };
   document.getElementById('del-no').onclick=()=>{
@@ -996,6 +999,7 @@ function startEdgeTimer(side, el, div, canvas) {
 
     const targetIdx = side==='right' ? curIdx+1 : curIdx-1;
     isAnim=true;
+    soundFlip();
     fc.style.transition='none';
     fc.style.transform=`rotateY(${side==='right'?-85:85}deg)`;
     requestAnimationFrame(()=>{
@@ -1080,6 +1084,7 @@ function setupPageDrag(pageEl) {
 function completeFlip(dir) {
   if (isAnim) return;
   isAnim=true;
+  soundFlip();
   const fc=document.getElementById('fc');
   fc.style.transition='transform .32s ease';
   fc.style.transform=`rotateY(${dir==='next'?-180:180}deg)`;
@@ -1110,7 +1115,7 @@ function addMemo() {
   pages[curIdx].elements.push(el);
   const cv=document.getElementById('canvas');
   if (cv) { cv.querySelector('.empty-hint')?.remove(); drawScrap(el,cv); }
-  openMemo(el); touchPage();
+  soundPeta(); openMemo(el); touchPage();
 }
 
 function addPhotoToPage(ev) {
@@ -1123,7 +1128,7 @@ function addPhotoToPage(ev) {
     pages[curIdx].elements.push(el);
     const cv=document.getElementById('canvas');
     if (cv) { cv.querySelector('.empty-hint')?.remove(); drawScrap(el,cv); }
-    touchPage(); save(); toast('写真を追加しました 📷');
+    soundPeta(); touchPage(); save(); toast('写真を追加しました 📷');
   };
   reader.readAsDataURL(file); ev.target.value='';
 }
@@ -1305,6 +1310,7 @@ async function doFetchOGP() {
     if (data.image) { img.src=data.image; img.style.display='block'; } else img.style.display='none';
     document.getElementById('wc-preview').style.display='block';  // fix: was '' which kept CSS display:none
     document.getElementById('wc-scrap-btn').disabled=false;
+    if(data._ok) soundFetch();
     toast(data._ok ? '取得しました ✓' : '情報を一部取得しました');
   } catch(e) { toast('取得に失敗しました'); }
   document.getElementById('wc-loading').style.display='none';
@@ -1324,7 +1330,7 @@ function placeWebClip() {
   pages[curIdx].elements.push(el);
   const cv=document.getElementById('canvas');
   if (cv) { cv.querySelector('.empty-hint')?.remove(); drawScrap(el,cv); }
-  touchPage(); save(); closeWCSheet(); toast('Webクリップを追加しました 🌐');
+  soundPeta(); touchPage(); save(); closeWCSheet(); toast('Webクリップを追加しました 🌐');
 }
 
 // ══════════════════════════════════════════
@@ -1394,6 +1400,66 @@ function toast(msg) {
   const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
   clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),2200);
 }
+
+// ══════════════════════════════════════════
+//  SOUND EFFECTS  (Web Audio API)
+// ══════════════════════════════════════════
+let _ac=null;
+function _getAC(){
+  if(!_ac) _ac=new(window.AudioContext||window.webkitAudioContext)();
+  if(_ac.state==='suspended') _ac.resume();
+  return _ac;
+}
+function _noise(ac,dur){
+  const b=ac.createBuffer(1,Math.ceil(ac.sampleRate*dur),ac.sampleRate);
+  const d=b.getChannelData(0); for(let i=0;i<d.length;i++) d[i]=Math.random()*2-1;
+  const s=ac.createBufferSource(); s.buffer=b; return s;
+}
+function soundPeta(){try{
+  const ac=_getAC(),t=ac.currentTime;
+  // low thud
+  const o=ac.createOscillator(); o.type='sine';
+  const g=ac.createGain();
+  o.frequency.setValueAtTime(160,t); o.frequency.exponentialRampToValueAtTime(50,t+.07);
+  g.gain.setValueAtTime(.45,t); g.gain.exponentialRampToValueAtTime(.001,t+.09);
+  o.connect(g); g.connect(ac.destination); o.start(t); o.stop(t+.09);
+  // sticky click layer
+  const n=_noise(ac,.04); const gn=ac.createGain(); const f=ac.createBiquadFilter();
+  f.type='bandpass'; f.frequency.value=900; f.Q.value=1.2;
+  gn.gain.setValueAtTime(.18,t); gn.gain.exponentialRampToValueAtTime(.001,t+.04);
+  n.connect(f); f.connect(gn); gn.connect(ac.destination); n.start(t);
+}catch(e){}}
+function soundFlip(){try{
+  const ac=_getAC(),t=ac.currentTime,dur=.2;
+  const n=_noise(ac,dur); const f=ac.createBiquadFilter();
+  f.type='bandpass'; f.frequency.setValueAtTime(2200,t); f.frequency.exponentialRampToValueAtTime(500,t+dur); f.Q.value=.7;
+  const g=ac.createGain();
+  g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(.22,t+.02); g.gain.exponentialRampToValueAtTime(.001,t+dur);
+  n.connect(f); f.connect(g); g.connect(ac.destination); n.start(t);
+}catch(e){}}
+function soundTrash(){try{
+  const ac=_getAC(),t=ac.currentTime,dur=.18;
+  const n=_noise(ac,dur); const f=ac.createBiquadFilter();
+  f.type='lowpass'; f.frequency.value=600;
+  const g=ac.createGain();
+  g.gain.setValueAtTime(.3,t); g.gain.exponentialRampToValueAtTime(.001,t+dur);
+  n.connect(f); f.connect(g); g.connect(ac.destination); n.start(t);
+  // rumble
+  const o=ac.createOscillator(); o.type='sine'; const g2=ac.createGain();
+  o.frequency.setValueAtTime(80,t); o.frequency.exponentialRampToValueAtTime(30,t+.12);
+  g2.gain.setValueAtTime(.2,t); g2.gain.exponentialRampToValueAtTime(.001,t+.12);
+  o.connect(g2); g2.connect(ac.destination); o.start(t); o.stop(t+.12);
+}catch(e){}}
+function soundFetch(){try{
+  const ac=_getAC(),t=ac.currentTime;
+  [[880,.0],[1320,.1]].forEach(([freq,delay])=>{
+    const o=ac.createOscillator(); o.type='sine'; const g=ac.createGain();
+    o.frequency.value=freq;
+    g.gain.setValueAtTime(0,t+delay); g.gain.linearRampToValueAtTime(.12,t+delay+.01);
+    g.gain.exponentialRampToValueAtTime(.001,t+delay+.28);
+    o.connect(g); g.connect(ac.destination); o.start(t+delay); o.stop(t+delay+.3);
+  });
+}catch(e){}}
 
 // ══════════════════════════════════════════
 //  KEYBOARD (PC)
