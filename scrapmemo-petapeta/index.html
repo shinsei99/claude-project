@@ -61,6 +61,10 @@ body.t-graph{
 @media(hover:hover)and(pointer:fine){.tnav{display:flex;}}
 .tnav:hover{background:rgba(255,255,255,.2);}
 .tnav:disabled{opacity:.25;pointer-events:none;}
+.tnav-icon{background:rgba(255,255,255,.1);color:#f0ddb0;border:none;
+  width:36px;height:36px;border-radius:50%;font-size:14px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background .15s;}
+.tnav-icon:active{background:rgba(255,255,255,.28);}
 #page-info{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;}
 #page-info:active{opacity:.7;}
 #ptitle{font-size:15px;font-weight:bold;color:#f0ddb0;
@@ -163,7 +167,7 @@ body.t-graph .page::after{display:none;}
 .sp-check-text.done{text-decoration:line-through;color:#999;}
 .sp-text{font-size:11px;color:#333;line-height:1.4;white-space:pre-wrap;word-break:break-all;
   display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;
-  overflow:hidden;padding:8px 10px 2px;}
+  overflow:hidden;padding:6px 10px 1px;}
 .sp-img{width:100%;height:auto;display:block;cursor:pointer;
   border-top:1px solid rgba(0,0,0,.05);}
 .sp-badge{font-size:10px;color:rgba(100,75,40,.6);
@@ -172,6 +176,30 @@ body.t-graph .page::after{display:none;}
 #img-lightbox{position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:9999;
   display:none;align-items:center;justify-content:center;cursor:pointer;}
 #img-lightbox img{max-width:92vw;max-height:88vh;object-fit:contain;border-radius:4px;}
+
+/* todo card */
+.todo-inner{overflow:hidden;border-radius:2px;}
+.todo-header{display:flex;align-items:center;gap:6px;padding:6px 10px 5px;
+  border-bottom:1px solid rgba(0,0,0,.08);}
+.todo-header-icon{font-size:11px;color:#4a7bc0;}
+.todo-header-label{font-size:11px;font-weight:bold;color:#444;letter-spacing:.3px;}
+.todo-item{display:flex;align-items:baseline;gap:5px;padding:2px 10px;
+  font-size:11px;cursor:pointer;}
+.todo-cb{flex-shrink:0;font-size:12px;color:#555;}
+.todo-item-text{line-height:1.4;word-break:break-all;color:#333;}
+.todo-item-text.done{text-decoration:line-through;color:#aaa;}
+
+/* todo editor */
+.todo-edit-row{position:relative;display:flex;align-items:flex-start;gap:8px;
+  padding:8px 38px 8px 12px;background:rgba(255,255,255,.04);
+  border-radius:10px;margin-bottom:6px;}
+
+/* search results */
+.search-result{padding:11px 14px;border-bottom:1px solid rgba(255,255,255,.05);cursor:pointer;}
+.search-result:active{background:rgba(255,255,255,.07);}
+.sr-page{font-size:10px;color:rgba(200,170,100,.65);margin-bottom:3px;}
+.sr-text{font-size:13px;color:#f0e0c0;line-height:1.4;}
+.sr-empty{padding:20px 14px;text-align:center;font-size:13px;color:rgba(200,170,120,.45);}
 
 /* webclip card */
 .wc-card{background:transparent;border-radius:2px;overflow:hidden;}
@@ -262,10 +290,9 @@ body.t-graph .page::after{display:none;}
 .sheet-wrap.open{display:flex;}
 .sh-ov{position:absolute;inset:0;background:rgba(0,0,0,.52);
   backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);}
-.sh-box{position:relative;width:100%;max-height:88vh;background:#1a0a02;
+.sh-box{position:relative;width:100%;max-height:96vh;background:#1a0a02;
   border-radius:22px 22px 0 0;display:flex;flex-direction:column;
-  box-shadow:0 -8px 40px rgba(0,0,0,.55);animation:shUp .3s ease;
-  transition:max-height .2s ease;}
+  box-shadow:0 -8px 40px rgba(0,0,0,.55);animation:shUp .3s ease;}
 @keyframes shUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
 .sh-handle{width:42px;height:4px;background:rgba(255,255,255,.16);
   border-radius:2px;margin:14px auto 0;}
@@ -392,12 +419,14 @@ body.t-graph .page::after{display:none;}
 
   <!-- TOP BAR -->
   <div id="top-bar">
+    <button class="tnav-icon" onclick="openSettings()"><i class="fas fa-gear"></i></button>
     <button class="tnav" id="prev-btn" onclick="goPrev()"><i class="fas fa-chevron-left"></i></button>
     <div id="page-info" onclick="openTitleSheet()">
       <div id="ptitle">スクラップノート</div>
       <div id="pctr">p.1 / 4</div>
     </div>
     <button class="tnav" id="next-btn" onclick="goNext()"><i class="fas fa-chevron-right"></i></button>
+    <button class="tnav-icon" onclick="openSearch()"><i class="fas fa-search"></i></button>
   </div>
 
   <!-- BOOK SCENE -->
@@ -423,7 +452,7 @@ body.t-graph .page::after{display:none;}
     <input type="file" id="fi-page" accept="image/*" style="display:none" onchange="addPhotoToPage(event)">
     <button id="trash-zone"><i class="fas fa-trash-can"></i><span>ゴミ箱</span></button>
     <button class="tbt c4" onclick="openWCSheet()"><i class="fas fa-globe"></i><span>クリップ</span></button>
-    <button class="tbt c5" onclick="openSettings()"><i class="fas fa-gear"></i><span>設定</span></button>
+    <button class="tbt c5" onclick="addTodoToPage()"><i class="fas fa-check-square"></i><span>TODO</span></button>
   </div>
   <!-- delete confirmation bubble -->
   <div id="del-confirm">
@@ -528,6 +557,44 @@ body.t-graph .page::after{display:none;}
     <div class="sh-foot">
       <button class="sh-btn cancel" onclick="closeSort()">閉じる</button>
       <button class="sh-btn danger" onclick="doSort()"><i class="fas fa-sort-amount-up"></i> 鮮度順に並べ替え</button>
+    </div>
+  </div>
+</div>
+
+<!-- TODO EDITOR SHEET -->
+<div class="sheet-wrap" id="todo-sheet">
+  <div class="sh-ov" onclick="closeTodo()"></div>
+  <div class="sh-box">
+    <div class="sh-handle"></div>
+    <div class="sh-head"><h3><i class="fas fa-check-square"></i> TODOリスト</h3></div>
+    <div id="todo-editor" style="flex:1;overflow-y:auto;padding:10px 14px;-webkit-overflow-scrolling:touch;"></div>
+    <div class="ed-actions">
+      <button class="ed-btn" onclick="addTodoItem()"><i class="fas fa-plus"></i> 項目を追加</button>
+    </div>
+    <div class="sh-foot">
+      <button class="sh-btn cancel" onclick="closeTodo()">キャンセル</button>
+      <button class="sh-btn ok" onclick="saveTodo()">完了</button>
+    </div>
+  </div>
+</div>
+
+<!-- SEARCH SHEET -->
+<div class="sheet-wrap" id="search-sheet">
+  <div class="sh-ov" onclick="closeSearch()"></div>
+  <div class="sh-box">
+    <div class="sh-handle"></div>
+    <div class="sh-head"><h3><i class="fas fa-search"></i> メモ検索</h3></div>
+    <div style="padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.07);">
+      <input id="search-input" type="search" placeholder="キーワードを入力…" oninput="doSearch(this.value)"
+        style="width:100%;box-sizing:border-box;background:rgba(255,255,255,.08);
+        border:1px solid rgba(240,210,150,.2);border-radius:10px;padding:10px 12px;
+        color:#f0e0c0;font-size:15px;outline:none;font-family:'Georgia',serif;">
+    </div>
+    <div id="search-results" style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;">
+      <div class="sr-empty">キーワードを入力してください</div>
+    </div>
+    <div class="sh-foot">
+      <button class="sh-btn cancel" onclick="closeSearch()">閉じる</button>
     </div>
   </div>
 </div>
@@ -710,11 +777,9 @@ function drawScrap(el, canvas) {
     div.appendChild(dc);
   }
 
-  if (el.type === 'webclip') {
-    buildWebClipPreview(div, el);
-  } else {
-    buildMemoPreview(div, el);
-  }
+  if (el.type === 'webclip') buildWebClipPreview(div, el);
+  else if (el.type === 'todo') buildTodoPreview(div, el);
+  else buildMemoPreview(div, el);
 
   // Source URL link icon
   if (el.sourceUrl) addSrcLink(div, el.sourceUrl);
@@ -736,6 +801,92 @@ function drawScrap(el, canvas) {
 
   setupScrapDrag(div, el, canvas, rz);
   canvas.appendChild(div);
+}
+
+function buildTodoPreview(div, el) {
+  const inner=document.createElement('div'); inner.className='todo-inner';
+  const hd=document.createElement('div'); hd.className='todo-header';
+  hd.innerHTML='<i class="fas fa-check-square todo-header-icon"></i><span class="todo-header-label">TODO</span>';
+  inner.appendChild(hd);
+  (el.items||[]).forEach(it=>{
+    const row=document.createElement('div'); row.className='todo-item'; row.dataset.itemId=it.id;
+    const cb=document.createElement('span'); cb.className='todo-cb'; cb.textContent=it.checked?'☑':'☐';
+    const txt=document.createElement('span');
+    txt.className='todo-item-text'+(it.checked?' done':''); txt.textContent=it.text||'';
+    row.appendChild(cb); row.appendChild(txt); inner.appendChild(row);
+  });
+  div.appendChild(inner);
+}
+
+let editTodoEl=null;
+function openTodo(el) {
+  editTodoEl=el; renderTodoItems();
+  const sheet=document.getElementById('todo-sheet');
+  sheet.classList.add('open');
+  if (window.visualViewport) {
+    const box=sheet.querySelector('.sh-box');
+    if (box) box.style.maxHeight=Math.round(window.visualViewport.height*0.97)+'px';
+  }
+  setTimeout(()=>{
+    const ta=document.querySelector('#todo-editor .block-check-text');
+    if (ta) { ta.focus(); autoSize(ta); }
+  },360);
+}
+function closeTodo() {
+  const sheet=document.getElementById('todo-sheet');
+  sheet.classList.remove('open');
+  const box=sheet.querySelector('.sh-box'); if (box) box.style.maxHeight='';
+  editTodoEl=null;
+}
+function renderTodoItems() {
+  const ed=document.getElementById('todo-editor'); ed.innerHTML='';
+  (editTodoEl?.items||[]).forEach(it=>ed.appendChild(makeTodoItemDOM(it)));
+}
+function makeTodoItemDOM(it) {
+  const wrap=document.createElement('div'); wrap.className='todo-edit-row'; wrap.dataset.itemId=it.id;
+  const cb=document.createElement('input'); cb.type='checkbox'; cb.className='block-check';
+  cb.checked=it.checked||false;
+  cb.addEventListener('change',()=>{ it.checked=cb.checked; });
+  const ta=document.createElement('textarea'); ta.className='block-check-text';
+  ta.placeholder='タスク内容…'; ta.value=it.text||'';
+  ta.addEventListener('input',()=>{ autoSize(ta); it.text=ta.value; });
+  const del=document.createElement('button'); del.className='block-del';
+  del.innerHTML='<i class="fas fa-times"></i>';
+  del.addEventListener('click',()=>wrap.remove());
+  wrap.appendChild(cb); wrap.appendChild(ta); wrap.appendChild(del);
+  requestAnimationFrame(()=>autoSize(ta));
+  return wrap;
+}
+function addTodoItem() {
+  if (!editTodoEl) return;
+  const it={id:nid(),text:'',checked:false};
+  editTodoEl.items=editTodoEl.items||[]; editTodoEl.items.push(it);
+  const ed=document.getElementById('todo-editor');
+  const dom=makeTodoItemDOM(it); ed.appendChild(dom);
+  const ta=dom.querySelector('.block-check-text');
+  if (ta) setTimeout(()=>{ ta.focus(); autoSize(ta); },50);
+}
+function saveTodo() {
+  if (!editTodoEl) return;
+  const newItems=[];
+  document.querySelectorAll('#todo-editor .todo-edit-row').forEach(row=>{
+    const cb=row.querySelector('.block-check'); const ta=row.querySelector('.block-check-text');
+    newItems.push({id:row.dataset.itemId, text:ta?.value||'', checked:cb?.checked||false});
+  });
+  editTodoEl.items=newItems;
+  const dom=document.querySelector(`.scrap[data-id="${editTodoEl.id}"]`);
+  if (dom) rebuildPreview(dom,editTodoEl);
+  touchPage(); save(); closeTodo(); toast('保存しました ✓');
+}
+function addTodoToPage() {
+  const el={id:nid(),type:'todo',
+    x:Math.floor(Math.random()*100+16),y:Math.floor(Math.random()*80+16),
+    w:200,rot:0,deco:randDeco(),
+    items:[{id:nid(),text:'',checked:false}]};
+  pages[curIdx].elements.push(el);
+  const cv=document.getElementById('canvas');
+  if (cv) { cv.querySelector('.empty-hint')?.remove(); drawScrap(el,cv); }
+  soundPeta(); openTodo(el); touchPage();
 }
 
 function linkifyText(raw) {
@@ -826,6 +977,7 @@ function rebuildPreview(div, el) {
         !c.classList.contains('src-link')) c.remove();
   });
   if (el.type==='webclip') buildWebClipPreview(div, el);
+  else if (el.type==='todo') buildTodoPreview(div, el);
   else buildMemoPreview(div, el);
   // re-add srclink if needed
   const existing = div.querySelector('.src-link');
@@ -934,6 +1086,13 @@ function setupScrapDrag(div, el, canvas, rz) {
       if (!moved) {
         document.getElementById('bot').classList.remove('drag-over');
         if (lifted) { dropToCanvas(div, el); }
+        else if (el.type==='todo') {
+          const row=tapTarget?.closest('.todo-item');
+          if (row) {
+            const item=el.items?.find(i=>i.id===row.dataset.itemId);
+            if (item) { item.checked=!item.checked; rebuildPreview(div,el); touchPage(); save(); }
+          } else { openTodo(el); }
+        }
         else if (el.type==='webclip' && el.sourceUrl) {
           const a=Object.assign(document.createElement('a'),{href:el.sourceUrl,target:'_blank',rel:'noopener noreferrer'});
           a.click();
@@ -1288,10 +1447,7 @@ function openMemo(el) {
   },360);
 }
 function closeMemo() {
-  const sheet=document.getElementById('memo-sheet');
-  sheet.classList.remove('open');
-  const box=sheet.querySelector('.sh-box');
-  if (box) box.style.maxHeight='';
+  document.getElementById('memo-sheet').classList.remove('open');
   editEl=null;
 }
 
@@ -1514,6 +1670,47 @@ function doSort() { pages.sort((a,b)=>new Date(b.lastAccessed)-new Date(a.lastAc
 // ══════════════════════════════════════════
 //  SETTINGS SHEET
 // ══════════════════════════════════════════
+// ══════════════════════════════════════════
+//  SEARCH
+// ══════════════════════════════════════════
+function openSearch() {
+  document.getElementById('search-input').value='';
+  document.getElementById('search-results').innerHTML='<div class="sr-empty">キーワードを入力してください</div>';
+  document.getElementById('search-sheet').classList.add('open');
+  setTimeout(()=>document.getElementById('search-input').focus(),300);
+}
+function closeSearch() { document.getElementById('search-sheet').classList.remove('open'); }
+function doSearch(q) {
+  const ql=q.trim().toLowerCase();
+  const res=document.getElementById('search-results');
+  if (!ql) { res.innerHTML='<div class="sr-empty">キーワードを入力してください</div>'; return; }
+  const hits=[];
+  pages.forEach((pg,pi)=>{
+    pg.elements.forEach(el=>{
+      let preview='';
+      if (el.type==='memo'||el.type==='webclip') {
+        const t=el.type==='webclip'
+          ?[el.title,el.description,el.siteName].filter(Boolean).join(' ')
+          :(el.blocks||[]).map(b=>b.content||b.text||'').join(' ');
+        if (t.toLowerCase().includes(ql)) preview=t;
+      } else if (el.type==='todo') {
+        const t=(el.items||[]).map(i=>i.text).join(' ');
+        if (t.toLowerCase().includes(ql)) preview=t;
+      }
+      if (preview) hits.push({pi,pg,preview});
+    });
+  });
+  if (!hits.length) { res.innerHTML=`<div class="sr-empty">「${q}」は見つかりませんでした</div>`; return; }
+  res.innerHTML='';
+  hits.forEach(h=>{
+    const d=document.createElement('div'); d.className='search-result';
+    const safe=h.preview.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    d.innerHTML=`<div class="sr-page">p.${h.pi+1}「${h.pg.title||'無題'}」</div><div class="sr-text">${safe.substring(0,80)}${safe.length>80?'…':''}</div>`;
+    d.addEventListener('click',()=>{ jumpTo(h.pi); closeSearch(); });
+    res.appendChild(d);
+  });
+}
+
 function openSettings() {
   // Mark active theme
   document.querySelectorAll('.theme-btn').forEach(btn=>{
@@ -1635,7 +1832,7 @@ document.addEventListener('keydown',e=>{
       selEl.remove(); selEl=null; touchPage(); save();
     }
   }
-  if (e.key==='Escape') { closeTitle(); closeSort(); closeMemo(); closeWCSheet(); closeSettings(); }
+  if (e.key==='Escape') { closeTitle(); closeSort(); closeMemo(); closeWCSheet(); closeTodo(); closeSearch(); closeSettings(); }
 });
 document.getElementById('title-in').addEventListener('keydown',e=>{ if(e.key==='Enter') confirmTitle(); });
 document.getElementById('wc-url-input').addEventListener('keydown',e=>{ if(e.key==='Enter') doFetchOGP(); });
@@ -1646,17 +1843,6 @@ document.getElementById('page-wrap').addEventListener('pointerdown',e=>{
 });
 
 setInterval(save,60000);
-
-// Expand editor sheet when software keyboard appears
-if (window.visualViewport) {
-  window.visualViewport.addEventListener('resize', () => {
-    const sheet=document.getElementById('memo-sheet');
-    if (!sheet.classList.contains('open')) return;
-    const vh=window.visualViewport.height;
-    const box=sheet.querySelector('.sh-box');
-    if (box) box.style.maxHeight=Math.round(vh*0.97)+'px';
-  });
-}
 
 // ══════════════════════════════════════════
 //  BOOT
