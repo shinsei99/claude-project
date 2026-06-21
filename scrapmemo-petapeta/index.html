@@ -807,7 +807,9 @@ function setupScrapDrag(div, el, canvas, rz) {
 
     const ox=e.clientX, oy=e.clientY;
     let moved=false, lifted=false, liftedLeft=0, liftedTop=0;
-    let lastX=ox, lastY=oy;  // track last known position for pointercancel
+    let lastX=ox, lastY=oy;
+    // Cache rects once at lift time to avoid getBoundingClientRect() on every pointermove
+    let _wrRect=null, _botRect=null;
     div.setPointerCapture(e.pointerId);
 
     _move = ev => {
@@ -818,6 +820,10 @@ function setupScrapDrag(div, el, canvas, rz) {
         liftToDragLevel(div, el, canvas);
         liftedLeft=parseInt(div.style.left)||0;
         liftedTop=parseInt(div.style.top)||0;
+        // Cache rects here — only once per drag, not every frame
+        _wrRect=document.getElementById('page-wrap').getBoundingClientRect();
+        _botRect=document.getElementById('bot').getBoundingClientRect();
+        div.style.willChange='left,top';
         lifted=true;
         document.getElementById('trash-zone').classList.add('drag-active');
         document.getElementById('bot').classList.remove('drag-over');
@@ -827,8 +833,8 @@ function setupScrapDrag(div, el, canvas, rz) {
       const ny=liftedTop+(ev.clientY-oy);
       div.style.left=Math.max(-20,nx)+'px';
       div.style.top=Math.max(-20,ny)+'px';
-      checkTrash(ev.clientX, ev.clientY);
-      checkEdge(ev.clientX, el, div, canvas);
+      checkTrash(ev.clientX, ev.clientY, _botRect);
+      checkEdge(ev.clientX, el, div, canvas, _wrRect);
     };
 
     _up = ev => {
@@ -860,6 +866,7 @@ function setupScrapDrag(div, el, canvas, rz) {
         return;
       }
 
+      div.style.willChange='';
       document.getElementById('bot').classList.remove('drag-over');
       dropToCanvas(div, el);
     };
@@ -912,17 +919,15 @@ function selectScrap(div) {
 // ══════════════════════════════════════════
 //  TRASH DETECTION
 // ══════════════════════════════════════════
-function isOverTrash(cx,cy) {
-  const bot=document.getElementById('bot');
-  if (!bot) return false;
-  const br=bot.getBoundingClientRect();
-  // Trigger when pointer enters bottom bar area (+80px margin above for iOS pointer-cancel)
+function isOverTrash(cx,cy,botRect) {
+  const br=botRect||document.getElementById('bot')?.getBoundingClientRect();
+  if (!br) return false;
   return cy >= br.top - 80;
 }
-function checkTrash(cx,cy) {
+function checkTrash(cx,cy,botRect) {
   const bot=document.getElementById('bot');
   const tz=document.getElementById('trash-zone');
-  const near=isOverTrash(cx,cy);
+  const near=isOverTrash(cx,cy,botRect);
   bot.classList.toggle('drag-over', near);
   tz.classList.toggle('drop-ready', near);
   tz.classList.toggle('drag-active', !near);
@@ -949,8 +954,8 @@ function showDeleteConfirm(div, el) {
 // ══════════════════════════════════════════
 //  EDGE DETECTION (drag to page switch)
 // ══════════════════════════════════════════
-function checkEdge(cx, el, div, canvas) {
-  const wr=document.getElementById('page-wrap').getBoundingClientRect();
+function checkEdge(cx, el, div, canvas, wrRect) {
+  const wr=wrRect||document.getElementById('page-wrap').getBoundingClientRect();
   const ZONE=55;
   const inLeft  = cx < wr.left + ZONE && curIdx > 0;
   const inRight = cx > wr.right - ZONE && curIdx < pages.length-1;
@@ -966,29 +971,47 @@ function checkEdge(cx, el, div, canvas) {
 function startEdgeTimer(side, el, div, canvas) {
   const ind = document.getElementById('edge-'+side[0]);
   ind.classList.add('on');
-  requestAnimationFrame(() => ind.classList.add('timing'));
+
+  // Progressive page peel: start flip card and animate toward 85° over 700ms
+  const fc = document.getElementById('fc');
+  fc.style.display = 'block';
+  fc.style.transition = 'none';
+  fc.style.transformOrigin = side==='right' ? 'left center' : 'right center';
+  fc.style.transform = 'rotateY(0deg)';
+  requestAnimationFrame(() => {
+    fc.style.transition = 'transform 700ms ease-in';
+    fc.style.transform = `rotateY(${side==='right'?-85:85}deg)`;
+  });
+
   edgeTimer = setTimeout(() => {
-    clearEdge();
-    // Switch page with element
+    // Don't reverse — complete the flip
+    edgeTimer=null; edgeSide=null;
+    ['edge-l','edge-r'].forEach(id=>{
+      const e2=document.getElementById(id);
+      e2.classList.remove('on','timing');
+      const bar=e2.querySelector('.edge-timer-bar');
+      if(bar){bar.style.transition='none';bar.style.height='0%';}
+      setTimeout(()=>{if(bar)bar.style.transition='';},50);
+    });
+
     const targetIdx = side==='right' ? curIdx+1 : curIdx-1;
     isAnim=true;
-    const fc=document.getElementById('fc');
-    fc.style.display='block'; fc.style.transition='none';
-    fc.style.transformOrigin=side==='right'?'left center':'right center';
-    fc.style.transform='rotateY(0deg)';
-    requestAnimationFrame(()=>{ fc.style.transition='transform .32s ease'; fc.style.transform=`rotateY(${side==='right'?-180:180}deg)`; });
+    fc.style.transition='none';
+    fc.style.transform=`rotateY(${side==='right'?-85:85}deg)`;
+    requestAnimationFrame(()=>{
+      fc.style.transition='transform .28s ease-in';
+      fc.style.transform=`rotateY(${side==='right'?-180:180}deg)`;
+    });
     setTimeout(()=>{
       curIdx=targetIdx;
-      // Render new page first, then re-add the lifted element
       renderPage();
       fc.style.transition='none'; fc.style.transform='rotateY(0deg)'; fc.style.display='none';
       isAnim=false;
-      // Re-attach div to new page-wrap
       if (edgeDragDiv) {
         document.getElementById('page-wrap').appendChild(edgeDragDiv);
         edgeDragDiv.style.zIndex='80';
       }
-    },320);
+    },280);
   }, 800);
 }
 
@@ -997,11 +1020,19 @@ function clearEdge() {
   ['edge-l','edge-r'].forEach(id=>{
     const el=document.getElementById(id);
     el.classList.remove('on','timing');
-    // Reset timer bar without transition
     const bar=el.querySelector('.edge-timer-bar');
     if (bar) { bar.style.transition='none'; bar.style.height='0%'; }
     setTimeout(()=>{ if(bar) bar.style.transition=''; },50);
   });
+  // Reverse peel when user leaves edge zone
+  if (!isAnim) {
+    const fc=document.getElementById('fc');
+    if (fc && fc.style.display!=='none') {
+      fc.style.transition='transform .22s ease-out';
+      fc.style.transform='rotateY(0deg)';
+      setTimeout(()=>{ if(!isAnim){fc.style.display='none';fc.style.transition='';} },220);
+    }
+  }
 }
 
 // ══════════════════════════════════════════
