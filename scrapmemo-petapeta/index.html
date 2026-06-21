@@ -1,0 +1,1289 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>スクラップノート</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<style>
+/* ══════════════════════════════════════════
+   RESET & VARS
+══════════════════════════════════════════ */
+:root{
+  --gold:#f0c040;--blue:#4a7bc0;--green:#5ba85b;
+  --red:#c05050;--purple:#9060c0;
+  --safe-t:env(safe-area-inset-top,0px);
+  --safe-b:env(safe-area-inset-bottom,0px);
+  --page-bg:#fdf8ee;
+  --page-line:rgba(165,138,95,.22);
+  --body-bg:#c4894a;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;overflow:hidden;font-family:'Georgia',serif;}
+
+/* ══════════════════════════════════════════
+   THEMES
+══════════════════════════════════════════ */
+body.t-cork{
+  background:
+    radial-gradient(circle at 18% 28%,rgba(190,120,35,.3) 0%,transparent 44%),
+    radial-gradient(circle at 82% 72%,rgba(80,38,5,.22) 0%,transparent 44%),
+    repeating-radial-gradient(circle,transparent 0,transparent 3px,rgba(0,0,0,.025) 3px,rgba(0,0,0,.025) 4px),
+    #c4894a;
+  --page-bg:#fdf8ee;--page-line:rgba(165,138,95,.22);
+}
+body.t-craft{
+  background:
+    radial-gradient(circle at 25% 35%,rgba(120,60,10,.4) 0%,transparent 50%),
+    #5a3010;
+  --page-bg:#f5e8c8;--page-line:rgba(120,90,40,.3);
+}
+body.t-graph{
+  background:#d8dde8;
+  --page-bg:#ffffff;--page-line:rgba(150,180,240,.22);
+}
+
+/* ══════════════════════════════════════════
+   APP SHELL
+══════════════════════════════════════════ */
+#app{display:flex;flex-direction:column;height:100%;
+  padding-top:var(--safe-t);padding-bottom:var(--safe-b);}
+
+/* ── TOP BAR ── */
+#top-bar{display:flex;align-items:center;gap:8px;padding:10px 14px;flex-shrink:0;
+  background:rgba(16,6,0,.92);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  box-shadow:0 2px 16px rgba(0,0,0,.4);}
+.tnav{background:rgba(255,255,255,.1);color:#f0ddb0;border:none;
+  width:36px;height:36px;border-radius:50%;font-size:14px;cursor:pointer;
+  align-items:center;justify-content:center;flex-shrink:0;transition:background .15s;display:none;}
+@media(hover:hover)and(pointer:fine){.tnav{display:flex;}}
+.tnav:hover{background:rgba(255,255,255,.2);}
+.tnav:disabled{opacity:.25;pointer-events:none;}
+#page-info{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;}
+#page-info:active{opacity:.7;}
+#ptitle{font-size:15px;font-weight:bold;color:#f0ddb0;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}
+#pctr{font-size:10px;color:rgba(240,200,130,.45);letter-spacing:2px;}
+
+/* ── BOOK SCENE ── */
+#scene{flex:1;display:flex;align-items:center;justify-content:center;
+  overflow:hidden;padding:10px 0 10px 12px;}
+#book{position:relative;flex:1;max-width:430px;height:100%;
+  margin-right:24px;perspective:1100px;perspective-origin:55% 50%;}
+
+/* page stack */
+.sbg{position:absolute;border-radius:6px;
+  background-image:repeating-linear-gradient(to bottom,transparent,transparent 28px,rgba(0,0,0,.04) 28px,rgba(0,0,0,.04) 29px);}
+#s4{inset:8px -22px -8px 0;background:#d6cbb4;z-index:-4;}
+#s3{inset:6px -16px -6px 0;background:#ddd1ba;z-index:-3;}
+#s2{inset:4px -11px -4px 0;background:#e5d9c3;z-index:-2;}
+#s1{inset:2px  -6px -2px 0;background:#ede2cc;z-index:-1;}
+
+/* ── PAGE WRAP ── */
+#page-wrap{position:relative;width:100%;height:100%;transform-style:preserve-3d;z-index:1;}
+
+/* ── PAGE ── */
+.page{position:absolute;inset:0;border-radius:6px;overflow:hidden;
+  background-color:var(--page-bg);
+  background-image:repeating-linear-gradient(to bottom,transparent,transparent 28px,var(--page-line) 28px,var(--page-line) 29px);
+  box-shadow:4px 4px 20px rgba(0,0,0,.3),-1px 0 6px rgba(0,0,0,.1);
+  touch-action:none;}
+/* margin line (hidden for t-graph) */
+.page::before{content:'';position:absolute;top:0;bottom:0;left:40px;
+  width:1px;background:rgba(200,70,70,.16);pointer-events:none;z-index:1;}
+body.t-graph .page::before{display:none;}
+/* graph grid overlay */
+body.t-graph .page{
+  background-image:
+    repeating-linear-gradient(to right,var(--page-line) 0,var(--page-line) 1px,transparent 1px,transparent 28px),
+    repeating-linear-gradient(to bottom,var(--page-line) 0,var(--page-line) 1px,transparent 1px,transparent 28px);}
+.page::after{content:'';position:absolute;top:0;left:0;bottom:0;
+  width:26px;background:linear-gradient(to right,rgba(0,0,0,.06),transparent);
+  pointer-events:none;z-index:1;}
+body.t-graph .page::after{display:none;}
+.pwm{position:absolute;bottom:8px;right:12px;
+  font-size:10px;color:rgba(130,100,60,.3);pointer-events:none;font-style:italic;}
+.pcanvas{position:absolute;inset:0;overflow:hidden;}
+.empty-hint{position:absolute;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:12px;
+  color:rgba(150,120,80,.38);pointer-events:none;}
+.empty-hint i{font-size:40px;}
+.empty-hint p{font-size:13px;}
+
+/* ── FLIP CARD ── */
+#fc{position:absolute;inset:0;border-radius:6px;
+  transform-style:preserve-3d;z-index:30;pointer-events:none;display:none;}
+.fcf,.fcb{position:absolute;inset:0;border-radius:6px;
+  backface-visibility:hidden;-webkit-backface-visibility:hidden;}
+.fcf{background-color:var(--page-bg);
+  background-image:repeating-linear-gradient(to bottom,transparent,transparent 28px,var(--page-line) 28px,var(--page-line) 29px);}
+.fcf::after{content:'';position:absolute;inset:0;border-radius:6px;
+  background:linear-gradient(to left,rgba(0,0,0,.14) 0%,transparent 45%);pointer-events:none;}
+.fcb{transform:rotateY(180deg);
+  background:linear-gradient(to right,#ddd0b8 0%,#f0ead8 25%,#f8f2e4 100%);}
+
+/* ── EDGE INDICATORS ── */
+.edge-ind{position:absolute;top:50%;transform:translateY(-50%);
+  width:36px;height:80px;background:rgba(240,192,64,.22);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  color:rgba(240,192,64,.8);font-size:16px;
+  opacity:0;transition:opacity .2s;pointer-events:none;z-index:40;
+  border-radius:0 18px 18px 0;overflow:hidden;}
+#edge-r{right:0;border-radius:18px 0 0 18px;}
+.edge-ind.on{opacity:1;}
+.edge-timer-bar{position:absolute;bottom:0;left:0;width:100%;
+  height:0%;background:rgba(240,192,64,.6);transition:none;}
+.edge-ind.timing .edge-timer-bar{height:100%;transition:height .8s linear;}
+
+/* ══════════════════════════════════════════
+   SCRAP ELEMENTS
+══════════════════════════════════════════ */
+.scrap{position:absolute;cursor:pointer;touch-action:none;
+  user-select:none;-webkit-user-select:none;
+  background:#fffdf0;border-radius:2px;
+  box-shadow:2px 3px 12px rgba(0,0,0,.18),0 1px 3px rgba(0,0,0,.1);overflow:visible;}
+.scrap.sel{z-index:60;outline:2px dashed var(--blue);outline-offset:2px;}
+
+/* decorations */
+.deco-tape{position:absolute;top:-9px;left:50%;transform:translateX(-50%);
+  width:52px;height:18px;border-radius:2px;opacity:.75;pointer-events:none;z-index:10;}
+.deco-pin{position:absolute;top:-11px;left:50%;transform:translateX(-50%);
+  width:18px;height:18px;border-radius:50%;border:2px solid rgba(0,0,0,.2);
+  box-shadow:1px 2px 6px rgba(0,0,0,.35);pointer-events:none;z-index:10;}
+
+/* memo card inner */
+.scrap-inner{overflow:hidden;border-radius:2px;}
+.sp-text{font-size:12px;color:#333;line-height:1.55;white-space:pre-wrap;word-break:break-all;
+  display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;
+  overflow:hidden;padding:10px 10px 2px;}
+.sp-img{width:100%;max-height:90px;object-fit:cover;display:block;
+  border-top:1px solid rgba(0,0,0,.05);}
+.sp-badge{font-size:10px;color:rgba(100,75,40,.6);
+  padding:3px 28px 6px 10px;display:flex;align-items:center;gap:4px;}
+.sp-badge i{font-size:9px;}
+
+/* webclip card */
+.wc-card{background:#fff;border-radius:2px;overflow:hidden;}
+.wc-site{display:flex;align-items:center;gap:6px;padding:7px 10px 4px;
+  border-bottom:1px solid rgba(0,0,0,.06);}
+.wc-favicon{width:14px;height:14px;border-radius:2px;flex-shrink:0;}
+.wc-sitename{font-size:10px;color:#888;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.wc-title{font-size:12px;font-weight:bold;color:#222;line-height:1.4;padding:5px 10px 3px;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:break-all;}
+.wc-desc{font-size:11px;color:#555;line-height:1.45;padding:0 10px 5px;
+  display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;word-break:break-all;}
+.wc-img{width:100%;max-height:100px;object-fit:cover;display:block;}
+
+/* source link */
+.src-link{position:absolute;bottom:5px;right:6px;
+  width:20px;height:20px;border-radius:50%;
+  background:rgba(74,123,192,.15);color:var(--blue);
+  display:flex;align-items:center;justify-content:center;font-size:9px;
+  cursor:pointer;z-index:20;border:none;}
+.src-link:active{background:rgba(74,123,192,.35);}
+
+/* handles */
+.el-del{position:absolute;top:-10px;right:-10px;width:22px;height:22px;
+  background:var(--red);color:#fff;border:none;border-radius:50%;font-size:9px;
+  display:none;align-items:center;justify-content:center;cursor:pointer;z-index:70;
+  box-shadow:0 2px 6px rgba(0,0,0,.3);}
+.el-rz{position:absolute;bottom:-7px;right:-7px;width:16px;height:16px;
+  background:var(--blue);border-radius:50%;display:none;cursor:se-resize;z-index:70;
+  box-shadow:0 2px 6px rgba(0,0,0,.3);}
+.scrap.sel .el-del,.scrap.sel .el-rz{display:flex;}
+
+/* ══════════════════════════════════════════
+   BOTTOM TOOLBAR
+══════════════════════════════════════════ */
+#bot{display:flex;align-items:center;justify-content:space-around;
+  padding:8px 4px;flex-shrink:0;
+  background:rgba(10,4,0,.93);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  box-shadow:0 -2px 14px rgba(0,0,0,.3);}
+.tbt{display:flex;flex-direction:column;align-items:center;gap:3px;
+  padding:6px 6px;background:none;border:none;color:rgba(240,210,150,.55);
+  cursor:pointer;font-size:9px;font-family:'Georgia',serif;border-radius:10px;flex:1;
+  transition:color .12s,background .12s;}
+.tbt i{font-size:19px;}
+.tbt:active{background:rgba(255,255,255,.1);color:#fff;}
+.c1 i{color:#f0c040;}.c2 i{color:#7cd47c;}.c3 i{color:#7aaee0;}
+.c4 i{color:#c090f0;}.c5 i{color:#e08080;}
+
+#trash-zone{display:flex;flex-direction:column;align-items:center;gap:3px;
+  padding:6px 6px;border:none;background:none;
+  color:rgba(240,210,150,.4);cursor:pointer;font-size:9px;
+  font-family:'Georgia',serif;border-radius:12px;flex:1;
+  transition:all .2s;}
+#trash-zone i{font-size:19px;}
+#trash-zone.drag-active{color:#ff8080;background:rgba(200,60,60,.15);transform:scale(1.08);}
+#trash-zone.drop-ready{color:#fff;background:rgba(200,60,60,.4);transform:scale(1.18);}
+
+/* ══════════════════════════════════════════
+   SHEETS (shared)
+══════════════════════════════════════════ */
+.sheet-wrap{position:fixed;inset:0;z-index:200;display:none;
+  align-items:flex-end;padding-bottom:var(--safe-b);}
+.sheet-wrap.open{display:flex;}
+.sh-ov{position:absolute;inset:0;background:rgba(0,0,0,.52);
+  backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);}
+.sh-box{position:relative;width:100%;max-height:88vh;background:#1a0a02;
+  border-radius:22px 22px 0 0;display:flex;flex-direction:column;
+  box-shadow:0 -8px 40px rgba(0,0,0,.55);animation:shUp .3s ease;}
+@keyframes shUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.sh-handle{width:42px;height:4px;background:rgba(255,255,255,.16);
+  border-radius:2px;margin:14px auto 0;}
+.sh-head{display:flex;align-items:center;justify-content:space-between;
+  padding:12px 16px 10px;border-bottom:1px solid rgba(255,255,255,.07);}
+.sh-head h3{font-size:14px;color:var(--gold);letter-spacing:.5px;}
+.sh-foot{display:flex;gap:10px;padding:10px 14px;
+  border-top:1px solid rgba(255,255,255,.07);flex-shrink:0;}
+.sh-btn{flex:1;padding:12px;border:none;border-radius:12px;
+  font-size:14px;font-family:'Georgia',serif;cursor:pointer;}
+.sh-btn.cancel{background:rgba(255,255,255,.08);color:#a08060;}
+.sh-btn.ok{background:var(--blue);color:#fff;}
+.sh-btn.danger{background:var(--red);color:#fff;}
+
+/* ── MEMO EDITOR ── */
+#memo-editor{flex:1;overflow-y:auto;padding:10px 14px 6px;-webkit-overflow-scrolling:touch;}
+.block-wrap{position:relative;margin-bottom:8px;background:rgba(255,255,255,.04);border-radius:10px;overflow:hidden;}
+.block-textarea{width:100%;min-height:72px;background:transparent;border:none;outline:none;
+  color:#f0e0c0;font-size:15px;font-family:'Georgia',serif;
+  line-height:1.65;padding:10px 36px 10px 12px;resize:none;}
+.block-textarea::placeholder{color:rgba(200,170,120,.38);}
+.block-img-wrap{position:relative;line-height:0;}
+.block-img-wrap img{width:100%;max-height:220px;object-fit:cover;display:block;}
+.block-cap{font-size:11px;color:rgba(200,170,120,.55);padding:5px 36px 6px 10px;background:rgba(255,255,255,.04);}
+.block-del{position:absolute;top:6px;right:6px;width:24px;height:24px;
+  background:rgba(192,80,80,.8);color:#fff;border:none;border-radius:50%;
+  font-size:9px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:5;}
+.ed-actions{display:flex;gap:8px;padding:8px 14px;
+  border-top:1px solid rgba(255,255,255,.07);flex-shrink:0;}
+.ed-btn{flex:1;padding:10px 6px;border:none;border-radius:10px;font-size:12px;
+  font-family:'Georgia',serif;cursor:pointer;display:flex;align-items:center;
+  justify-content:center;gap:6px;background:rgba(255,255,255,.07);color:#d0b888;}
+.ed-btn:active{background:rgba(255,255,255,.16);}
+.ed-btn i{font-size:13px;}
+.url-field{display:flex;align-items:center;gap:8px;
+  padding:10px 14px;border-top:1px solid rgba(255,255,255,.07);}
+.url-field i{color:rgba(200,170,120,.5);font-size:13px;flex-shrink:0;}
+.url-field input{flex:1;background:rgba(255,255,255,.06);border:none;
+  border-radius:8px;padding:8px 10px;color:#f0e0c0;font-size:13px;outline:none;}
+.url-field input::placeholder{color:rgba(200,170,120,.35);}
+#memo-charcount{text-align:right;font-size:11px;color:rgba(160,130,90,.6);padding:0 16px 4px;}
+
+/* ── WEBCLIP SHEET ── */
+#wc-url-input{width:100%;padding:12px 14px;background:rgba(255,255,255,.06);
+  border:1px solid rgba(240,210,150,.2);border-radius:12px;
+  color:#f0e0c0;font-size:15px;outline:none;font-family:'Georgia',serif;}
+#wc-url-input::placeholder{color:rgba(200,170,120,.35);}
+#wc-fetch-btn{padding:11px 20px;background:var(--blue);color:#fff;border:none;
+  border-radius:12px;font-size:14px;cursor:pointer;white-space:nowrap;font-family:'Georgia',serif;}
+#wc-fetch-btn:active{opacity:.8;}
+#wc-preview{margin:12px 0;background:rgba(255,255,255,.05);border-radius:10px;
+  overflow:hidden;display:none;}
+.wc-prev-site{display:flex;align-items:center;gap:8px;padding:10px 12px 6px;}
+.wc-prev-site img{width:16px;height:16px;border-radius:2px;}
+.wc-prev-sitename{font-size:11px;color:rgba(200,170,120,.7);}
+.wc-prev-title{font-size:14px;font-weight:bold;color:#f0e0c0;padding:0 12px 4px;
+  line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.wc-prev-desc{font-size:12px;color:rgba(200,170,120,.7);padding:0 12px 8px;
+  line-height:1.45;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;}
+.wc-prev-img{width:100%;max-height:120px;object-fit:cover;display:block;}
+#wc-loading{text-align:center;padding:20px;color:rgba(200,170,120,.6);display:none;}
+#wc-loading i{font-size:24px;animation:spin 1s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── TITLE SHEET ── */
+#title-in{width:100%;padding:12px 14px;background:rgba(255,255,255,.06);
+  border:1px solid rgba(240,210,150,.2);border-radius:12px;
+  color:#f0e0c0;font-size:16px;font-family:'Georgia',serif;outline:none;}
+
+/* ── SETTINGS SHEET ── */
+.settings-section{padding:12px 16px 6px;}
+.settings-section h4{font-size:11px;color:rgba(200,170,120,.55);letter-spacing:1px;
+  text-transform:uppercase;margin-bottom:8px;}
+.theme-btns{display:flex;gap:8px;}
+.theme-btn{flex:1;padding:10px 4px;border:2px solid rgba(255,255,255,.1);border-radius:10px;
+  background:rgba(255,255,255,.05);color:#d0b888;cursor:pointer;font-size:12px;
+  font-family:'Georgia',serif;text-align:center;transition:all .15s;}
+.theme-btn:active,.theme-btn.active{border-color:var(--gold);color:var(--gold);background:rgba(240,192,64,.1);}
+.settings-row{display:flex;align-items:center;justify-content:space-between;
+  padding:10px 12px;background:rgba(255,255,255,.05);border-radius:10px;
+  margin-bottom:6px;cursor:pointer;color:#d0b888;font-size:13px;}
+.settings-row:active{background:rgba(255,255,255,.12);}
+.settings-row i{color:rgba(200,170,120,.5);font-size:14px;}
+.settings-list{padding:0 16px 8px;display:flex;flex-direction:column;gap:6px;}
+
+/* ── SORT LIST ── */
+#sort-list{overflow-y:auto;padding:8px 14px;flex:1;-webkit-overflow-scrolling:touch;}
+.si{display:flex;align-items:center;gap:12px;padding:11px 12px;margin-bottom:6px;
+  background:rgba(255,255,255,.05);border-radius:10px;cursor:pointer;}
+.si:active{background:rgba(255,255,255,.13);}
+.si-rank{font-size:18px;font-weight:bold;color:var(--gold);min-width:28px;text-align:center;}
+.si-info{flex:1;min-width:0;}
+.si-name{font-size:14px;color:#f0e0c0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.si-date{font-size:11px;color:rgba(160,130,90,.8);margin-top:2px;}
+.si-bar{height:4px;background:rgba(255,255,255,.07);border-radius:2px;margin-top:5px;overflow:hidden;}
+.si-fill{height:100%;background:var(--gold);border-radius:2px;}
+
+/* ── TOAST ── */
+#toast{position:fixed;bottom:calc(var(--safe-b) + 80px);left:50%;
+  transform:translateX(-50%) translateY(16px);background:rgba(16,6,0,.92);
+  color:#f0ddb0;padding:10px 20px;border-radius:24px;font-size:13px;
+  opacity:0;transition:opacity .22s,transform .22s;z-index:500;
+  pointer-events:none;white-space:nowrap;box-shadow:0 4px 18px rgba(0,0,0,.35);}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+</style>
+</head>
+<body class="t-cork">
+<div id="app">
+
+  <!-- TOP BAR -->
+  <div id="top-bar">
+    <button class="tnav" id="prev-btn" onclick="goPrev()"><i class="fas fa-chevron-left"></i></button>
+    <div id="page-info" onclick="openTitleSheet()">
+      <div id="ptitle">スクラップノート</div>
+      <div id="pctr">p.1 / 4</div>
+    </div>
+    <button class="tnav" id="next-btn" onclick="goNext()"><i class="fas fa-chevron-right"></i></button>
+  </div>
+
+  <!-- BOOK SCENE -->
+  <div id="scene">
+    <div id="book">
+      <div class="sbg" id="s4"></div>
+      <div class="sbg" id="s3"></div>
+      <div class="sbg" id="s2"></div>
+      <div class="sbg" id="s1"></div>
+      <div id="page-wrap">
+        <!-- page injected here -->
+        <div id="fc"><div class="fcf"></div><div class="fcb"></div></div>
+        <div class="edge-ind" id="edge-l"><i class="fas fa-chevron-left"></i><div class="edge-timer-bar"></div></div>
+        <div class="edge-ind" id="edge-r"><i class="fas fa-chevron-right"></i><div class="edge-timer-bar"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BOTTOM TOOLBAR -->
+  <div id="bot">
+    <button class="tbt c1" onclick="addMemo()"><i class="fas fa-sticky-note"></i><span>メモ</span></button>
+    <button class="tbt c2" onclick="document.getElementById('fi-page').click()"><i class="fas fa-image"></i><span>写真</span></button>
+    <input type="file" id="fi-page" accept="image/*" style="display:none" onchange="addPhotoToPage(event)">
+    <button id="trash-zone"><i class="fas fa-trash-can"></i><span>ゴミ箱</span></button>
+    <button class="tbt c4" onclick="openWCSheet()"><i class="fas fa-globe"></i><span>クリップ</span></button>
+    <button class="tbt c5" onclick="openSettings()"><i class="fas fa-gear"></i><span>設定</span></button>
+  </div>
+</div>
+
+<!-- MEMO EDITOR SHEET -->
+<div class="sheet-wrap" id="memo-sheet">
+  <div class="sh-ov" onclick="closeMemo()"></div>
+  <div class="sh-box">
+    <div class="sh-handle"></div>
+    <div class="sh-head">
+      <h3><i class="fas fa-paste"></i> スクラップ編集</h3>
+      <span id="memo-charcount" style="font-size:11px;color:rgba(200,170,100,.5)"></span>
+    </div>
+    <div id="memo-editor"></div>
+    <div class="ed-actions">
+      <button class="ed-btn" onclick="addTextBlock()"><i class="fas fa-font"></i> テキスト追加</button>
+      <button class="ed-btn" onclick="document.getElementById('fi-block').click()"><i class="fas fa-image"></i> 写真追加</button>
+      <input type="file" id="fi-block" accept="image/*" style="display:none" onchange="addImageBlock(event)">
+    </div>
+    <div class="url-field">
+      <i class="fas fa-link"></i>
+      <input type="url" id="memo-url-input" placeholder="元記事URL (任意)">
+    </div>
+    <div class="sh-foot">
+      <button class="sh-btn cancel" onclick="closeMemo()">キャンセル</button>
+      <button class="sh-btn ok" onclick="saveMemo()">完了</button>
+    </div>
+  </div>
+</div>
+
+<!-- WEBCLIP SHEET -->
+<div class="sheet-wrap" id="wc-sheet">
+  <div class="sh-ov" onclick="closeWCSheet()"></div>
+  <div class="sh-box">
+    <div class="sh-handle"></div>
+    <div class="sh-head"><h3><i class="fas fa-globe"></i> WebクリップURL</h3></div>
+    <div style="padding:14px 16px;">
+      <div style="display:flex;gap:8px;margin-bottom:12px;">
+        <input id="wc-url-input" type="url" placeholder="https://...">
+        <button id="wc-fetch-btn" onclick="doFetchOGP()"><i class="fas fa-search"></i> 取得</button>
+      </div>
+      <div id="wc-loading"><i class="fas fa-spinner"></i><p style="margin-top:8px;font-size:12px;">取得中…</p></div>
+      <div id="wc-preview">
+        <div class="wc-prev-site">
+          <img id="wcp-fav" src="" style="display:none">
+          <span id="wcp-site"></span>
+        </div>
+        <div id="wcp-title" class="wc-prev-title"></div>
+        <div id="wcp-desc" class="wc-prev-desc"></div>
+        <img id="wcp-img" class="wc-prev-img" src="" referrerpolicy="no-referrer" style="display:none">
+      </div>
+    </div>
+    <div class="sh-foot">
+      <button class="sh-btn cancel" onclick="closeWCSheet()">キャンセル</button>
+      <button class="sh-btn ok" id="wc-scrap-btn" onclick="placeWebClip()" disabled>スクラップ！</button>
+    </div>
+  </div>
+</div>
+
+<!-- TITLE SHEET -->
+<div class="sheet-wrap" id="title-sheet">
+  <div class="sh-ov" onclick="closeTitle()"></div>
+  <div class="sh-box">
+    <div class="sh-handle"></div>
+    <div class="sh-head"><h3><i class="fas fa-tag"></i> ページタイトル</h3></div>
+    <div style="padding:14px 16px;"><input id="title-in" type="text" placeholder="タイトルを入力…"></div>
+    <div class="sh-foot">
+      <button class="sh-btn cancel" onclick="closeTitle()">キャンセル</button>
+      <button class="sh-btn ok" onclick="confirmTitle()">確定</button>
+    </div>
+  </div>
+</div>
+
+<!-- SORT SHEET -->
+<div class="sheet-wrap" id="sort-sheet">
+  <div class="sh-ov" onclick="closeSort()"></div>
+  <div class="sh-box">
+    <div class="sh-handle"></div>
+    <div class="sh-head"><h3><i class="fas fa-fire"></i> 鮮度ランキング</h3></div>
+    <div id="sort-list"></div>
+    <div class="sh-foot">
+      <button class="sh-btn cancel" onclick="closeSort()">閉じる</button>
+      <button class="sh-btn danger" onclick="doSort()"><i class="fas fa-sort-amount-up"></i> 鮮度順に並べ替え</button>
+    </div>
+  </div>
+</div>
+
+<!-- SETTINGS SHEET -->
+<div class="sheet-wrap" id="settings-sheet">
+  <div class="sh-ov" onclick="closeSettings()"></div>
+  <div class="sh-box">
+    <div class="sh-handle"></div>
+    <div class="sh-head"><h3><i class="fas fa-gear"></i> 設定</h3></div>
+    <div style="overflow-y:auto;flex:1;-webkit-overflow-scrolling:touch;">
+      <div class="settings-section">
+        <h4>背景テーマ</h4>
+        <div class="theme-btns">
+          <button class="theme-btn" data-theme="t-cork" onclick="setTheme('t-cork')">🪵 コルク</button>
+          <button class="theme-btn" data-theme="t-craft" onclick="setTheme('t-craft')">📜 クラフト</button>
+          <button class="theme-btn" data-theme="t-graph" onclick="setTheme('t-graph')">📐 方眼</button>
+        </div>
+      </div>
+      <div class="settings-section">
+        <h4>ページ管理</h4>
+        <div class="settings-list">
+          <div class="settings-row" onclick="openSort();closeSettings()">
+            <span><i class="fas fa-fire" style="color:#e08080;margin-right:8px"></i>鮮度順に並べ替え</span>
+            <i class="fas fa-chevron-right"></i>
+          </div>
+          <div class="settings-row" onclick="addNewPage();closeSettings()">
+            <span><i class="fas fa-plus-circle" style="color:#c090f0;margin-right:8px"></i>新しいページを追加</span>
+            <i class="fas fa-chevron-right"></i>
+          </div>
+          <div class="settings-row" onclick="openTitleSheet();closeSettings()">
+            <span><i class="fas fa-tag" style="color:#7aaee0;margin-right:8px"></i>ページタイトルを編集</span>
+            <i class="fas fa-chevron-right"></i>
+          </div>
+        </div>
+      </div>
+      <div class="settings-section">
+        <h4>データ</h4>
+        <div class="settings-list">
+          <div class="settings-row" onclick="savePage();closeSettings()">
+            <span><i class="fas fa-bookmark" style="color:#7aaee0;margin-right:8px"></i>今すぐ保存</span>
+            <i class="fas fa-chevron-right"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="sh-foot">
+      <button class="sh-btn cancel" onclick="closeSettings()">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════
+let pages   = [];
+let curIdx  = 0;
+let isAnim  = false;
+let selEl   = null;
+let editEl  = null;
+let currentTheme = 't-cork';
+
+// drag-to-edge state
+let edgeDragEl  = null; // the element data being edge-dragged
+let edgeDragDiv = null; // the lifted DOM div
+let edgeTimer   = null;
+let edgeSide    = null;
+
+// ══════════════════════════════════════════
+//  HELPERS
+// ══════════════════════════════════════════
+const nid  = () => 'x' + Date.now() + Math.random().toString(36).slice(2,5);
+const nowS = () => new Date().toISOString();
+const ago  = d => new Date(Date.now() - d*86400000).toISOString();
+const esc  = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const fmtD = iso => { const d=new Date(iso); return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; };
+const touchPage = () => { if (pages[curIdx]) pages[curIdx].lastAccessed = nowS(); };
+
+const TAPE_COLORS = ['#FFE87C','#B5D5FF','#FFB5C2','#B5FFD0'];
+const PIN_COLORS  = ['#e04040','#4080e0','#e0c020','#40b050'];
+function randDeco() {
+  if (Math.random() > .5) return { type:'tape', color: TAPE_COLORS[Math.floor(Math.random()*4)] };
+  return { type:'pin', color: PIN_COLORS[Math.floor(Math.random()*4)] };
+}
+
+function makeTornPath() {
+  const pts = ['0% 0%','100% 0%','100% 90%'];
+  for (let i = 20; i >= 0; i--) {
+    pts.push(`${(i/20*100).toFixed(1)}% ${(88+Math.random()*9).toFixed(1)}%`);
+  }
+  pts.push('0% 93%');
+  return `polygon(${pts.join(',')})`;
+}
+
+// ══════════════════════════════════════════
+//  INITIAL DATA
+// ══════════════════════════════════════════
+function mkData() {
+  return [
+    { id:'p1', title:'旅のメモ ✈️', lastAccessed:ago(0), elements:[
+      { id:'e1', type:'memo', x:22, y:16, w:180, rot:-3, sourceUrl:'', deco:{type:'tape',color:'#FFE87C'}, blocks:[
+        {id:'b1',type:'text',content:'京都の朝\n金閣寺の庭園は早朝が特に美しい ☀️\n\n7時前なら人も少なく、鏡湖池の金閣を独占できる。入場料400円。'}
+      ]},
+      { id:'e2', type:'memo', x:178, y:144, w:164, rot:2, sourceUrl:'', deco:{type:'pin',color:'#e04040'}, blocks:[
+        {id:'b2',type:'text',content:'🍜 京都ラーメン ★★★★★\n\n麺屋たけ井のつけ麺が絶品！\n開店30分前には並ぶこと。また絶対来たい！'}
+      ]},
+      { id:'e3', type:'memo', x:18, y:260, w:172, rot:1, sourceUrl:'', deco:{type:'tape',color:'#B5FFD0'}, blocks:[
+        {id:'b3',type:'text',content:'📍 嵐山竹林 → 早朝6時前が穴場✨\n\n次の旅先\n□ 奈良（鹿！）\n□ 大阪ミナミ\n□ 神戸港・異人館'}
+      ]},
+    ]},
+    { id:'p2', title:'アイデアメモ 💡', lastAccessed:ago(2), elements:[
+      { id:'e4', type:'memo', x:20, y:18, w:184, rot:0, sourceUrl:'', deco:{type:'tape',color:'#B5D5FF'}, blocks:[
+        {id:'b4',type:'text',content:'新プロジェクト案\n\n・ユーザーインタビュー（10人以上）\n・プロトタイプ作成（Figma）\n・ベータ版リリース\n\n期限：3ヶ月以内'}
+      ]},
+      { id:'e5', type:'memo', x:182, y:165, w:160, rot:-2, sourceUrl:'', deco:{type:'pin',color:'#4080e0'}, blocks:[
+        {id:'b5',type:'text',content:'⚡ 今週のTODO\n□ 企画書を書く\n□ チームに共有\n□ スケジュール確認\n□ 予算申請'}
+      ]},
+      { id:'e6', type:'memo', x:24, y:318, w:202, rot:0, sourceUrl:'', deco:{type:'tape',color:'#FFB5C2'}, blocks:[
+        {id:'b6',type:'text',content:'"シンプルに考えよう"\n— Steve Jobs\n\n複雑さは簡単に作れる。シンプルさを作るのは難しい。'}
+      ]},
+    ]},
+    { id:'p3', title:'古いメモ 📂', lastAccessed:ago(7), elements:[
+      { id:'e7', type:'memo', x:24, y:28, w:182, rot:-1, sourceUrl:'', deco:{type:'tape',color:'#FFE87C'}, blocks:[
+        {id:'b7',type:'text',content:'先月の会議メモ\n\n・予算確認 → Q3は前年比+15%確保\n・目標設定：新規獲得100件\n・次回MTG：来月第1火曜'}
+      ]},
+      { id:'e8', type:'memo', x:88, y:255, w:202, rot:3, sourceUrl:'', deco:{type:'pin',color:'#40b050'}, blocks:[
+        {id:'b8',type:'text',content:'このページは最近触っていないので後ろへ下がります 📉\n\n「鮮度」ボタンで並べ替えると古いページが後ろに移動します。'}
+      ]},
+    ]},
+    { id:'p4', title:'空白ページ 📄', lastAccessed:ago(3), elements:[] },
+  ];
+}
+
+// ══════════════════════════════════════════
+//  RENDER
+// ══════════════════════════════════════════
+function renderPage() {
+  const wrap = document.getElementById('page-wrap');
+  [...wrap.children].forEach(c => { if (c.id !== 'fc' && !c.classList.contains('edge-ind')) c.remove(); });
+
+  const pg  = pages[curIdx];
+  const div = document.createElement('div');
+  div.className = 'page';
+  const wm  = document.createElement('div'); wm.className='pwm'; wm.textContent=`p.${curIdx+1}`; div.appendChild(wm);
+  const cv  = document.createElement('div'); cv.className='pcanvas'; cv.id='canvas'; div.appendChild(cv);
+
+  if (!pg.elements.length) {
+    cv.innerHTML = '<div class="empty-hint"><i class="fas fa-feather-alt"></i><p>メモやWebクリップを追加しよう</p></div>';
+  } else {
+    pg.elements.forEach(el => drawScrap(el, cv));
+  }
+
+  setupPageDrag(div);
+  wrap.insertBefore(div, document.getElementById('fc'));
+  updateUI(); updateStack();
+}
+
+function updateUI() {
+  const pg = pages[curIdx];
+  document.getElementById('ptitle').textContent = pg.title;
+  document.getElementById('pctr').textContent   = `p.${curIdx+1} / ${pages.length}`;
+  document.getElementById('prev-btn').disabled  = curIdx === 0;
+  document.getElementById('next-btn').disabled  = curIdx === pages.length - 1;
+}
+
+function updateStack() {
+  const rem = pages.length - 1 - curIdx;
+  ['s1','s2','s3','s4'].forEach((id,i) => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = rem > i ? '' : 'none';
+  });
+}
+
+// ══════════════════════════════════════════
+//  DRAW SCRAP CARD
+// ══════════════════════════════════════════
+function drawScrap(el, canvas) {
+  const div = document.createElement('div');
+  div.className = 'scrap';
+  div.dataset.id = el.id;
+  div.style.cssText = `left:${el.x}px;top:${el.y}px;width:${el.w}px;transform:rotate(${el.rot||0}deg);`;
+
+  // Deco (tape/pin)
+  if (el.deco) {
+    const dc = document.createElement('div');
+    dc.className = el.deco.type === 'tape' ? 'deco-tape' : 'deco-pin';
+    dc.style.background = el.deco.color;
+    div.appendChild(dc);
+  }
+
+  if (el.type === 'webclip') {
+    div.style.clipPath = el.tornPath;
+    buildWebClipPreview(div, el);
+  } else {
+    buildMemoPreview(div, el);
+  }
+
+  // Source URL link icon
+  if (el.sourceUrl) addSrcLink(div, el.sourceUrl);
+
+  // Delete / resize handles
+  const del = document.createElement('button'); del.className='el-del';
+  del.innerHTML='<i class="fas fa-times"></i>';
+  del.addEventListener('pointerdown', e => {
+    e.stopPropagation();
+    pages[curIdx].elements = pages[curIdx].elements.filter(x => x.id !== el.id);
+    div.remove(); if (selEl===div) selEl=null;
+    touchPage(); save();
+  });
+  div.appendChild(del);
+
+  const rz = document.createElement('div'); rz.className='el-rz';
+  div.appendChild(rz);
+
+  setupScrapDrag(div, el, canvas, rz);
+  canvas.appendChild(div);
+}
+
+function buildMemoPreview(div, el) {
+  const inner = document.createElement('div'); inner.className='scrap-inner';
+  const firstText = el.blocks?.find(b => b.type==='text');
+  const firstImg  = el.blocks?.find(b => b.type==='image');
+  const totalC    = el.blocks?.filter(b=>b.type==='text').reduce((s,b)=>s+b.content.length,0)||0;
+  const imgCnt    = el.blocks?.filter(b=>b.type==='image').length||0;
+
+  if (firstText) {
+    const tp = document.createElement('div'); tp.className='sp-text';
+    tp.textContent = firstText.content; inner.appendChild(tp);
+  }
+  if (firstImg) {
+    const im = document.createElement('img'); im.className='sp-img';
+    im.src=firstImg.src; im.draggable=false; inner.appendChild(im);
+  }
+  const badge = document.createElement('div'); badge.className='sp-badge';
+  let bt = ''; if (totalC>60) bt+=`${totalC}字`; if (imgCnt>0) bt+=(bt?' · ':'')+`📷${imgCnt}`;
+  badge.innerHTML=`<i class="fas fa-pen-to-square"></i>${bt?bt+' · ':''}タップで編集`;
+  inner.appendChild(badge);
+  div.appendChild(inner);
+}
+
+function buildWebClipPreview(div, el) {
+  const wc = document.createElement('div'); wc.className='wc-card';
+  const site = document.createElement('div'); site.className='wc-site';
+  if (el.favicon) {
+    const fav=document.createElement('img'); fav.className='wc-favicon';
+    fav.src=el.favicon; fav.referrerpolicy='no-referrer';
+    fav.onerror=()=>fav.style.display='none'; site.appendChild(fav);
+  }
+  const sn=document.createElement('span'); sn.className='wc-sitename'; sn.textContent=el.siteName||''; site.appendChild(sn);
+  wc.appendChild(site);
+  const t=document.createElement('div'); t.className='wc-title'; t.textContent=el.title||''; wc.appendChild(t);
+  if (el.description){const d=document.createElement('div');d.className='wc-desc';d.textContent=el.description;wc.appendChild(d);}
+  if (el.image){const im=document.createElement('img');im.className='wc-img';im.src=el.image;im.referrerpolicy='no-referrer';im.draggable=false;im.onerror=()=>im.style.display='none';wc.appendChild(im);}
+  div.appendChild(wc);
+}
+
+function addSrcLink(div, url) {
+  const btn = document.createElement('button'); btn.className='src-link';
+  btn.innerHTML='<i class="fas fa-external-link-alt"></i>';
+  btn.title=url;
+  btn.addEventListener('pointerdown', e=>e.stopPropagation());
+  btn.addEventListener('click', e=>{ e.stopPropagation(); window.open(url,'_blank'); });
+  div.appendChild(btn);
+}
+
+function rebuildPreview(div, el) {
+  // remove old preview nodes, keep handles/deco/srclink
+  [...div.children].forEach(c => {
+    if (!c.classList.contains('el-del') && !c.classList.contains('el-rz') &&
+        !c.classList.contains('deco-tape') && !c.classList.contains('deco-pin') &&
+        !c.classList.contains('src-link')) c.remove();
+  });
+  if (el.type==='webclip') buildWebClipPreview(div, el);
+  else buildMemoPreview(div, el);
+  // re-add srclink if needed
+  const existing = div.querySelector('.src-link');
+  if (el.sourceUrl && !existing) addSrcLink(div, el.sourceUrl);
+  else if (!el.sourceUrl && existing) existing.remove();
+}
+
+// ══════════════════════════════════════════
+//  SCRAP DRAG & RESIZE
+// ══════════════════════════════════════════
+function setupScrapDrag(div, el, canvas, rz) {
+  let ox,oy,sl,st,moved=false,lifted=false;
+
+  div.addEventListener('pointerdown', e => {
+    if (e.target.closest('.el-del,.src-link')) return;
+    if (e.target === rz) return;
+    e.stopPropagation();
+    selectScrap(div);
+    ox=e.clientX; oy=e.clientY;
+    sl=parseInt(div.style.left)||0; st=parseInt(div.style.top)||0;
+    moved=false; lifted=false;
+    div.setPointerCapture(e.pointerId);
+
+    const onMove = ev => {
+      const dx=ev.clientX-ox, dy=ev.clientY-oy;
+      if (!moved && Math.abs(dx)+Math.abs(dy)>6) {
+        moved=true;
+        // Lift to page-wrap for cross-page drag
+        liftToDragLevel(div, el, canvas);
+        lifted=true;
+        // Show trash zone as drag-active
+        document.getElementById('trash-zone').classList.add('drag-active');
+      }
+      if (!moved) return;
+      const wr=document.getElementById('page-wrap');
+      const wRect=wr.getBoundingClientRect();
+      const nx=ev.clientX-wRect.left-(div.offsetWidth/2);
+      const ny=ev.clientY-wRect.top-(div.offsetHeight/2);
+      div.style.left=Math.max(-20,nx)+'px';
+      div.style.top=Math.max(-20,ny)+'px';
+      el.x=nx; el.y=ny;
+      checkTrash(ev.clientX, ev.clientY);
+      checkEdge(ev.clientX, el, div, canvas);
+    };
+
+    const onUp = ev => {
+      div.removeEventListener('pointermove', onMove);
+      div.removeEventListener('pointerup', onUp);
+      div.removeEventListener('pointercancel', onUp);
+      clearEdge();
+      document.getElementById('trash-zone').classList.remove('drag-active','drop-ready');
+
+      if (!moved) {
+        // tap → open edit
+        if (lifted) { dropToCanvas(div, el); }
+        else openMemo(el);
+        return;
+      }
+
+      // Check if dropped on trash
+      if (isOverTrash(ev.clientX, ev.clientY)) {
+        pages[curIdx].elements = pages[curIdx].elements.filter(x=>x.id!==el.id);
+        div.remove(); if(selEl===div) selEl=null;
+        touchPage(); save(); toast('削除しました 🗑️');
+        edgeDragEl=null; edgeDragDiv=null;
+        return;
+      }
+
+      dropToCanvas(div, el);
+    };
+
+    div.addEventListener('pointermove', onMove);
+    div.addEventListener('pointerup', onUp);
+    div.addEventListener('pointercancel', onUp);
+  });
+
+  // Resize
+  rz.addEventListener('pointerdown', e => {
+    e.stopPropagation(); rz.setPointerCapture(e.pointerId);
+    const sw=div.offsetWidth, ox2=e.clientX;
+    const onMove = ev => { const nw=Math.max(120,sw+ev.clientX-ox2); div.style.width=nw+'px'; el.w=nw; };
+    const onUp   = () => { rz.removeEventListener('pointermove',onMove); rz.removeEventListener('pointerup',onUp); rz.removeEventListener('pointercancel',onUp); touchPage(); save(); };
+    rz.addEventListener('pointermove',onMove); rz.addEventListener('pointerup',onUp); rz.addEventListener('pointercancel',onUp);
+  });
+}
+
+function liftToDragLevel(div, el, canvas) {
+  const cr=canvas.getBoundingClientRect();
+  const wr=document.getElementById('page-wrap').getBoundingClientRect();
+  div.style.left=(cr.left-wr.left+parseInt(div.style.left))+'px';
+  div.style.top=(cr.top-wr.top+parseInt(div.style.top))+'px';
+  div.style.zIndex='80';
+  pages[curIdx].elements = pages[curIdx].elements.filter(x=>x.id!==el.id);
+  document.getElementById('page-wrap').appendChild(div);
+  edgeDragEl=el; edgeDragDiv=div;
+}
+
+function dropToCanvas(div, el) {
+  const canvas=document.getElementById('canvas');
+  if (!canvas) { div.remove(); return; }
+  const cr=canvas.getBoundingClientRect();
+  const wr=document.getElementById('page-wrap').getBoundingClientRect();
+  el.x=Math.max(0,parseInt(div.style.left)-(cr.left-wr.left));
+  el.y=Math.max(0,parseInt(div.style.top)-(cr.top-wr.top));
+  pages[curIdx].elements.push(el);
+  div.style.zIndex=''; div.remove();
+  drawScrap(el,canvas);
+  touchPage(); save();
+  edgeDragEl=null; edgeDragDiv=null;
+}
+
+function selectScrap(div) {
+  if (selEl && selEl!==div) selEl.classList.remove('sel');
+  selEl=div; div.classList.add('sel');
+}
+
+// ══════════════════════════════════════════
+//  TRASH DETECTION
+// ══════════════════════════════════════════
+function isOverTrash(cx,cy) {
+  const tz=document.getElementById('trash-zone');
+  const r=tz.getBoundingClientRect();
+  return cx>=r.left && cx<=r.right && cy>=r.top && cy<=r.bottom;
+}
+function checkTrash(cx,cy) {
+  const tz=document.getElementById('trash-zone');
+  if (isOverTrash(cx,cy)) { tz.classList.add('drop-ready'); tz.classList.remove('drag-active'); }
+  else { tz.classList.remove('drop-ready'); tz.classList.add('drag-active'); }
+}
+
+// ══════════════════════════════════════════
+//  EDGE DETECTION (drag to page switch)
+// ══════════════════════════════════════════
+function checkEdge(cx, el, div, canvas) {
+  const wr=document.getElementById('page-wrap').getBoundingClientRect();
+  const ZONE=55;
+  const inLeft  = cx < wr.left + ZONE && curIdx > 0;
+  const inRight = cx > wr.right - ZONE && curIdx < pages.length-1;
+  const side = inLeft ? 'left' : inRight ? 'right' : null;
+
+  if (side !== edgeSide) {
+    clearEdge();
+    edgeSide = side;
+    if (side) startEdgeTimer(side, el, div, canvas);
+  }
+}
+
+function startEdgeTimer(side, el, div, canvas) {
+  const ind = document.getElementById('edge-'+side[0]);
+  ind.classList.add('on');
+  requestAnimationFrame(() => ind.classList.add('timing'));
+  edgeTimer = setTimeout(() => {
+    clearEdge();
+    // Switch page with element
+    const targetIdx = side==='right' ? curIdx+1 : curIdx-1;
+    isAnim=true;
+    const fc=document.getElementById('fc');
+    fc.style.display='block'; fc.style.transition='none';
+    fc.style.transformOrigin=side==='right'?'left center':'right center';
+    fc.style.transform='rotateY(0deg)';
+    requestAnimationFrame(()=>{ fc.style.transition='transform .32s ease'; fc.style.transform=`rotateY(${side==='right'?-180:180}deg)`; });
+    setTimeout(()=>{
+      curIdx=targetIdx;
+      // Render new page first, then re-add the lifted element
+      renderPage();
+      fc.style.transition='none'; fc.style.transform='rotateY(0deg)'; fc.style.display='none';
+      isAnim=false;
+      // Re-attach div to new page-wrap
+      if (edgeDragDiv) {
+        document.getElementById('page-wrap').appendChild(edgeDragDiv);
+        edgeDragDiv.style.zIndex='80';
+      }
+    },320);
+  }, 800);
+}
+
+function clearEdge() {
+  clearTimeout(edgeTimer); edgeTimer=null; edgeSide=null;
+  ['edge-l','edge-r'].forEach(id=>{
+    const el=document.getElementById(id);
+    el.classList.remove('on','timing');
+    // Reset timer bar without transition
+    const bar=el.querySelector('.edge-timer-bar');
+    if (bar) { bar.style.transition='none'; bar.style.height='0%'; }
+    setTimeout(()=>{ if(bar) bar.style.transition=''; },50);
+  });
+}
+
+// ══════════════════════════════════════════
+//  PAGE DRAG (swipe to flip)
+// ══════════════════════════════════════════
+function setupPageDrag(pageEl) {
+  const fc=document.getElementById('fc');
+  let sx,sy,dir=null,active=false;
+
+  const start=(x,y)=>{ sx=x; sy=y; dir=null; active=true; };
+  const move=(x,y)=>{
+    if (!active||isAnim) return;
+    const dx=x-sx, dy=y-sy;
+    if (Math.abs(dy)>Math.abs(dx)*1.3) { active=false; snapBack(); return; }
+    const w=document.getElementById('page-wrap').offsetWidth;
+    const prog=Math.min(Math.abs(dx)/w,1);
+    if (dx<-4 && curIdx<pages.length-1) {
+      dir='next'; fc.style.display='block'; fc.style.transition='none';
+      fc.style.transformOrigin='left center'; fc.style.transform=`rotateY(${-prog*180}deg)`;
+    } else if (dx>4 && curIdx>0) {
+      dir='prev'; fc.style.display='block'; fc.style.transition='none';
+      fc.style.transformOrigin='right center'; fc.style.transform=`rotateY(${prog*180}deg)`;
+    }
+  };
+  const end=(x)=>{
+    if (!active) return; active=false;
+    const w=document.getElementById('page-wrap').offsetWidth;
+    if (dir && Math.abs(x-sx)>w*0.22) completeFlip(dir);
+    else snapBack();
+  };
+  const snapBack=()=>{
+    fc.style.transition='transform .28s ease'; fc.style.transform='rotateY(0deg)';
+    setTimeout(()=>{ fc.style.display='none'; fc.style.transition='none'; },280); dir=null;
+  };
+
+  pageEl.addEventListener('touchstart',e=>{ if(e.target.closest('.scrap')) return; start(e.touches[0].clientX,e.touches[0].clientY); },{passive:true});
+  pageEl.addEventListener('touchmove', e=>{ move(e.touches[0].clientX,e.touches[0].clientY); },{passive:true});
+  pageEl.addEventListener('touchend',  e=>{ end(e.changedTouches[0].clientX); });
+  pageEl.addEventListener('mousedown', e=>{ if(e.target.closest('.scrap')) return; start(e.clientX,e.clientY); });
+  pageEl.addEventListener('mousemove', e=>{ move(e.clientX,e.clientY); });
+  pageEl.addEventListener('mouseup',   e=>{ end(e.clientX); });
+  pageEl.addEventListener('mouseleave',e=>{ if(active) end(e.clientX); });
+}
+
+function completeFlip(dir) {
+  if (isAnim) return;
+  isAnim=true;
+  const fc=document.getElementById('fc');
+  fc.style.transition='transform .32s ease';
+  fc.style.transform=`rotateY(${dir==='next'?-180:180}deg)`;
+  setTimeout(()=>{ if(dir==='next') curIdx++; else curIdx--; renderPage(); fc.style.transition='none'; fc.style.transform='rotateY(0deg)'; fc.style.display='none'; isAnim=false; },320);
+}
+
+function goNext() { if (!isAnim && curIdx<pages.length-1) completeFlip('next'); }
+function goPrev() { if (!isAnim && curIdx>0) completeFlip('prev'); }
+
+function jumpTo(idx) {
+  if (isAnim||idx===curIdx||idx<0||idx>=pages.length) return;
+  const dir=idx>curIdx?'next':'prev';
+  isAnim=true;
+  const fc=document.getElementById('fc');
+  fc.style.display='block'; fc.style.transition='none';
+  fc.style.transformOrigin=dir==='next'?'left center':'right center'; fc.style.transform='rotateY(0deg)';
+  requestAnimationFrame(()=>{ fc.style.transition='transform .38s ease'; fc.style.transform=`rotateY(${dir==='next'?-180:180}deg)`; });
+  setTimeout(()=>{ curIdx=idx; renderPage(); fc.style.transition='none'; fc.style.transform='rotateY(0deg)'; fc.style.display='none'; isAnim=false; },380);
+}
+
+// ══════════════════════════════════════════
+//  ADD ELEMENTS
+// ══════════════════════════════════════════
+function addMemo() {
+  const el={id:nid(),type:'memo',x:Math.floor(Math.random()*120+16),y:Math.floor(Math.random()*100+16),
+    w:188,rot:+((Math.random()*6-3).toFixed(1)),sourceUrl:'',deco:randDeco(),
+    blocks:[{id:nid(),type:'text',content:''}]};
+  pages[curIdx].elements.push(el);
+  const cv=document.getElementById('canvas');
+  if (cv) { cv.querySelector('.empty-hint')?.remove(); drawScrap(el,cv); }
+  openMemo(el); touchPage();
+}
+
+function addPhotoToPage(ev) {
+  const file=ev.target.files[0]; if (!file) return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const el={id:nid(),type:'memo',x:Math.floor(Math.random()*80+16),y:Math.floor(Math.random()*70+16),
+      w:200,rot:+((Math.random()*4-2).toFixed(1)),sourceUrl:'',deco:randDeco(),
+      blocks:[{id:nid(),type:'image',src:e.target.result,caption:file.name.replace(/\.[^.]+$/,'')}]};
+    pages[curIdx].elements.push(el);
+    const cv=document.getElementById('canvas');
+    if (cv) { cv.querySelector('.empty-hint')?.remove(); drawScrap(el,cv); }
+    touchPage(); save(); toast('写真を追加しました 📷');
+  };
+  reader.readAsDataURL(file); ev.target.value='';
+}
+
+function addNewPage() {
+  pages.push({id:nid(),title:`ページ ${pages.length+1}`,lastAccessed:nowS(),elements:[]});
+  const target=pages.length-1;
+  isAnim=true;
+  const fc=document.getElementById('fc');
+  fc.style.display='block'; fc.style.transition='none';
+  fc.style.transformOrigin='left center'; fc.style.transform='rotateY(0deg)';
+  requestAnimationFrame(()=>{ fc.style.transition='transform .35s ease'; fc.style.transform='rotateY(-180deg)'; });
+  setTimeout(()=>{ curIdx=target; renderPage(); fc.style.transition='none'; fc.style.transform='rotateY(0deg)'; fc.style.display='none'; isAnim=false; },350);
+  save(); toast('新しいページを追加しました ＋');
+}
+
+// ══════════════════════════════════════════
+//  MEMO EDITOR
+// ══════════════════════════════════════════
+function openMemo(el) {
+  editEl=el;
+  renderBlocks();
+  document.getElementById('memo-url-input').value = el.sourceUrl||'';
+  document.getElementById('memo-sheet').classList.add('open');
+  setTimeout(()=>{
+    const ta=document.querySelector('#memo-editor .block-textarea');
+    if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length,ta.value.length); }
+  },360);
+}
+function closeMemo() { document.getElementById('memo-sheet').classList.remove('open'); editEl=null; }
+
+function renderBlocks() {
+  if (!editEl) return;
+  const ed=document.getElementById('memo-editor'); ed.innerHTML='';
+  (editEl.blocks||[]).forEach(b=>ed.appendChild(makeBlockDOM(b)));
+  updateCharCount();
+}
+
+function makeBlockDOM(b) {
+  const wrap=document.createElement('div'); wrap.className='block-wrap'; wrap.dataset.blockId=b.id;
+  const del=document.createElement('button'); del.className='block-del';
+  del.innerHTML='<i class="fas fa-times"></i>';
+  del.addEventListener('click',()=>{ wrap.remove(); updateCharCount(); });
+  if (b.type==='text') {
+    const ta=document.createElement('textarea'); ta.className='block-textarea';
+    ta.placeholder='テキストを入力…'; ta.value=b.content||'';
+    ta.addEventListener('input',()=>{ autoSize(ta); updateCharCount(); });
+    wrap.appendChild(ta); wrap.appendChild(del);
+    requestAnimationFrame(()=>autoSize(ta));
+  } else {
+    const iw=document.createElement('div'); iw.className='block-img-wrap';
+    const img=document.createElement('img'); img.src=b.src; img.draggable=false;
+    const cap=document.createElement('div'); cap.className='block-cap'; cap.textContent=b.caption||'';
+    iw.appendChild(img); iw.appendChild(cap); wrap.appendChild(iw); wrap.appendChild(del);
+  }
+  return wrap;
+}
+
+function addTextBlock() {
+  if (!editEl) return;
+  const b={id:nid(),type:'text',content:''};
+  editEl.blocks.push(b);
+  const ed=document.getElementById('memo-editor');
+  const dom=makeBlockDOM(b); ed.appendChild(dom);
+  const ta=dom.querySelector('.block-textarea');
+  if (ta) setTimeout(()=>{ ta.focus(); autoSize(ta); },50);
+}
+
+function addImageBlock(ev) {
+  const file=ev.target.files[0]; if (!file) return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const b={id:nid(),type:'image',src:e.target.result,caption:file.name.replace(/\.[^.]+$/,'')};
+    if (editEl) { editEl.blocks.push(b); document.getElementById('memo-editor').appendChild(makeBlockDOM(b)); }
+  };
+  reader.readAsDataURL(file); ev.target.value='';
+}
+
+function saveMemo() {
+  if (!editEl) return;
+  const newBlocks=[];
+  document.querySelectorAll('#memo-editor .block-wrap').forEach(bw=>{
+    const bid=bw.dataset.blockId;
+    const ta=bw.querySelector('.block-textarea');
+    if (ta) { newBlocks.push({id:bid,type:'text',content:ta.value}); }
+    else { const orig=editEl.blocks.find(b=>b.id===bid); if(orig) newBlocks.push({...orig}); }
+  });
+  editEl.blocks=newBlocks;
+  editEl.sourceUrl=document.getElementById('memo-url-input').value.trim();
+  const dom=document.querySelector(`[data-id="${editEl.id}"]`);
+  if (dom) rebuildPreview(dom, editEl);
+  touchPage(); save(); closeMemo(); toast('保存しました ✓');
+}
+
+function autoSize(ta) { ta.style.height='auto'; ta.style.height=ta.scrollHeight+'px'; }
+function updateCharCount() {
+  const tot=[...document.querySelectorAll('#memo-editor .block-textarea')].reduce((s,ta)=>s+ta.value.length,0);
+  document.getElementById('memo-charcount').textContent=`${tot}字`;
+}
+
+// ══════════════════════════════════════════
+//  WEBCLIP
+// ══════════════════════════════════════════
+let wcData = null;
+
+function openWCSheet() {
+  wcData=null;
+  document.getElementById('wc-url-input').value='';
+  document.getElementById('wc-preview').style.display='none';
+  document.getElementById('wc-loading').style.display='none';
+  document.getElementById('wc-scrap-btn').disabled=true;
+  document.getElementById('wc-sheet').classList.add('open');
+  setTimeout(()=>document.getElementById('wc-url-input').focus(),360);
+}
+function closeWCSheet() { document.getElementById('wc-sheet').classList.remove('open'); wcData=null; }
+
+async function fetchOGP(url) {
+  try {
+    const res=await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
+    const {contents}=await res.json();
+    const doc=new DOMParser().parseFromString(contents,'text/html');
+    const og=prop=>doc.querySelector(`meta[property="${prop}"]`)?.getAttribute('content')||doc.querySelector(`meta[name="${prop}"]`)?.getAttribute('content')||'';
+    return {
+      title:og('og:title')||doc.title||url,
+      description:og('og:description')||og('description')||'',
+      image:og('og:image')||'',
+      siteName:og('og:site_name')||new URL(url).hostname,
+      favicon:`https://www.google.com/s2/favicons?domain=${new URL(url).hostname}&sz=32`
+    };
+  } catch(e) {
+    return {title:url,description:'情報を取得できませんでした',image:'',siteName:(()=>{try{return new URL(url).hostname;}catch(e){return url;}})(),favicon:''};
+  }
+}
+
+async function doFetchOGP() {
+  const url=document.getElementById('wc-url-input').value.trim();
+  if (!url) return;
+  let finalUrl=url; if (!/^https?:\/\//i.test(finalUrl)) finalUrl='https://'+finalUrl;
+  document.getElementById('wc-loading').style.display='block';
+  document.getElementById('wc-preview').style.display='none';
+  document.getElementById('wc-scrap-btn').disabled=true;
+  wcData=null;
+  try {
+    const data=await fetchOGP(finalUrl);
+    wcData={...data, sourceUrl:finalUrl};
+    // Update preview
+    const fav=document.getElementById('wcp-fav');
+    if (data.favicon) { fav.src=data.favicon; fav.style.display=''; } else fav.style.display='none';
+    document.getElementById('wcp-site').textContent=data.siteName||'';
+    document.getElementById('wcp-title').textContent=data.title||'';
+    document.getElementById('wcp-desc').textContent=data.description||'';
+    const img=document.getElementById('wcp-img');
+    if (data.image) { img.src=data.image; img.style.display=''; } else img.style.display='none';
+    document.getElementById('wc-preview').style.display='';
+    document.getElementById('wc-scrap-btn').disabled=false;
+  } catch(e) { toast('取得に失敗しました'); }
+  document.getElementById('wc-loading').style.display='none';
+}
+
+function placeWebClip() {
+  if (!wcData) return;
+  const el={
+    id:nid(),type:'webclip',
+    x:Math.floor(Math.random()*80+16), y:Math.floor(Math.random()*60+16),
+    w:210, rot:+((Math.random()*4-2).toFixed(1)),
+    sourceUrl:wcData.sourceUrl, title:wcData.title,
+    description:wcData.description, image:wcData.image,
+    siteName:wcData.siteName, favicon:wcData.favicon,
+    tornPath:makeTornPath(), deco:randDeco()
+  };
+  pages[curIdx].elements.push(el);
+  const cv=document.getElementById('canvas');
+  if (cv) { cv.querySelector('.empty-hint')?.remove(); drawScrap(el,cv); }
+  touchPage(); save(); closeWCSheet(); toast('Webクリップを追加しました 🌐');
+}
+
+// ══════════════════════════════════════════
+//  TITLE SHEET
+// ══════════════════════════════════════════
+function openTitleSheet() { document.getElementById('title-in').value=pages[curIdx].title; document.getElementById('title-sheet').classList.add('open'); setTimeout(()=>document.getElementById('title-in').focus(),300); }
+function closeTitle() { document.getElementById('title-sheet').classList.remove('open'); }
+function confirmTitle() { const v=document.getElementById('title-in').value.trim(); if(v) pages[curIdx].title=v; closeTitle(); touchPage(); save(); updateUI(); }
+
+// ══════════════════════════════════════════
+//  SORT SHEET
+// ══════════════════════════════════════════
+function openSort() {
+  const sorted=[...pages].map((p,i)=>({...p,oi:i})).sort((a,b)=>new Date(b.lastAccessed)-new Date(a.lastAccessed));
+  const maxMs=new Date(sorted[0].lastAccessed).getTime(), minMs=new Date(sorted[sorted.length-1].lastAccessed).getTime(), range=maxMs-minMs||1;
+  document.getElementById('sort-list').innerHTML=sorted.map((pg,r)=>{
+    const pct=Math.round(((new Date(pg.lastAccessed).getTime()-minMs)/range)*100);
+    return `<div class="si" onclick="jumpTo(${pg.oi});closeSort()"><div class="si-rank">${r===0?'🔥':r+1}</div><div class="si-info"><div class="si-name">${esc(pg.title)}</div><div class="si-date">${fmtD(pg.lastAccessed)}</div><div class="si-bar"><div class="si-fill" style="width:${pct}%"></div></div></div></div>`;
+  }).join('');
+  document.getElementById('sort-sheet').classList.add('open');
+}
+function closeSort() { document.getElementById('sort-sheet').classList.remove('open'); }
+function doSort() { pages.sort((a,b)=>new Date(b.lastAccessed)-new Date(a.lastAccessed)); curIdx=0; closeSort(); renderPage(); save(); toast('🔥 鮮度順に並べ替えました'); }
+
+// ══════════════════════════════════════════
+//  SETTINGS SHEET
+// ══════════════════════════════════════════
+function openSettings() {
+  // Mark active theme
+  document.querySelectorAll('.theme-btn').forEach(btn=>{
+    btn.classList.toggle('active', btn.dataset.theme===currentTheme);
+  });
+  document.getElementById('settings-sheet').classList.add('open');
+}
+function closeSettings() { document.getElementById('settings-sheet').classList.remove('open'); }
+
+function setTheme(t) {
+  document.body.classList.remove('t-cork','t-craft','t-graph');
+  document.body.classList.add(t);
+  currentTheme=t;
+  document.querySelectorAll('.theme-btn').forEach(btn=>btn.classList.toggle('active',btn.dataset.theme===t));
+  // Re-render page to pick up new CSS vars
+  renderPage();
+  localStorage.setItem('snb6t',t);
+  toast('テーマを変更しました');
+}
+
+// ══════════════════════════════════════════
+//  SAVE / LOAD
+// ══════════════════════════════════════════
+function savePage() { touchPage(); save(); toast('保存しました ✓'); }
+function save() {
+  try { localStorage.setItem('snb6p',JSON.stringify(pages)); localStorage.setItem('snb6i',curIdx); } catch(e){}
+}
+function load() {
+  try {
+    const r=localStorage.getItem('snb6p');
+    if (r){ pages=JSON.parse(r); curIdx=+localStorage.getItem('snb6i')||0; if(curIdx>=pages.length)curIdx=0; return true; }
+  } catch(e){}
+  return false;
+}
+
+// ══════════════════════════════════════════
+//  TOAST
+// ══════════════════════════════════════════
+function toast(msg) {
+  const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
+  clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),2200);
+}
+
+// ══════════════════════════════════════════
+//  KEYBOARD (PC)
+// ══════════════════════════════════════════
+document.addEventListener('keydown',e=>{
+  const inInput=['INPUT','TEXTAREA'].includes(document.activeElement.tagName);
+  if (!inInput) {
+    if (e.key==='ArrowRight') goNext();
+    if (e.key==='ArrowLeft')  goPrev();
+    if ((e.key==='Delete'||e.key==='Backspace')&&selEl) {
+      pages[curIdx].elements=pages[curIdx].elements.filter(x=>x.id!==selEl.dataset.id);
+      selEl.remove(); selEl=null; touchPage(); save();
+    }
+  }
+  if (e.key==='Escape') { closeTitle(); closeSort(); closeMemo(); closeWCSheet(); closeSettings(); }
+});
+document.getElementById('title-in').addEventListener('keydown',e=>{ if(e.key==='Enter') confirmTitle(); });
+document.getElementById('wc-url-input').addEventListener('keydown',e=>{ if(e.key==='Enter') doFetchOGP(); });
+
+// Deselect on background tap
+document.getElementById('page-wrap').addEventListener('pointerdown',e=>{
+  if (!e.target.closest('.scrap')&&selEl) { selEl.classList.remove('sel'); selEl=null; }
+});
+
+setInterval(save,60000);
+
+// ══════════════════════════════════════════
+//  BOOT
+// ══════════════════════════════════════════
+const savedTheme = localStorage.getItem('snb6t');
+if (savedTheme) { document.body.classList.remove('t-cork'); document.body.classList.add(savedTheme); currentTheme=savedTheme; }
+if (!load()) pages=mkData();
+renderPage();
+</script>
+</body>
+</html>
