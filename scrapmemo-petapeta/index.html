@@ -105,7 +105,7 @@ body.t-graph .page{
 body.t-graph .page::after{display:none;}
 .pwm{position:absolute;bottom:8px;right:12px;
   font-size:10px;color:rgba(130,100,60,.3);pointer-events:none;font-style:italic;}
-.pcanvas{position:absolute;inset:0;overflow:hidden;}
+.pcanvas{position:absolute;inset:0;overflow:hidden;isolation:isolate;}
 .empty-hint{position:absolute;inset:0;display:flex;flex-direction:column;
   align-items:center;justify-content:center;gap:12px;
   color:rgba(150,120,80,.38);pointer-events:none;}
@@ -156,6 +156,11 @@ body.t-graph .page::after{display:none;}
 /* memo card inner */
 .scrap-inner{overflow:hidden;border-radius:2px;}
 .sp-link{color:#4a7bc0;text-decoration:underline;word-break:break-all;}
+.sp-check-row{display:flex;align-items:baseline;gap:5px;padding:1px 10px 1px 10px;
+  font-size:11px;color:#333;cursor:pointer;}
+.sp-check-icon{flex-shrink:0;font-size:12px;line-height:1.2;}
+.sp-check-text{line-height:1.4;word-break:break-all;flex:1;}
+.sp-check-text.done{text-decoration:line-through;color:#999;}
 .sp-text{font-size:11px;color:#333;line-height:1.4;white-space:pre-wrap;word-break:break-all;
   display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;
   overflow:hidden;padding:8px 10px 2px;}
@@ -259,7 +264,8 @@ body.t-graph .page::after{display:none;}
   backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);}
 .sh-box{position:relative;width:100%;max-height:88vh;background:#1a0a02;
   border-radius:22px 22px 0 0;display:flex;flex-direction:column;
-  box-shadow:0 -8px 40px rgba(0,0,0,.55);animation:shUp .3s ease;}
+  box-shadow:0 -8px 40px rgba(0,0,0,.55);animation:shUp .3s ease;
+  transition:max-height .2s ease;}
 @keyframes shUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
 .sh-handle{width:42px;height:4px;background:rgba(255,255,255,.16);
   border-radius:2px;margin:14px auto 0;}
@@ -287,8 +293,14 @@ body.t-graph .page::after{display:none;}
 .block-del{position:absolute;top:6px;right:6px;width:24px;height:24px;
   background:rgba(192,80,80,.8);color:#fff;border:none;border-radius:50%;
   font-size:9px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:5;}
+.block-check-row{display:flex;align-items:flex-start;gap:8px;padding:8px 36px 8px 12px;}
+.block-check{width:18px;height:18px;flex-shrink:0;margin-top:3px;cursor:pointer;
+  accent-color:var(--blue);}
+.block-check-text{flex:1;background:transparent;border:none;outline:none;
+  color:#f0e0c0;font-size:15px;font-family:'Georgia',serif;line-height:1.65;
+  resize:none;min-height:36px;padding:0;}
 .ed-actions{display:flex;gap:8px;padding:8px 14px;
-  border-top:1px solid rgba(255,255,255,.07);flex-shrink:0;}
+  border-top:1px solid rgba(255,255,255,.07);flex-shrink:0;flex-wrap:wrap;}
 .ed-btn{flex:1;padding:10px 6px;border:none;border-radius:10px;font-size:12px;
   font-family:'Georgia',serif;cursor:pointer;display:flex;align-items:center;
   justify-content:center;gap:6px;background:rgba(255,255,255,.07);color:#d0b888;}
@@ -447,8 +459,9 @@ body.t-graph .page::after{display:none;}
     </div>
     <div id="memo-editor"></div>
     <div class="ed-actions">
-      <button class="ed-btn" onclick="addTextBlock()"><i class="fas fa-font"></i> テキスト追加</button>
-      <button class="ed-btn" onclick="document.getElementById('fi-block').click()"><i class="fas fa-image"></i> 写真追加</button>
+      <button class="ed-btn" onclick="addTextBlock()"><i class="fas fa-font"></i> テキスト</button>
+      <button class="ed-btn" onclick="addCheckBlock()"><i class="fas fa-check-square"></i> チェック</button>
+      <button class="ed-btn" onclick="document.getElementById('fi-block').click()"><i class="fas fa-image"></i> 写真</button>
       <input type="file" id="fi-block" accept="image/*" style="display:none" onchange="addImageBlock(event)">
     </div>
     <div class="url-field">
@@ -736,20 +749,33 @@ function linkifyText(raw) {
 
 function buildMemoPreview(div, el) {
   const inner = document.createElement('div'); inner.className='scrap-inner';
-  const allText = el.blocks?.filter(b=>b.type==='text').map(b=>b.content).join('\n').trim()||'';
-  const imgs    = el.blocks?.filter(b=>b.type==='image')||[];
-
-  if (allText) {
+  let textBuf = '';
+  const flushText = () => {
+    if (!textBuf.trim()) { textBuf=''; return; }
     const tp = document.createElement('div'); tp.className='sp-text';
-    tp.innerHTML = linkifyText(allText); inner.appendChild(tp);
-  }
-  imgs.forEach(b => {
-    const im = document.createElement('img'); im.className='sp-img';
-    im.src=b.src; im.draggable=false;
-    // No pointerdown stopPropagation — drag must bubble to .scrap
-    im.addEventListener('click', e=>{ e.stopPropagation(); openImgLightbox(b.src); });
-    inner.appendChild(im);
+    tp.innerHTML = linkifyText(textBuf.trim()); inner.appendChild(tp);
+    textBuf = '';
+  };
+  (el.blocks||[]).forEach(b => {
+    if (b.type==='text') {
+      textBuf += (textBuf?'\n':'')+b.content;
+    } else if (b.type==='checkbox') {
+      flushText();
+      const row=document.createElement('div'); row.className='sp-check-row'; row.dataset.blockId=b.id;
+      const icon=document.createElement('span'); icon.className='sp-check-icon';
+      icon.textContent=b.checked?'☑':'☐';
+      const txt=document.createElement('span');
+      txt.className='sp-check-text'+(b.checked?' done':''); txt.textContent=b.content||'';
+      row.appendChild(icon); row.appendChild(txt); inner.appendChild(row);
+    } else if (b.type==='image') {
+      flushText();
+      const im=document.createElement('img'); im.className='sp-img';
+      im.src=b.src; im.draggable=false;
+      im.addEventListener('click',e=>{e.stopPropagation();openImgLightbox(b.src);});
+      inner.appendChild(im);
+    }
   });
+  flushText();
   div.appendChild(inner);
 }
 
@@ -812,12 +838,48 @@ function rebuildPreview(div, el) {
 // ══════════════════════════════════════════
 function setupScrapDrag(div, el, canvas, rz) {
   let _move=null, _up=null;
+  let _p1id=-1, _p1x=0, _p1y=0;   // first pointer tracking
+  let _p2id=-1, _p2x=0, _p2y=0;   // second pointer (rotation)
+  let _rotBase=null;                 // {angle, rot} at rotation start
+
+  // Two-finger rotation via second pointer
+  function _onRot2Move(ev) {
+    if (ev.pointerId===_p2id) { _p2x=ev.clientX; _p2y=ev.clientY; }
+    else { _p1x=ev.clientX; _p1y=ev.clientY; }
+    if (!_rotBase) return;
+    const ang=Math.atan2(_p2y-_p1y,_p2x-_p1x)*180/Math.PI;
+    const steps=Math.round((ang-_rotBase.angle)/15);
+    const nr=_rotBase.rot+steps*15;
+    if (nr!==el.rot){ el.rot=nr; div.style.transform=`rotate(${nr}deg)`; }
+  }
+  function _onRot2Up(ev) {
+    if (ev.pointerId!==_p2id) return;
+    div.removeEventListener('pointermove',_onRot2Move);
+    div.removeEventListener('pointerup',_onRot2Up);
+    div.removeEventListener('pointercancel',_onRot2Up);
+    _p2id=-1; _rotBase=null;
+    touchPage(); save();
+  }
 
   div.addEventListener('pointerdown', e => {
     if (e.target.closest('.el-del,.src-link')) return;
     if (e.target === rz) return;
+
+    // Second finger → rotation mode
+    if (_p1id>=0 && _p2id<0 && e.pointerId!==_p1id) {
+      e.stopPropagation();
+      _p2id=e.pointerId; _p2x=e.clientX; _p2y=e.clientY;
+      div.setPointerCapture(e.pointerId);
+      _rotBase={angle:Math.atan2(_p2y-_p1y,_p2x-_p1x)*180/Math.PI, rot:el.rot||0};
+      div.addEventListener('pointermove',_onRot2Move);
+      div.addEventListener('pointerup',_onRot2Up);
+      div.addEventListener('pointercancel',_onRot2Up);
+      return;
+    }
+
     e.stopPropagation();
     selectScrap(div);
+    _p1id=e.pointerId; _p1x=e.clientX; _p1y=e.clientY;
 
     // Remove any accumulated listeners from previous pointerdowns
     if (_move) div.removeEventListener('pointermove', _move);
@@ -832,6 +894,8 @@ function setupScrapDrag(div, el, canvas, rz) {
     div.setPointerCapture(e.pointerId);
 
     _move = ev => {
+      if (_p2id>=0) return;  // rotation mode handles its own events
+      _p1x=ev.clientX; _p1y=ev.clientY;
       lastX=ev.clientX; lastY=ev.clientY;
       const dx=ev.clientX-ox, dy=ev.clientY-oy;
       if (!moved && Math.abs(dx)+Math.abs(dy)>6) {
@@ -855,6 +919,8 @@ function setupScrapDrag(div, el, canvas, rz) {
     };
 
     _up = ev => {
+      if (ev.pointerId===_p2id) return;  // handled by _onRot2Up
+      _p1id=-1;
       div.removeEventListener('pointermove', _move);
       div.removeEventListener('pointerup', _up);
       div.removeEventListener('pointercancel', _up);
@@ -876,6 +942,12 @@ function setupScrapDrag(div, el, canvas, rz) {
         else if (tapTarget?.closest('.sp-link')) {
           const lnk=tapTarget.closest('.sp-link');
           window.open(lnk.href,'_blank','noopener,noreferrer');
+        }
+        else if (tapTarget?.closest('.sp-check-row')) {
+          const row=tapTarget.closest('.sp-check-row');
+          const bid=row.dataset.blockId;
+          const blk=el.blocks?.find(b=>b.id===bid);
+          if (blk&&blk.type==='checkbox') { blk.checked=!blk.checked; rebuildPreview(div,el); touchPage(); save(); }
         }
         else openMemo(el);
         return;
@@ -1132,7 +1204,7 @@ function jumpTo(idx) {
 // ══════════════════════════════════════════
 function addMemo() {
   const el={id:nid(),type:'memo',x:Math.floor(Math.random()*120+16),y:Math.floor(Math.random()*100+16),
-    w:188,rot:+((Math.random()*6-3).toFixed(1)),sourceUrl:'',deco:randDeco(),
+    w:184,rot:0,sourceUrl:'',deco:randDeco(),
     blocks:[{id:nid(),type:'text',content:''}]};
   pages[curIdx].elements.push(el);
   const cv=document.getElementById('canvas');
@@ -1145,7 +1217,7 @@ function addPhotoToPage(ev) {
   const reader=new FileReader();
   reader.onload=e=>{
     const el={id:nid(),type:'memo',x:Math.floor(Math.random()*80+16),y:Math.floor(Math.random()*70+16),
-      w:200,rot:+((Math.random()*4-2).toFixed(1)),sourceUrl:'',deco:randDeco(),
+      w:196,rot:0,sourceUrl:'',deco:randDeco(),
       blocks:[{id:nid(),type:'image',src:e.target.result,caption:file.name.replace(/\.[^.]+$/,'')}]};
     pages[curIdx].elements.push(el);
     const cv=document.getElementById('canvas');
@@ -1215,7 +1287,13 @@ function openMemo(el) {
     if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length,ta.value.length); }
   },360);
 }
-function closeMemo() { document.getElementById('memo-sheet').classList.remove('open'); editEl=null; }
+function closeMemo() {
+  const sheet=document.getElementById('memo-sheet');
+  sheet.classList.remove('open');
+  const box=sheet.querySelector('.sh-box');
+  if (box) box.style.maxHeight='';
+  editEl=null;
+}
 
 function renderBlocks() {
   if (!editEl) return;
@@ -1235,6 +1313,16 @@ function makeBlockDOM(b) {
     ta.addEventListener('input',()=>{ autoSize(ta); updateCharCount(); });
     wrap.appendChild(ta); wrap.appendChild(del);
     requestAnimationFrame(()=>autoSize(ta));
+  } else if (b.type==='checkbox') {
+    const row=document.createElement('div'); row.className='block-check-row';
+    const cb=document.createElement('input'); cb.type='checkbox'; cb.className='block-check';
+    cb.checked=b.checked||false;
+    cb.addEventListener('change',()=>{ b.checked=cb.checked; });
+    const ta=document.createElement('textarea'); ta.className='block-check-text';
+    ta.placeholder='タスク内容…'; ta.value=b.content||'';
+    ta.addEventListener('input',()=>{ autoSize(ta); b.content=ta.value; updateCharCount(); });
+    row.appendChild(cb); row.appendChild(ta); wrap.appendChild(row); wrap.appendChild(del);
+    requestAnimationFrame(()=>autoSize(ta));
   } else {
     const iw=document.createElement('div'); iw.className='block-img-wrap';
     const img=document.createElement('img'); img.src=b.src; img.draggable=false;
@@ -1253,6 +1341,15 @@ function addTextBlock() {
   const ta=dom.querySelector('.block-textarea');
   if (ta) setTimeout(()=>{ ta.focus(); autoSize(ta); },50);
 }
+function addCheckBlock() {
+  if (!editEl) return;
+  const b={id:nid(),type:'checkbox',content:'',checked:false};
+  editEl.blocks.push(b);
+  const ed=document.getElementById('memo-editor');
+  const dom=makeBlockDOM(b); ed.appendChild(dom);
+  const ta=dom.querySelector('.block-check-text');
+  if (ta) setTimeout(()=>{ ta.focus(); autoSize(ta); },50);
+}
 
 function addImageBlock(ev) {
   const file=ev.target.files[0]; if (!file) return;
@@ -1269,8 +1366,10 @@ function saveMemo() {
   const newBlocks=[];
   document.querySelectorAll('#memo-editor .block-wrap').forEach(bw=>{
     const bid=bw.dataset.blockId;
-    const ta=bw.querySelector('.block-textarea');
-    if (ta) { newBlocks.push({id:bid,type:'text',content:ta.value}); }
+    const cb=bw.querySelector('.block-check');
+    const ta=bw.querySelector('.block-textarea,.block-check-text');
+    if (cb && ta) { newBlocks.push({id:bid,type:'checkbox',content:ta.value,checked:cb.checked}); }
+    else if (ta) { newBlocks.push({id:bid,type:'text',content:ta.value}); }
     else { const orig=editEl.blocks.find(b=>b.id===bid); if(orig) newBlocks.push({...orig}); }
   });
   editEl.blocks=newBlocks;
@@ -1378,7 +1477,7 @@ function placeWebClip() {
   const el={
     id:nid(),type:'webclip',
     x:Math.floor(Math.random()*80+16), y:Math.floor(Math.random()*60+16),
-    w:210, rot:+((Math.random()*4-2).toFixed(1)),
+    w:210, rot:0,
     sourceUrl:wcData.sourceUrl, title:wcData.title,
     description:wcData.description, image:wcData.image,
     siteName:wcData.siteName, favicon:wcData.favicon,
@@ -1474,25 +1573,30 @@ function _noise(ac,dur){
 }
 function soundPeta(){try{
   const ac=_getAC(),t=ac.currentTime;
-  // low thud
+  // cute soft pop: quick sine blip
   const o=ac.createOscillator(); o.type='sine';
   const g=ac.createGain();
-  o.frequency.setValueAtTime(160,t); o.frequency.exponentialRampToValueAtTime(50,t+.07);
-  g.gain.setValueAtTime(.45,t); g.gain.exponentialRampToValueAtTime(.001,t+.09);
+  o.frequency.setValueAtTime(520,t); o.frequency.exponentialRampToValueAtTime(280,t+.06);
+  g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(.18,t+.008);
+  g.gain.exponentialRampToValueAtTime(.001,t+.09);
   o.connect(g); g.connect(ac.destination); o.start(t); o.stop(t+.09);
-  // sticky click layer
-  const n=_noise(ac,.04); const gn=ac.createGain(); const f=ac.createBiquadFilter();
-  f.type='bandpass'; f.frequency.value=900; f.Q.value=1.2;
-  gn.gain.setValueAtTime(.18,t); gn.gain.exponentialRampToValueAtTime(.001,t+.04);
+  // soft paper rustle accent
+  const n=_noise(ac,.05); const f=ac.createBiquadFilter(); const gn=ac.createGain();
+  f.type='highpass'; f.frequency.value=2000;
+  gn.gain.setValueAtTime(.07,t); gn.gain.exponentialRampToValueAtTime(.001,t+.05);
   n.connect(f); f.connect(gn); gn.connect(ac.destination); n.start(t);
 }catch(e){}}
 function soundFlip(){try{
-  const ac=_getAC(),t=ac.currentTime,dur=.32;
-  const n=_noise(ac,dur); const f=ac.createBiquadFilter();
-  f.type='lowpass'; f.frequency.setValueAtTime(1200,t); f.frequency.exponentialRampToValueAtTime(300,t+dur); f.Q.value=.4;
-  const g=ac.createGain();
-  g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(.09,t+.04); g.gain.exponentialRampToValueAtTime(.001,t+dur);
-  n.connect(f); f.connect(g); g.connect(ac.destination); n.start(t);
+  const ac=_getAC(),t=ac.currentTime,dur=.38;
+  // gentle paper whoosh: two layers
+  const n1=_noise(ac,dur); const f1=ac.createBiquadFilter(); const g1=ac.createGain();
+  f1.type='bandpass'; f1.frequency.setValueAtTime(800,t); f1.frequency.exponentialRampToValueAtTime(200,t+dur); f1.Q.value=.6;
+  g1.gain.setValueAtTime(0,t); g1.gain.linearRampToValueAtTime(.07,t+.03); g1.gain.exponentialRampToValueAtTime(.001,t+dur);
+  n1.connect(f1); f1.connect(g1); g1.connect(ac.destination); n1.start(t);
+  const n2=_noise(ac,.12); const f2=ac.createBiquadFilter(); const g2=ac.createGain();
+  f2.type='highpass'; f2.frequency.value=3000;
+  g2.gain.setValueAtTime(.04,t); g2.gain.exponentialRampToValueAtTime(.001,t+.12);
+  n2.connect(f2); f2.connect(g2); g2.connect(ac.destination); n2.start(t);
 }catch(e){}}
 function soundTrash(){try{
   const ac=_getAC(),t=ac.currentTime,dur=.18;
@@ -1542,6 +1646,17 @@ document.getElementById('page-wrap').addEventListener('pointerdown',e=>{
 });
 
 setInterval(save,60000);
+
+// Expand editor sheet when software keyboard appears
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', () => {
+    const sheet=document.getElementById('memo-sheet');
+    if (!sheet.classList.contains('open')) return;
+    const vh=window.visualViewport.height;
+    const box=sheet.querySelector('.sh-box');
+    if (box) box.style.maxHeight=Math.round(vh*0.97)+'px';
+  });
+}
 
 // ══════════════════════════════════════════
 //  BOOT
