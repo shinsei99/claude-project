@@ -812,25 +812,30 @@ function makeTornPath() {
 function mkData() {
   return [
     { id:'p1', title:'PetaPetaの使い方', lastAccessed:ago(0), elements:[
-      { id:'e1', type:'memo', x:50, y:65, w:300, rot:0, sourceUrl:'', deco:{type:'tape',color:'#FFE87C'}, blocks:[
-        {id:'b1',type:'text',content:'📌 メモの基本操作\n\n① 下の ✏️ ボタンでメモを追加\n② メモをタップ → 編集・テキスト・写真追加\n③ メモをドラッグで自由に配置\n④ 右下の ◼︎ をドラッグでサイズ変更'}
+      { id:'e1', type:'memo', x:50, y:55, w:300, rot:0, sourceUrl:'', deco:{type:'tape',color:'#FFE87C'}, blocks:[
+        {id:'b1',type:'text',content:'📌 メモの基本操作\n\n① 下の ✏️ ボタンでメモを追加\n② メモをタップ → 編集・テキスト・写真追加\n③ メモをドラッグで自由に配置\n④ 右下の ● をドラッグでサイズ変更'}
       ]},
-      { id:'e2', type:'memo', x:15, y:218, w:250, rot:2, sourceUrl:'', deco:{type:'pin',color:'#4080e0'}, blocks:[
+      { id:'e2', type:'memo', x:14, y:205, w:250, rot:2, sourceUrl:'', deco:{type:'pin',color:'#4080e0'}, blocks:[
         {id:'b2',type:'text',content:'🌐 Webクリップ\n\n下の 🌐 ボタンでURLを入力\n→ サイトの内容をカードで保存\n\nカードをタップすると\nブラウザでサイトが開きます'}
       ]},
-      { id:'e3', type:'memo', x:75, y:370, w:250, rot:-2, sourceUrl:'', deco:{type:'tape',color:'#B5D5FF'}, blocks:[
-        {id:'b3',type:'text',content:'📖 ページ操作\n\n← → ボタンでページ切り替え\nメモをドラッグして端に近づけると\n隣のページへ移動できます\n\n＋ボタンでページを追加'}
+      { id:'e3', type:'memo', x:72, y:350, w:260, rot:-2, sourceUrl:'', deco:{type:'tape',color:'#B5D5FF'}, blocks:[
+        {id:'b3',type:'text',content:'📖 ページ管理\n\nページ右上の ＋ ボタンで新しいページを追加\n🗑️ ボタンでそのページを削除（30日復元可能）\n← → ボタン or スワイプでページ切り替え\n端へドラッグで隣ページへカード移動'}
+      ]},
+      { id:'e6', type:'memo', x:28, y:490, w:260, rot:1, sourceUrl:'', deco:{type:'tape',color:'#FFCCD0'}, blocks:[
+        {id:'b6',type:'text',content:'🗑️ ゴミ箱\n\nカードやページを削除すると\n30日間ゴミ箱に保管されます。\n\n下のメニュー 🗑️ をタップして\nいつでも復元できます'}
       ]},
     ]},
-    { id:'p2', title:'古いメモ 📂', lastAccessed:ago(6), elements:[
-      { id:'e4', type:'memo', x:30, y:100, w:300, rot:-1, sourceUrl:'', deco:{type:'tape',color:'#FFD5A0'}, blocks:[
-        {id:'b4',type:'text',content:'📉 古いメモとは？\n\nしばらく開いていないページは\n自動的に後ろに移動します。\n\n下のメニュー「鮮度」ボタンを押すと\n最近見たページが前に来て\n古いページは後ろへさがります。'}
+    { id:'p2', title:'古いメモ 📂', lastAccessed:ago(7), elements:[
+      { id:'e4', type:'memo', x:30, y:80, w:300, rot:-1, sourceUrl:'', deco:{type:'tape',color:'#FFD5A0'}, blocks:[
+        {id:'b4',type:'text',content:'📂 このページについて\n\nここは古いメモ置き場です。\n\nしばらく使わないメモや\nとりあえず残しておきたいメモを\nここに移しておくと整理しやすいです。'}
       ]},
-      { id:'e5', type:'memo', x:30, y:310, w:300, rot:2, sourceUrl:'', deco:{type:'pin',color:'#9040c0'}, blocks:[
-        {id:'b5',type:'text',content:'💡 整理のヒント\n\n使わないページは\nそのままにしておくと\n自然と後ろへ流れます。\n\n削除したいときはメモをゴミ箱🗑️へ\nドラッグ＆ドロップ'}
+      { id:'e5', type:'memo', x:35, y:290, w:300, rot:2, sourceUrl:'', deco:{type:'pin',color:'#9040c0'}, blocks:[
+        {id:'b5',type:'text',content:'💡 整理のヒント\n\n下のメニュー「鮮度」ボタンを押すと\n最近見たページが前に来て\n古いページは後ろへさがります。\n\n不要なカードはゴミ箱へドラッグ🗑️'}
       ]},
     ]},
-    { id:'p3', title:'', lastAccessed:ago(1), elements:[] },
+    { id:'p3', title:'アイデア・ひらめき 💡', lastAccessed:ago(2), elements:[] },
+    { id:'p4', title:'お気に入り ⭐', lastAccessed:ago(3), elements:[] },
+    { id:'p5', title:'やることリスト ✅', lastAccessed:ago(4), elements:[] },
   ];
 }
 
