@@ -28,8 +28,11 @@ jobs:
           git fetch origin gh-pages
           git checkout gh-pages
 
-          # mainの最新を上書きコピー
+          # mainの最新を上書きコピー（既存フォルダを先に削除して二重パス防止）
+          rm -rf ./scrapmemo-petapeta
           cp -r /tmp/scrapmemo-petapeta ./scrapmemo-petapeta
+          # 誤って作られた二重パスのゴミを削除
+          rm -rf ./scrapmemo-petapeta/scrapmemo-petapeta
 
           # 変更があればコミット＆プッシュ
           git add scrapmemo-petapeta/
