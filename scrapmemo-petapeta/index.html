@@ -147,7 +147,8 @@ body.t-graph .page::after{display:none;}
 .scrap{position:absolute;cursor:pointer;touch-action:none;
   user-select:none;-webkit-user-select:none;
   background:#fffdf0;border-radius:2px;
-  box-shadow:2px 3px 12px rgba(0,0,0,.18),0 1px 3px rgba(0,0,0,.1);overflow:visible;}
+  box-shadow:2px 3px 12px rgba(0,0,0,.18),0 1px 3px rgba(0,0,0,.1);overflow:visible;
+  will-change:transform;}
 .scrap.sel{z-index:60;outline:2px dashed var(--blue);outline-offset:2px;}
 
 /* decorations */
@@ -186,21 +187,32 @@ body.t-graph .page::after{display:none;}
 #img-lightbox img{max-width:92vw;max-height:88vh;object-fit:contain;border-radius:4px;}
 
 /* todo card */
-.todo-inner{overflow:hidden;border-radius:2px;}
+.todo-inner{overflow:hidden;border-radius:2px;touch-action:none;}
 .todo-header{display:flex;align-items:center;gap:6px;padding:6px 10px 5px;
   border-bottom:1px solid rgba(0,0,0,.08);}
-.todo-header-icon{font-size:11px;color:#4a7bc0;}
-.todo-header-label{font-size:11px;font-weight:bold;color:#444;letter-spacing:.3px;}
+.todo-header-icon{font-size:11px;color:#4a7bc0;flex-shrink:0;}
+.todo-header-label{font-size:11px;font-weight:bold;color:#444;letter-spacing:.3px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px;}
 .todo-item{display:flex;align-items:baseline;gap:5px;padding:2px 10px;
-  font-size:11px;cursor:pointer;}
+  font-size:11px;cursor:pointer;touch-action:none;}
 .todo-cb{flex-shrink:0;font-size:12px;color:#555;}
 .todo-item-text{line-height:1.4;word-break:break-all;color:#333;white-space:pre-wrap;}
 .todo-item-text.done{text-decoration:line-through;color:#aaa;}
+.todo-more{font-size:10px;color:#aaa;padding:2px 10px 4px;font-style:italic;}
 
 /* todo editor */
+#todo-title-in{width:100%;background:transparent;border:none;outline:none;
+  color:#f0e0c0;font-size:15px;font-family:'Georgia',serif;
+  padding:10px 16px;border-bottom:1px solid rgba(255,255,255,.08);}
+#todo-title-in::placeholder{color:rgba(200,170,120,.7);}
+#todo-editor{background:#fffef9;}
+#todo-editor .block-check-text{color:#222;background:transparent;min-height:24px;font-size:15px;line-height:1.6;padding:0;}
+#todo-editor .block-check-text::placeholder{color:rgba(80,60,40,.28);}
+#todo-editor .block-del{top:50%;transform:translateY(-50%);right:8px;}
 .todo-edit-row{position:relative;display:flex;align-items:center;gap:8px;
-  padding:12px 38px 12px 12px;background:rgba(255,255,255,.04);
-  border-radius:10px;margin-bottom:6px;}
+  padding:9px 40px 9px 12px;
+  border-bottom:1px solid rgba(0,0,0,.06);
+  margin-bottom:0;background:transparent;}
 
 /* search results */
 .search-result{padding:11px 14px;border-bottom:1px solid rgba(255,255,255,.05);cursor:pointer;}
@@ -231,20 +243,13 @@ body.t-graph .page::after{display:none;}
   cursor:pointer;z-index:20;border:none;}
 .src-link:active{background:rgba(74,123,192,.35);}
 
-/* handles */
-.el-del{position:absolute;top:-10px;right:-10px;width:22px;height:22px;
-  background:var(--red);color:#fff;border:none;border-radius:50%;font-size:9px;
-  display:none;align-items:center;justify-content:center;cursor:pointer;z-index:70;
-  box-shadow:0 2px 6px rgba(0,0,0,.3);}
-.el-edit{position:absolute;top:-10px;left:-10px;width:22px;height:22px;
-  background:var(--blue);color:#fff;border:none;border-radius:50%;font-size:9px;
-  display:none;align-items:center;justify-content:center;cursor:pointer;z-index:70;
-  box-shadow:0 2px 6px rgba(0,0,0,.3);}
-.el-rz{position:absolute;bottom:-7px;right:-7px;width:16px;height:16px;
-  background:var(--blue);border-radius:50%;display:none;cursor:se-resize;z-index:70;
-  box-shadow:0 2px 6px rgba(0,0,0,.3);}
-.scrap.sel .el-del,.scrap.sel .el-rz{display:flex;}
-.scrap.sel .el-edit{display:flex;}
+/* handles — resize grip always visible, no × button */
+.el-rz{position:absolute;bottom:-6px;right:-6px;width:18px;height:18px;
+  background:rgba(74,123,192,.55);border-radius:50%;display:flex;cursor:se-resize;z-index:70;
+  box-shadow:0 1px 5px rgba(0,0,0,.25);touch-action:none;}
+.el-rz::after{content:'';display:block;width:6px;height:6px;border-right:2px solid #fff;
+  border-bottom:2px solid #fff;margin:auto;margin-top:4px;margin-left:3px;}
+.scrap.sel{z-index:60;}
 
 /* ══════════════════════════════════════════
    BOTTOM TOOLBAR
@@ -271,9 +276,9 @@ body.t-graph .page::after{display:none;}
 #trash-zone.drag-active{color:#ff8080;background:rgba(200,60,60,.15);transform:scale(1.08);}
 #trash-zone.drop-ready{color:#fff;background:rgba(200,60,60,.5);transform:scale(1.2);}
 /* drag over entire bottom bar */
-#bot.drag-over{background:rgba(180,30,30,.25);}
-#bot.drag-over .tbt{opacity:.3;pointer-events:none;}
-#bot.drag-over #trash-zone{flex:3;color:#ff8080;}
+#bot.drag-over{background:rgba(180,30,30,.18);}
+#bot.drag-over .tbt{opacity:.25;pointer-events:none;}
+#bot.drag-over #trash-zone{color:#ff8080;}
 /* delete confirmation bubble */
 #del-confirm{position:fixed;bottom:calc(var(--safe-b) + 72px);left:50%;
   transform:translateX(-50%);z-index:9000;display:none;flex-direction:column;align-items:center;}
@@ -289,6 +294,31 @@ body.t-graph .page::after{display:none;}
   padding:8px 22px;font-size:14px;font-family:'Georgia',serif;cursor:pointer;}
 .del-arrow{width:0;height:0;border-left:10px solid transparent;border-right:10px solid transparent;
   border-top:10px solid rgba(220,70,70,.5);}
+/* page action buttons (+ and 🗑️ overlaid on page corner) */
+.page-actions{position:absolute;top:10px;right:10px;display:flex;flex-direction:column;
+  gap:6px;z-index:85;pointer-events:auto;}
+.page-act-btn{width:26px;height:26px;border-radius:50%;border:none;
+  display:flex;align-items:center;justify-content:center;
+  font-size:11px;cursor:pointer;touch-action:manipulation;
+  box-shadow:0 1px 6px rgba(0,0,0,.25);transition:transform .12s,opacity .15s;
+  opacity:.55;}
+.page-act-btn:hover,.page-act-btn:active{opacity:1;transform:scale(1.18);}
+.page-act-btn.padd{background:rgba(74,123,192,.85);color:#fff;}
+.page-act-btn.pdel{background:rgba(192,72,72,.8);color:#fff;}
+/* page delete confirmation (centered overlay) */
+#page-confirm{position:fixed;inset:0;z-index:9100;display:none;
+  align-items:center;justify-content:center;
+  background:rgba(0,0,0,.45);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);}
+#page-confirm .pc-box{background:rgba(18,8,2,.97);border:1.5px solid rgba(220,70,70,.5);
+  border-radius:18px;padding:20px 24px;text-align:center;
+  color:#f0ddb0;font-size:14px;font-family:'Georgia',serif;
+  box-shadow:0 8px 32px rgba(0,0,0,.7);max-width:270px;margin:0 20px;}
+#page-confirm .pc-box p{margin:0 0 14px;font-size:13px;line-height:1.55;}
+#page-confirm .pc-actions{display:flex;gap:10px;justify-content:center;}
+#page-confirm .pc-yes{background:rgba(210,50,50,.85);color:#fff;border:none;border-radius:10px;
+  padding:9px 22px;font-size:14px;font-family:'Georgia',serif;cursor:pointer;}
+#page-confirm .pc-no{background:rgba(255,255,255,.1);color:#f0ddb0;border:none;border-radius:10px;
+  padding:9px 22px;font-size:14px;font-family:'Georgia',serif;cursor:pointer;}
 
 /* ══════════════════════════════════════════
    SHEETS (shared)
@@ -487,13 +517,23 @@ body.t-graph .page::after{display:none;}
   <!-- delete confirmation bubble -->
   <div id="del-confirm">
     <div class="del-bubble">
-      <p>削除しますか？</p>
+      <p>ゴミ箱に移動しますか？</p>
       <div class="del-actions">
         <button class="del-yes" id="del-yes">はい</button>
         <button class="del-no" id="del-no">いいえ</button>
       </div>
     </div>
     <div class="del-arrow"></div>
+  </div>
+</div>
+<!-- page delete confirmation overlay -->
+<div id="page-confirm">
+  <div class="pc-box">
+    <p id="page-confirm-msg">このページをゴミ箱に移動しますか？</p>
+    <div class="pc-actions">
+      <button class="pc-no" onclick="hidePageConfirm()">キャンセル</button>
+      <button class="pc-yes" onclick="doDeleteCurrentPage()">削除</button>
+    </div>
   </div>
 </div>
 
@@ -602,8 +642,9 @@ body.t-graph .page::after{display:none;}
   <div class="sh-box">
     <div class="sh-handle"></div>
     <div class="sh-head"><h3><i class="fas fa-check-square"></i> TODOリスト</h3></div>
-    <div id="todo-editor" style="flex:1;overflow-y:auto;padding:10px 14px;-webkit-overflow-scrolling:touch;"></div>
-    <div style="padding:4px 14px 4px;">
+    <input id="todo-title-in" type="text" placeholder="タイトル（任意）…">
+    <div id="todo-editor" style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;"></div>
+    <div style="padding:8px 14px 4px;border-top:1px solid rgba(255,255,255,.06);">
       <button onclick="addTodoItem()" style="width:100%;background:rgba(180,120,255,0.18);color:#c090f0;border:1.5px dashed #c090f0;border-radius:10px;padding:8px;font-size:15px;cursor:pointer;"><i class="fas fa-plus" style="margin-right:6px"></i>追加</button>
     </div>
     <div class="sh-foot">
@@ -630,6 +671,23 @@ body.t-graph .page::after{display:none;}
     </div>
     <div class="sh-foot">
       <button class="sh-btn cancel" onclick="closeSearch()">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<!-- TRASH SHEET -->
+<div class="sheet-wrap" id="trash-sheet">
+  <div class="sh-ov" onclick="closeTrash()"></div>
+  <div class="sh-box">
+    <div class="sh-handle"></div>
+    <div class="sh-head">
+      <h3><i class="fas fa-trash-restore"></i> ゴミ箱</h3>
+      <span id="trash-count" style="font-size:11px;color:rgba(200,170,120,.5);"></span>
+    </div>
+    <div id="trash-list" style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:4px 0;"></div>
+    <div class="sh-foot" id="trash-foot">
+      <button class="sh-btn cancel" onclick="closeTrash()">閉じる</button>
+      <button class="sh-btn danger" onclick="confirmEmptyTrash()">全て削除</button>
     </div>
   </div>
 </div>
@@ -676,6 +734,11 @@ body.t-graph .page::after{display:none;}
       <div class="settings-section">
         <h4>データ</h4>
         <div class="settings-list">
+          <div class="settings-row" onclick="openTrash();closeSettings()">
+            <span><i class="fas fa-trash-restore" style="color:#f0c040;margin-right:8px"></i>ゴミ箱（復元・削除）</span>
+            <span id="trash-badge" style="font-size:10px;color:rgba(200,170,120,.6);margin-right:4px"></span>
+            <i class="fas fa-chevron-right"></i>
+          </div>
           <div class="settings-row" onclick="savePage();closeSettings()">
             <span><i class="fas fa-bookmark" style="color:#7aaee0;margin-right:8px"></i>今すぐ保存</span>
             <i class="fas fa-chevron-right"></i>
@@ -697,6 +760,7 @@ body.t-graph .page::after{display:none;}
 // ══════════════════════════════════════════
 let pages   = [];
 let curIdx  = 0;
+let trash   = []; // [{id, element, deletedAt, fromPageId, fromPageTitle}]
 let isAnim  = false;
 let selEl   = null;
 let editEl  = null;
@@ -789,6 +853,22 @@ function renderPage() {
     pg.elements.forEach(el => drawScrap(el, cv));
   }
 
+  // page action buttons (+add, trash)
+  const pa = document.createElement('div'); pa.className='page-actions';
+  const ab = document.createElement('button'); ab.className='page-act-btn padd'; ab.title='新しいページを追加';
+  ab.innerHTML='<i class="fas fa-plus"></i>';
+  ab.addEventListener('pointerdown', e=>e.stopPropagation());
+  ab.addEventListener('click', e=>{ e.stopPropagation(); addNewPage(); });
+  pa.appendChild(ab);
+  if (pages.length > 1) {
+    const db = document.createElement('button'); db.className='page-act-btn pdel'; db.title='このページを削除';
+    db.innerHTML='<i class="fas fa-trash-can"></i>';
+    db.addEventListener('pointerdown', e=>e.stopPropagation());
+    db.addEventListener('click', e=>{ e.stopPropagation(); deleteCurrentPage(); });
+    pa.appendChild(db);
+  }
+  div.appendChild(pa);
+
   setupPageDrag(div);
   wrap.insertBefore(div, document.getElementById('fc'));
   updateUI(); updateStack();
@@ -834,18 +914,7 @@ function drawScrap(el, canvas) {
   // Source URL link icon
   if (el.sourceUrl) addSrcLink(div, el.sourceUrl);
 
-  // Delete / edit / resize handles
-  const del = document.createElement('button'); del.className='el-del';
-  del.innerHTML='<i class="fas fa-times"></i>';
-  del.addEventListener('pointerdown', e => {
-    e.stopPropagation();
-    pages[curIdx].elements = pages[curIdx].elements.filter(x => x.id !== el.id);
-    div.remove(); if (selEl===div) selEl=null;
-    touchPage(); save();
-  });
-  div.appendChild(del);
-
-
+  // Resize grip
   const rz = document.createElement('div'); rz.className='el-rz';
   div.appendChild(rz);
 
@@ -856,21 +925,31 @@ function drawScrap(el, canvas) {
 function buildTodoPreview(div, el) {
   const inner=document.createElement('div'); inner.className='todo-inner';
   const hd=document.createElement('div'); hd.className='todo-header';
-  hd.innerHTML='<i class="fas fa-check-square todo-header-icon"></i><span class="todo-header-label">TODO</span>';
+  const labelText=el.title||'TODO';
+  hd.innerHTML=`<i class="fas fa-check-square todo-header-icon"></i><span class="todo-header-label">${esc(labelText)}</span>`;
   inner.appendChild(hd);
-  (el.items||[]).forEach(it=>{
+  const MAX_ITEMS=5;
+  const items=el.items||[];
+  items.slice(0,MAX_ITEMS).forEach(it=>{
     const row=document.createElement('div'); row.className='todo-item'; row.dataset.itemId=it.id;
     const cb=document.createElement('span'); cb.className='todo-cb'; cb.textContent=it.checked?'☑':'☐';
     const txt=document.createElement('span');
     txt.className='todo-item-text'+(it.checked?' done':''); txt.textContent=it.text||'';
     row.appendChild(cb); row.appendChild(txt); inner.appendChild(row);
   });
+  if (items.length>MAX_ITEMS) {
+    const more=document.createElement('div'); more.className='todo-more';
+    more.textContent=`… +${items.length-MAX_ITEMS}件`;
+    inner.appendChild(more);
+  }
   div.appendChild(inner);
 }
 
 let editTodoEl=null;
 function openTodo(el) {
-  editTodoEl=el; renderTodoItems();
+  editTodoEl=el;
+  document.getElementById('todo-title-in').value=el.title||'';
+  renderTodoItems();
   const sheet=document.getElementById('todo-sheet');
   sheet.classList.add('open');
   if (window.visualViewport) {
@@ -898,7 +977,7 @@ function makeTodoItemDOM(it) {
   cb.checked=it.checked||false;
   cb.addEventListener('change',()=>{ it.checked=cb.checked; });
   const ta=document.createElement('textarea'); ta.className='block-check-text';
-  ta.placeholder='タスク内容…'; ta.value=it.text||'';
+  ta.rows=1; ta.placeholder='タスク内容…'; ta.value=it.text||'';
   const autoResize=()=>{ ta.style.height='auto'; ta.style.height=ta.scrollHeight+'px'; };
   ta.addEventListener('input',()=>{ it.text=ta.value; autoResize(); });
   setTimeout(autoResize,0);
@@ -919,6 +998,7 @@ function addTodoItem() {
 }
 function saveTodo() {
   if (!editTodoEl) return;
+  editTodoEl.title=document.getElementById('todo-title-in').value.trim();
   const newItems=[];
   document.querySelectorAll('#todo-editor .todo-edit-row').forEach(row=>{
     const cb=row.querySelector('.block-check'); const ta=row.querySelector('.block-check-text');
@@ -932,8 +1012,12 @@ function saveTodo() {
 function addTodoToPage() {
   const el={id:nid(),type:'todo',
     x:Math.floor(Math.random()*100+16),y:Math.floor(Math.random()*80+16),
-    w:200,rot:randRot(),deco:randDeco(),
-    items:[{id:nid(),text:'',checked:false}]};
+    w:210,rot:randRot(),deco:randDeco(),title:'',
+    items:[
+      {id:nid(),text:'',checked:false},
+      {id:nid(),text:'',checked:false},
+      {id:nid(),text:'',checked:false}
+    ]};
   pages[curIdx].elements.push(el);
   const cv=document.getElementById('canvas');
   if (cv) { cv.querySelector('.empty-hint')?.remove(); drawScrap(el,cv); }
@@ -1046,12 +1130,11 @@ function setupScrapDrag(div, el, canvas, rz) {
   let _p1id=-1, _p1x=0, _p1y=0;
 
   div.addEventListener('pointerdown', e => {
-    if (e.target.closest('.el-del,.src-link')) return;
+    if (e.target.closest('.src-link')) return;
     if (e.target === rz) return;
     if (_p1id>=0) return;  // ignore extra fingers
 
     e.stopPropagation();
-    selectScrap(div);
     _p1id=e.pointerId; _p1x=e.clientX; _p1y=e.clientY;
 
     // Remove any accumulated listeners from previous pointerdowns
@@ -1059,10 +1142,9 @@ function setupScrapDrag(div, el, canvas, rz) {
     if (_up)   { div.removeEventListener('pointerup', _up); div.removeEventListener('pointercancel', _up); }
 
     const ox=e.clientX, oy=e.clientY;
-    const tapTarget=e.target;  // capture for tap-action decision in _up
+    const tapTarget=e.target;
     let moved=false, lifted=false, liftedLeft=0, liftedTop=0;
     let lastX=ox, lastY=oy;
-    // Cache rects once at lift time to avoid getBoundingClientRect() on every pointermove
     let _wrRect=null, _botRect=null;
     div.setPointerCapture(e.pointerId);
 
@@ -1070,28 +1152,30 @@ function setupScrapDrag(div, el, canvas, rz) {
       _p1x=ev.clientX; _p1y=ev.clientY;
       lastX=ev.clientX; lastY=ev.clientY;
       const dx=ev.clientX-ox, dy=ev.clientY-oy;
-      if (!moved && Math.abs(dx)+Math.abs(dy)>6) {
+      if (!moved && Math.abs(dx)+Math.abs(dy)>4) {
         moved=true;
         liftToDragLevel(div, el, canvas);
-        liftedLeft=parseInt(div.style.left)||0;
-        liftedTop=parseInt(div.style.top)||0;
+        liftedLeft=parseFloat(div.style.left)||0;
+        liftedTop=parseFloat(div.style.top)||0;
         _wrRect=document.getElementById('page-wrap').getBoundingClientRect();
         _botRect=document.getElementById('bot').getBoundingClientRect();
-        // Use transform for GPU-composited drag (no layout reflow per frame)
-        div.style.willChange='transform';
         lifted=true;
+        // Disable child pointer events so todo items don't interfere during drag
+        div.style.pointerEvents='none';
+        div.setPointerCapture(ev.pointerId);
         document.getElementById('trash-zone').classList.add('drag-active');
         document.getElementById('bot').classList.remove('drag-over');
       }
       if (!moved) return;
-      const ndx=ev.clientX-ox, ndy=ev.clientY-oy;
-      div.style.transform=`translate(${ndx}px,${ndy}px) rotate(${el.rot||0}deg)`;
+      // Direct transform update — no rAF, no reflow, GPU-composited
+      div.style.transform=`translate(${dx}px,${dy}px) rotate(${el.rot||0}deg)`;
       checkTrash(ev.clientX, ev.clientY, _botRect);
       checkEdge(ev.clientX, el, div, canvas, _wrRect);
     };
 
     _up = ev => {
       _p1id=-1;
+      div.style.pointerEvents='';
       div.removeEventListener('pointermove', _move);
       div.removeEventListener('pointerup', _up);
       div.removeEventListener('pointercancel', _up);
@@ -1131,12 +1215,10 @@ function setupScrapDrag(div, el, canvas, rz) {
         return;
       }
 
-      // Commit translate to left/top so dropToCanvas reads correct values
       const finalDx=cx-ox, finalDy=cy-oy;
       div.style.left=Math.max(-20,liftedLeft+finalDx)+'px';
       div.style.top=Math.max(-20,liftedTop+finalDy)+'px';
       div.style.transform=`rotate(${el.rot||0}deg)`;
-      div.style.willChange='';
 
       if (isOverTrash(cx, cy) || isOverTrash(lastX, lastY)) {
         showDeleteConfirm(div, el);
@@ -1163,13 +1245,18 @@ function setupScrapDrag(div, el, canvas, rz) {
 }
 
 function liftToDragLevel(div, el, canvas) {
-  const cr=canvas.getBoundingClientRect();
+  // Use actual rendered center so element doesn't jump when reparented (handles rotated cards)
+  const dr=div.getBoundingClientRect();
   const wr=document.getElementById('page-wrap').getBoundingClientRect();
-  div.style.left=(cr.left-wr.left+parseInt(div.style.left))+'px';
-  div.style.top=(cr.top-wr.top+parseInt(div.style.top))+'px';
+  const cx=dr.left+dr.width/2, cy=dr.top+dr.height/2;
+  const cw=div.offsetWidth, ch=div.offsetHeight;
+  div.style.transition='none';
   div.style.zIndex='80';
   pages[curIdx].elements = pages[curIdx].elements.filter(x=>x.id!==el.id);
   document.getElementById('page-wrap').appendChild(div);
+  div.style.left=(cx-wr.left-cw/2)+'px';
+  div.style.top=(cy-wr.top-ch/2)+'px';
+  div.style.transform=`rotate(${el.rot||0}deg)`;
   edgeDragEl=el; edgeDragDiv=div;
 }
 
@@ -1178,10 +1265,10 @@ function dropToCanvas(div, el) {
   if (!canvas) { div.remove(); return; }
   const cr=canvas.getBoundingClientRect();
   const wr=document.getElementById('page-wrap').getBoundingClientRect();
-  el.x=Math.max(0,parseInt(div.style.left)-(cr.left-wr.left));
-  el.y=Math.max(0,parseInt(div.style.top)-(cr.top-wr.top));
+  el.x=Math.max(0,parseFloat(div.style.left)-(cr.left-wr.left));
+  el.y=Math.max(0,parseFloat(div.style.top)-(cr.top-wr.top));
   pages[curIdx].elements.push(el);
-  div.style.zIndex=''; div.remove();
+  div.style.zIndex=''; div.style.transition=''; div.remove();
   drawScrap(el,canvas);
   soundPeta(); touchPage(); save();
   edgeDragEl=null; edgeDragDiv=null;
@@ -1215,8 +1302,9 @@ function showDeleteConfirm(div, el) {
   document.getElementById('del-yes').onclick=()=>{
     document.getElementById('del-confirm').style.display='none';
     document.getElementById('bot').classList.remove('drag-over');
+    if(_delEl) moveToTrash(_delEl);
     if(_delDiv){ _delDiv.remove(); if(selEl===_delDiv) selEl=null; }
-    soundTrash(); touchPage(); save(); toast('削除しました 🗑️');
+    soundTrash(); touchPage(); toast('ゴミ箱に移動しました 🗑️');
     edgeDragEl=null; edgeDragDiv=null; _delDiv=null; _delEl=null;
   };
   document.getElementById('del-no').onclick=()=>{
@@ -1344,10 +1432,10 @@ function setupPageDrag(pageEl) {
     setTimeout(()=>{ fc.style.display='none'; fc.style.transition='none'; },280); dir=null;
   };
 
-  pageEl.addEventListener('touchstart',e=>{ if(e.target.closest('.scrap')) return; start(e.touches[0].clientX,e.touches[0].clientY); },{passive:true});
+  pageEl.addEventListener('touchstart',e=>{ if(e.target.closest('.scrap,.page-act-btn')) return; start(e.touches[0].clientX,e.touches[0].clientY); },{passive:true});
   pageEl.addEventListener('touchmove', e=>{ move(e.touches[0].clientX,e.touches[0].clientY); },{passive:true});
   pageEl.addEventListener('touchend',  e=>{ end(e.changedTouches[0].clientX); });
-  pageEl.addEventListener('mousedown', e=>{ if(e.target.closest('.scrap')) return; start(e.clientX,e.clientY); });
+  pageEl.addEventListener('mousedown', e=>{ if(e.target.closest('.scrap,.page-act-btn')) return; start(e.clientX,e.clientY); });
   pageEl.addEventListener('mousemove', e=>{ move(e.clientX,e.clientY); });
   pageEl.addEventListener('mouseup',   e=>{ end(e.clientX); });
   pageEl.addEventListener('mouseleave',e=>{ if(active) end(e.clientX); });
@@ -1415,6 +1503,30 @@ function addNewPage() {
   requestAnimationFrame(()=>{ fc.style.transition='transform .35s ease'; fc.style.transform='rotateY(-180deg)'; });
   setTimeout(()=>{ curIdx=target; renderPage(); fc.style.transition='none'; fc.style.transform='rotateY(0deg)'; fc.style.display='none'; isAnim=false; },350);
   save(); toast('新しいページを追加しました ＋');
+}
+
+function deleteCurrentPage() {
+  if (pages.length <= 1) { toast('最後のページは削除できません'); return; }
+  const pg=pages[curIdx];
+  const msg=document.getElementById('page-confirm-msg');
+  if (msg) msg.innerHTML=`「${esc(pg.title||'このページ')}」を<br>ゴミ箱に移動しますか？`;
+  document.getElementById('page-confirm').style.display='flex';
+}
+function hidePageConfirm() {
+  document.getElementById('page-confirm').style.display='none';
+}
+function doDeleteCurrentPage() {
+  hidePageConfirm();
+  const pg=JSON.parse(JSON.stringify(pages[curIdx]));
+  trash.push({
+    id:nid(), isPage:true, pageData:pg,
+    deletedAt:nowS(),
+    fromPageTitle:pg.title||`ページ ${curIdx+1}`
+  });
+  pages.splice(curIdx,1);
+  if (curIdx>=pages.length) curIdx=pages.length-1;
+  purgeTrashed(); save(); renderPage();
+  toast('ページをゴミ箱に移動しました 🗑️');
 }
 
 // ══════════════════════════════════════════
@@ -1762,7 +1874,7 @@ function doSearch(q) {
           :(el.blocks||[]).map(b=>b.content||b.text||'').join(' ');
         if (t.toLowerCase().includes(ql)) preview=t;
       } else if (el.type==='todo') {
-        const t=(el.items||[]).map(i=>i.text).join(' ');
+        const t=[(el.title||''),(el.items||[]).map(i=>i.text).join(' ')].join(' ').trim();
         if (t.toLowerCase().includes(ql)) preview=t;
       }
       if (preview) hits.push({pi,pg,preview});
@@ -1791,6 +1903,9 @@ function openSettings() {
   });
   document.getElementById('rot-rnd-btn').classList.toggle('active',memoRotMode==='random');
   document.getElementById('rot-str-btn').classList.toggle('active',memoRotMode==='straight');
+  purgeTrashed();
+  const badge=document.getElementById('trash-badge');
+  if (badge) badge.textContent=trash.length?`${trash.length}件`:'';
   document.getElementById('settings-sheet').classList.add('open');
 }
 function closeSettings() { document.getElementById('settings-sheet').classList.remove('open'); }
@@ -1807,18 +1922,159 @@ function setTheme(t) {
 }
 
 // ══════════════════════════════════════════
+//  TRASH
+// ══════════════════════════════════════════
+function openTrash() {
+  purgeTrashed();
+  renderTrashSheet();
+  const sheet=document.getElementById('trash-sheet');
+  sheet.classList.add('open');
+}
+function closeTrash() {
+  document.getElementById('trash-sheet').classList.remove('open');
+}
+function renderTrashSheet() {
+  const list=document.getElementById('trash-list');
+  const countEl=document.getElementById('trash-count');
+  const badge=document.getElementById('trash-badge');
+  if (!list) return;
+  const n=trash.length;
+  if (countEl) countEl.textContent=n?`${n}件・30日間保管`:'';
+  if (badge) badge.textContent=n?`${n}件`:'';
+  if (!n) {
+    list.innerHTML='<div style="padding:30px 14px;text-align:center;color:rgba(200,170,120,.38);font-size:13px;"><i class="fas fa-check-circle" style="font-size:28px;display:block;margin-bottom:10px;"></i>ゴミ箱は空です</div>';
+    return;
+  }
+  const sorted=[...trash].sort((a,b)=>new Date(b.deletedAt)-new Date(a.deletedAt));
+  list.innerHTML='';
+  sorted.forEach(item=>{
+    const msAgo=Date.now()-new Date(item.deletedAt).getTime();
+    const daysAgo=Math.floor(msAgo/86400000);
+    const hoursAgo=Math.floor(msAgo/3600000);
+    const timeStr=daysAgo===0?(hoursAgo===0?'たった今':`${hoursAgo}時間前`):`${daysAgo}日前`;
+    const daysLeft=30-daysAgo;
+    let icon,preview,fromLabel;
+    if (item.isPage) {
+      const elCount=(item.pageData.elements||[]).length;
+      icon='<i class="fas fa-book-open" style="color:#f0c040"></i>';
+      preview=`${item.fromPageTitle}（${elCount}件のメモ）`;
+      fromLabel='ページ';
+    } else {
+      const el=item.element;
+      fromLabel=item.fromPageTitle;
+      if (el.type==='todo'){
+        icon='<i class="fas fa-check-square" style="color:#c090f0"></i>';
+        preview=el.title||(el.items||[]).map(i=>i.text).filter(Boolean).join('、')||'(空のTODO)';
+      } else if (el.type==='webclip'){
+        icon='<i class="fas fa-globe" style="color:#7aaee0"></i>';
+        preview=el.title||el.sourceUrl||'Webクリップ';
+      } else if ((el.blocks||[]).some(b=>b.type==='image')){
+        icon='<i class="fas fa-image" style="color:#7cd47c"></i>';
+        preview='写真メモ';
+      } else {
+        icon='<i class="fas fa-sticky-note" style="color:#f0c040"></i>';
+        const txt=(el.blocks||[]).find(b=>b.type==='text')?.content||'';
+        preview=txt.trim()||'(空のメモ)';
+      }
+    }
+    const row=document.createElement('div');
+    row.style.cssText='display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid rgba(255,255,255,.05);';
+    row.innerHTML=`
+      <span style="font-size:18px;flex-shrink:0;width:22px;text-align:center">${icon}</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;color:#f0e0c0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(preview.slice(0,50))}</div>
+        <div style="font-size:10px;color:rgba(200,170,120,.5);margin-top:3px">${esc(fromLabel)} · ${timeStr} · あと${daysLeft}日</div>
+      </div>
+      <button onclick="restoreFromTrash('${item.id}')" style="flex-shrink:0;background:rgba(74,123,192,.8);color:#fff;border:none;border-radius:8px;padding:7px 12px;font-size:12px;cursor:pointer;font-family:'Georgia',serif">復元</button>
+    `;
+    list.appendChild(row);
+  });
+}
+function restoreFromTrash(trashId) {
+  const idx=trash.findIndex(t=>t.id===trashId);
+  if (idx<0) return;
+  const item=trash.splice(idx,1)[0];
+
+  if (item.isPage) {
+    const page={...item.pageData, id:nid(), lastAccessed:nowS()};
+    pages.push(page);
+    const newIdx=pages.length-1;
+    save(); renderTrashSheet(); updateStack();
+    toast(`「${esc(item.fromPageTitle)}」を復元しました → p.${newIdx+1} ✓`);
+    jumpTo(newIdx);
+    return;
+  }
+
+  const el={...item.element,
+    x:Math.floor(Math.random()*80+20),
+    y:Math.floor(Math.random()*80+20)
+  };
+  let targetIdx=pages.findIndex(p=>p.id===item.fromPageId);
+  if (targetIdx<0) targetIdx=curIdx;
+  pages[targetIdx].elements.push(el);
+  if (targetIdx===curIdx) {
+    const cv=document.getElementById('canvas');
+    if (cv){ cv.querySelector('.empty-hint')?.remove(); drawScrap(el,cv); }
+  }
+  save(); renderTrashSheet();
+  toast(`復元しました${targetIdx!==curIdx?` → p.${targetIdx+1}`:''} ✓`);
+}
+function confirmEmptyTrash() {
+  if (!trash.length) return;
+  const foot=document.getElementById('trash-foot');
+  foot.innerHTML=`
+    <span style="flex:1;font-size:12px;color:rgba(200,170,120,.8)">${trash.length}件を完全に削除しますか？</span>
+    <button class="sh-btn cancel" style="flex:0;padding:10px 14px" onclick="renderTrashSheet();document.getElementById('trash-foot').innerHTML=document.getElementById('trash-foot')._orig">戻る</button>
+    <button class="sh-btn danger" style="flex:0;padding:10px 14px" onclick="emptyTrash()">削除</button>
+  `;
+}
+function emptyTrash() {
+  trash=[];
+  save(); renderTrashSheet();
+  const foot=document.getElementById('trash-foot');
+  foot.innerHTML='<button class="sh-btn cancel" onclick="closeTrash()">閉じる</button><button class="sh-btn danger" onclick="confirmEmptyTrash()">全て削除</button>';
+  toast('ゴミ箱を空にしました');
+}
+
+// ══════════════════════════════════════════
 //  SAVE / LOAD
 // ══════════════════════════════════════════
 function savePage() { touchPage(); save(); toast('保存しました ✓'); }
 function save() {
-  try { localStorage.setItem('snb6p',JSON.stringify(pages)); localStorage.setItem('snb6i',curIdx); } catch(e){}
+  try {
+    localStorage.setItem('snb6p',JSON.stringify(pages));
+    localStorage.setItem('snb6i',curIdx);
+    localStorage.setItem('snb6trash',JSON.stringify(trash));
+  } catch(e){}
 }
 function load() {
   try {
     const r=localStorage.getItem('snb6p');
-    if (r){ pages=JSON.parse(r); curIdx=+localStorage.getItem('snb6i')||0; if(curIdx>=pages.length)curIdx=0; return true; }
+    if (r){
+      pages=JSON.parse(r); curIdx=+localStorage.getItem('snb6i')||0;
+      if(curIdx>=pages.length)curIdx=0;
+      const t=localStorage.getItem('snb6trash');
+      if(t) trash=JSON.parse(t);
+      purgeTrashed();
+      return true;
+    }
   } catch(e){}
   return false;
+}
+function purgeTrashed() {
+  const cutoff=new Date(Date.now()-30*86400000).toISOString();
+  trash=trash.filter(t=>t.deletedAt>cutoff);
+}
+function moveToTrash(el) {
+  trash.push({
+    id:nid(),
+    element:JSON.parse(JSON.stringify(el)),
+    deletedAt:nowS(),
+    fromPageId:pages[curIdx].id,
+    fromPageTitle:pages[curIdx].title||`ページ ${curIdx+1}`
+  });
+  pages[curIdx].elements=pages[curIdx].elements.filter(x=>x.id!==el.id);
+  purgeTrashed(); save();
 }
 
 // ══════════════════════════════════════════
@@ -1903,18 +2159,21 @@ document.addEventListener('keydown',e=>{
     if (e.key==='ArrowRight') goNext();
     if (e.key==='ArrowLeft')  goPrev();
     if ((e.key==='Delete'||e.key==='Backspace')&&selEl) {
-      pages[curIdx].elements=pages[curIdx].elements.filter(x=>x.id!==selEl.dataset.id);
-      selEl.remove(); selEl=null; touchPage(); save();
+      const elData=pages[curIdx].elements.find(x=>x.id===selEl.dataset.id);
+      if(elData) moveToTrash(elData);
+      selEl.remove(); selEl=null; touchPage(); toast('ゴミ箱に移動しました 🗑️');
     }
   }
   if (e.key==='Escape') { closeTitle(); closeSort(); closeMemo(); closeWCSheet(); closeTodo(); closeSearch(); closeSettings(); }
 });
 document.getElementById('title-in').addEventListener('keydown',e=>{ if(e.key==='Enter') confirmTitle(); });
 document.getElementById('wc-url-input').addEventListener('keydown',e=>{ if(e.key==='Enter') doFetchOGP(); });
+document.getElementById('todo-title-in').addEventListener('keydown',e=>{
+  if(e.key==='Enter'){ e.preventDefault(); const inp=document.querySelector('#todo-editor .block-check-text'); if(inp) inp.focus(); }
+});
 
-// Deselect on background tap
 document.getElementById('page-wrap').addEventListener('pointerdown',e=>{
-  if (!e.target.closest('.scrap')&&selEl) { selEl.classList.remove('sel'); selEl=null; }
+  if (!e.target.closest('.scrap')&&selEl) selEl=null;
 });
 
 setInterval(save,60000);
