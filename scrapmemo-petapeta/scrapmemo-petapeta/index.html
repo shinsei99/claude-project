@@ -743,6 +743,10 @@ body.t-graph .page::after{display:none;}
             <span><i class="fas fa-bookmark" style="color:#7aaee0;margin-right:8px"></i>今すぐ保存</span>
             <i class="fas fa-chevron-right"></i>
           </div>
+          <div class="settings-row" onclick="confirmResetData()" style="color:rgba(220,80,80,.8)">
+            <span><i class="fas fa-rotate-left" style="color:rgba(220,80,80,.7);margin-right:8px"></i>データをリセット</span>
+            <i class="fas fa-chevron-right"></i>
+          </div>
         </div>
       </div>
     </div>
@@ -1914,6 +1918,13 @@ function openSettings() {
   document.getElementById('settings-sheet').classList.add('open');
 }
 function closeSettings() { document.getElementById('settings-sheet').classList.remove('open'); }
+function confirmResetData() {
+  if (!confirm('全データを初期状態に戻しますか？\nこの操作は取り消せません。')) return;
+  localStorage.removeItem('snb6p');
+  localStorage.removeItem('snb6i');
+  localStorage.removeItem('snb6trash');
+  location.reload();
+}
 
 function setTheme(t) {
   document.body.classList.remove('t-cork','t-craft','t-graph');
