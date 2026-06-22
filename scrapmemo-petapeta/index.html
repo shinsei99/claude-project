@@ -221,6 +221,53 @@ body.t-graph .page::after{display:none;}
 .sr-text{font-size:13px;color:#f0e0c0;line-height:1.4;}
 .sr-empty{padding:20px 14px;text-align:center;font-size:13px;color:rgba(200,170,120,.45);}
 
+/* ══ EDITOR LIGHT THEME ══ */
+body.ed-light .sh-box{background:#f7f3eb;}
+body.ed-light .sh-handle{background:rgba(0,0,0,.13);}
+body.ed-light .sh-head{border-bottom-color:rgba(0,0,0,.09);}
+body.ed-light .sh-head h3{color:#5a3a10;}
+body.ed-light .sh-foot{border-top-color:rgba(0,0,0,.09);}
+body.ed-light .sh-btn.cancel{background:rgba(0,0,0,.07);color:#6a4020;}
+body.ed-light .block-textarea{color:#1e1008;}
+body.ed-light .block-textarea::placeholder{color:rgba(40,20,5,.3);}
+body.ed-light .block-wrap{background:rgba(0,0,0,.04);}
+body.ed-light .block-check-text{color:#1e1008;}
+body.ed-light .block-check-text::placeholder{color:rgba(40,20,5,.25);}
+body.ed-light .block-cap{color:rgba(60,40,15,.5);}
+body.ed-light .ed-actions{border-top-color:rgba(0,0,0,.09);}
+body.ed-light .ed-btn{background:rgba(0,0,0,.06);color:#6a4020;}
+body.ed-light .url-field{border-top-color:rgba(0,0,0,.09);}
+body.ed-light .url-field i{color:rgba(60,40,15,.5);}
+body.ed-light .url-field input{background:rgba(0,0,0,.06);color:#1e1008;border-color:rgba(0,0,0,.12);}
+body.ed-light .url-field input::placeholder{color:rgba(40,20,5,.3);}
+body.ed-light #rot-strip{border-top-color:rgba(0,0,0,.09);}
+body.ed-light #rot-display{color:rgba(80,50,10,.8);}
+body.ed-light #rot-preview-card{background:rgba(240,230,200,.8);border-color:rgba(100,70,20,.3);}
+body.ed-light .rot-btn{border-color:rgba(0,0,0,.14);background:rgba(0,0,0,.05);color:#6a4020;}
+body.ed-light #deco-picker{border-top-color:rgba(0,0,0,.09);}
+body.ed-light #memo-charcount{color:rgba(80,50,10,.5);}
+body.ed-light #todo-title-in{color:#1e1008;border-bottom-color:rgba(0,0,0,.09);}
+body.ed-light #todo-title-in::placeholder{color:rgba(60,40,10,.4);}
+body.ed-light #todo-editor{background:#fefcf7;}
+body.ed-light .search-result{border-bottom-color:rgba(0,0,0,.08);}
+body.ed-light .search-result:active{background:rgba(0,0,0,.05);}
+body.ed-light .sr-page{color:rgba(80,50,10,.6);}
+body.ed-light .sr-text{color:#1e1008;}
+body.ed-light .sr-empty{color:rgba(60,40,10,.45);}
+body.ed-light #wc-url-input{background:rgba(0,0,0,.06);border-color:rgba(0,0,0,.12);color:#1e1008;}
+body.ed-light #wc-url-input::placeholder{color:rgba(40,20,5,.3);}
+body.ed-light #wc-preview{background:rgba(0,0,0,.05);}
+body.ed-light .wc-prev-sitename{color:rgba(60,40,10,.7);}
+body.ed-light .wc-prev-title{color:#1e1008;}
+body.ed-light .wc-prev-desc{color:rgba(60,40,10,.7);}
+body.ed-light #wc-loading{color:rgba(60,40,10,.6);}
+body.ed-light #title-in{background:rgba(0,0,0,.06);border-color:rgba(0,0,0,.12);color:#1e1008;}
+body.ed-light .settings-section h4{color:rgba(60,40,10,.55);}
+body.ed-light .settings-row{background:rgba(0,0,0,.05);color:#6a4020;}
+body.ed-light .settings-row:active{background:rgba(0,0,0,.12);}
+body.ed-light .theme-btn{border-color:rgba(0,0,0,.12);background:rgba(0,0,0,.05);color:#6a4020;}
+body.ed-light .theme-btn.active{border-color:#a07030;background:rgba(160,112,48,.1);color:#a07030;}
+
 /* webclip card */
 .wc-card{background:transparent;border-radius:2px;overflow:hidden;}
 .wc-site{display:flex;align-items:center;gap:6px;padding:7px 10px 4px;
@@ -714,6 +761,13 @@ body.t-graph .page::after{display:none;}
           <button class="theme-btn" data-theme="t-cork" onclick="setTheme('t-cork')">🪵 コルク</button>
           <button class="theme-btn" data-theme="t-craft" onclick="setTheme('t-craft')">📜 クラフト</button>
           <button class="theme-btn" data-theme="t-graph" onclick="setTheme('t-graph')">📐 方眼</button>
+        </div>
+      </div>
+      <div class="settings-section">
+        <h4>エディター背景</h4>
+        <div class="theme-btns">
+          <button class="theme-btn" id="ed-dark-btn" onclick="setEditorTheme('dark')">🌙 ダーク</button>
+          <button class="theme-btn" id="ed-light-btn" onclick="setEditorTheme('light')">☀️ ライト</button>
         </div>
       </div>
       <div class="settings-section">
@@ -1950,11 +2004,14 @@ function setMemoRot(mode) {
   document.getElementById('rot-str-btn').classList.toggle('active',mode==='straight');
 }
 function openSettings() {
-  document.querySelectorAll('.theme-btn').forEach(btn=>{
+  document.querySelectorAll('.theme-btn[data-theme]').forEach(btn=>{
     btn.classList.toggle('active', btn.dataset.theme===currentTheme);
   });
   document.getElementById('rot-rnd-btn').classList.toggle('active',memoRotMode==='random');
   document.getElementById('rot-str-btn').classList.toggle('active',memoRotMode==='straight');
+  const isLight=document.body.classList.contains('ed-light');
+  document.getElementById('ed-dark-btn')?.classList.toggle('active',!isLight);
+  document.getElementById('ed-light-btn')?.classList.toggle('active',isLight);
   purgeTrashed();
   const badge=document.getElementById('trash-badge');
   if (badge) badge.textContent=trash.length?`${trash.length}件`:'';
@@ -1973,11 +2030,16 @@ function setTheme(t) {
   document.body.classList.remove('t-cork','t-craft','t-graph');
   document.body.classList.add(t);
   currentTheme=t;
-  document.querySelectorAll('.theme-btn').forEach(btn=>btn.classList.toggle('active',btn.dataset.theme===t));
-  // Re-render page to pick up new CSS vars
+  document.querySelectorAll('.theme-btn[data-theme]').forEach(btn=>btn.classList.toggle('active',btn.dataset.theme===t));
   renderPage();
   localStorage.setItem('snb6t',t);
   toast('テーマを変更しました');
+}
+function setEditorTheme(t) {
+  document.body.classList.toggle('ed-light', t==='light');
+  localStorage.setItem('snb6ed', t);
+  document.getElementById('ed-dark-btn')?.classList.toggle('active', t==='dark');
+  document.getElementById('ed-light-btn')?.classList.toggle('active', t==='light');
 }
 
 // ══════════════════════════════════════════
@@ -2263,6 +2325,8 @@ const savedTheme = localStorage.getItem('snb6t');
 if (savedTheme) { document.body.classList.remove('t-cork'); document.body.classList.add(savedTheme); currentTheme=savedTheme; }
 const savedRot = localStorage.getItem('snb6rot');
 if (savedRot) memoRotMode=savedRot;
+const savedEd = localStorage.getItem('snb6ed');
+if (savedEd==='light') document.body.classList.add('ed-light');
 if (!load()) pages=mkData();
 renderPage();
 </script>
