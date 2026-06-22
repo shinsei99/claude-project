@@ -8,7 +8,7 @@
 <title>スクラップノート</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Klee+One&family=M+PLUS+Rounded+1c&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Klee+One&family=M+PLUS+Rounded+1c&family=Noto+Sans+JP&family=Shippori+Mincho&family=Yomogi&family=Zen+Maru+Gothic&display=swap">
 <style>
 /* ══════════════════════════════════════════
    RESET & VARS
@@ -26,6 +26,10 @@
 body.font-sans{--font-body:'Hiragino Sans','Yu Gothic','Noto Sans JP',sans-serif;}
 body.font-klee{--font-body:'Klee One',cursive;}
 body.font-rounded{--font-body:'M PLUS Rounded 1c',sans-serif;}
+body.font-noto{--font-body:'Noto Sans JP',sans-serif;}
+body.font-shippori{--font-body:'Shippori Mincho',serif;}
+body.font-yomogi{--font-body:'Yomogi',cursive;}
+body.font-zen{--font-body:'Zen Maru Gothic',sans-serif;}
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
 html,body{height:100%;overflow:hidden;font-family:var(--font-body);}
 
@@ -465,12 +469,13 @@ body.ed-light .theme-btn.active{border-color:#a07030;background:rgba(160,112,48,
 .dp-swatch{width:22px;height:22px;border-radius:3px;border:2px solid transparent;cursor:pointer;position:relative;flex-shrink:0;}
 .dp-swatch.round{border-radius:50%;}
 .dp-swatch.sel{border-color:#fff;box-shadow:0 0 0 1px rgba(0,0,0,.4);}
-/* font picker row in deco panel */
-.dp-font-row{display:flex;align-items:center;gap:6px;}
-.dp-font-btn{flex:1;padding:5px 2px;border:1.5px solid rgba(255,255,255,.14);border-radius:8px;
-  background:rgba(255,255,255,.05);color:#d0b888;cursor:pointer;font-size:13px;text-align:center;
-  line-height:1.3;transition:all .12s;}
-.dp-font-btn small{display:block;font-size:9px;opacity:.7;font-family:'Georgia',serif;}
+/* font picker in deco panel */
+.dp-font-row{display:flex;flex-direction:column;gap:4px;}
+.dp-font-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:3px;}
+.dp-font-btn{padding:5px 2px;border:1.5px solid rgba(255,255,255,.14);border-radius:8px;
+  background:rgba(255,255,255,.05);color:#d0b888;cursor:pointer;font-size:14px;text-align:center;
+  line-height:1.2;transition:all .12s;touch-action:manipulation;}
+.dp-font-btn small{display:block;font-size:9px;opacity:.65;font-family:'Georgia',serif;}
 .dp-font-btn.sel{border-color:var(--gold);color:var(--gold);background:rgba(240,192,64,.12);}
 body.ed-light .dp-font-btn{border-color:rgba(0,0,0,.14);background:rgba(0,0,0,.05);color:#6a4020;}
 body.ed-light .dp-font-btn.sel{border-color:#a07030;color:#a07030;background:rgba(160,112,48,.1);}
@@ -793,13 +798,21 @@ body.ed-light .dp-font-btn.sel{border-color:#a07030;color:#a07030;background:rgb
       </div>
       <div class="settings-section">
         <h4>フォント</h4>
-        <div class="theme-btns" style="margin-bottom:6px">
-          <button class="theme-btn" data-font="georgia" onclick="setBaseFont('georgia')" style="font-family:'Georgia',serif">明朝体</button>
-          <button class="theme-btn" data-font="sans" onclick="setBaseFont('sans')" style="font-family:'Hiragino Sans','Yu Gothic',sans-serif">ゴシック</button>
+        <div class="theme-btns" style="margin-bottom:5px">
+          <button class="theme-btn" data-font="georgia"  onclick="setBaseFont('georgia')"  style="font-family:'Georgia',serif">明朝体</button>
+          <button class="theme-btn" data-font="shippori" onclick="setBaseFont('shippori')" style="font-family:'Shippori Mincho',serif">しっぽり</button>
+        </div>
+        <div class="theme-btns" style="margin-bottom:5px">
+          <button class="theme-btn" data-font="sans"    onclick="setBaseFont('sans')"    style="font-family:'Hiragino Sans',sans-serif">ゴシック</button>
+          <button class="theme-btn" data-font="noto"    onclick="setBaseFont('noto')"    style="font-family:'Noto Sans JP',sans-serif">Noto</button>
+        </div>
+        <div class="theme-btns" style="margin-bottom:5px">
+          <button class="theme-btn" data-font="rounded" onclick="setBaseFont('rounded')" style="font-family:'M PLUS Rounded 1c',sans-serif">丸ゴシック</button>
+          <button class="theme-btn" data-font="zen"     onclick="setBaseFont('zen')"     style="font-family:'Zen Maru Gothic',sans-serif">禅丸</button>
         </div>
         <div class="theme-btns">
-          <button class="theme-btn" data-font="klee" onclick="setBaseFont('klee')" style="font-family:'Klee One',cursive">手書き</button>
-          <button class="theme-btn" data-font="rounded" onclick="setBaseFont('rounded')" style="font-family:'M PLUS Rounded 1c',sans-serif">丸ゴシック</button>
+          <button class="theme-btn" data-font="klee"   onclick="setBaseFont('klee')"   style="font-family:'Klee One',cursive">手書き</button>
+          <button class="theme-btn" data-font="yomogi" onclick="setBaseFont('yomogi')" style="font-family:'Yomogi',cursive">よもぎ</button>
         </div>
       </div>
       <div class="settings-section">
@@ -883,10 +896,14 @@ const fmtD = iso => { const d=new Date(iso); return `${d.getMonth()+1}/${d.getDa
 const touchPage = () => { if (pages[curIdx]) pages[curIdx].lastAccessed = nowS(); };
 
 const FONTS = {
-  georgia: { label:'明朝体', sample:'あ', css:"'Georgia','Hiragino Mincho ProN',serif" },
-  sans:    { label:'ゴシック', sample:'あ', css:"'Hiragino Sans','Yu Gothic','Noto Sans JP',sans-serif" },
-  klee:    { label:'手書き', sample:'あ', css:"'Klee One',cursive" },
-  rounded: { label:'丸ゴシック', sample:'あ', css:"'M PLUS Rounded 1c',sans-serif" },
+  georgia:  { label:'明朝体',     sample:'あ', css:"'Georgia','Hiragino Mincho ProN',serif" },
+  sans:     { label:'ゴシック',   sample:'あ', css:"'Hiragino Sans','Yu Gothic','Noto Sans JP',sans-serif" },
+  klee:     { label:'手書き',     sample:'あ', css:"'Klee One',cursive" },
+  rounded:  { label:'丸ゴシック', sample:'あ', css:"'M PLUS Rounded 1c',sans-serif" },
+  noto:     { label:'Noto',       sample:'あ', css:"'Noto Sans JP',sans-serif" },
+  shippori: { label:'しっぽり',   sample:'あ', css:"'Shippori Mincho',serif" },
+  yomogi:   { label:'よもぎ',     sample:'あ', css:"'Yomogi',cursive" },
+  zen:      { label:'禅丸',       sample:'あ', css:"'Zen Maru Gothic',sans-serif" },
 };
 let baseFont = 'georgia';
 const TAPE_COLORS = [
@@ -1692,16 +1709,18 @@ function buildDecoPicker() {
     s.dataset.type='pin'; s.dataset.color=c;
     s.addEventListener('click',()=>updateDecoPick('pin',c)); pp.appendChild(s);
   });
-  // font buttons
+  // font buttons (4×2 grid)
   const fr=document.getElementById('dp-font-row'); fr.innerHTML='';
   fr.appendChild(Object.assign(document.createElement('span'),{className:'dp-label',textContent:'フォント'}));
+  const fg=document.createElement('div'); fg.className='dp-font-grid';
   Object.entries(FONTS).forEach(([key,f])=>{
     const b=document.createElement('button'); b.className='dp-font-btn'; b.dataset.font=key;
     b.style.fontFamily=f.css;
     b.innerHTML=`${f.sample}<small>${f.label}</small>`;
     b.addEventListener('click',()=>updateFontPick(key));
-    fr.appendChild(b);
+    fg.appendChild(b);
   });
+  fr.appendChild(fg);
   syncFontSel();
 }
 function updateDecoPick(type, color) {
@@ -1727,14 +1746,17 @@ function syncFontSel() {
   const cur = editEl?.font || null;
   document.querySelectorAll('.dp-font-btn').forEach(b=>b.classList.toggle('sel', b.dataset.font===cur));
 }
+function _applyEditorFont(fontCss) {
+  const css = fontCss || '';
+  document.querySelectorAll('#memo-editor .block-textarea, #memo-editor .block-check-text')
+    .forEach(el => { el.style.fontFamily = css; });
+}
 function updateFontPick(key) {
   if (!editEl) return;
-  editEl.font = (editEl.font === key) ? null : key; // toggle off if same
+  editEl.font = (editEl.font === key) ? null : key;
   syncFontSel();
-  // live-apply to editor textarea
   const fontCss = editEl.font ? FONTS[editEl.font]?.css : '';
-  document.getElementById('memo-editor').style.fontFamily = fontCss || '';
-  // live-update card preview text
+  _applyEditorFont(fontCss);
   const inner = document.querySelector(`.scrap[data-id="${editEl.id}"] .scrap-inner`);
   if (inner) inner.style.fontFamily = fontCss || '';
 }
@@ -1751,8 +1773,8 @@ function openMemo(el) {
   document.getElementById('memo-url-input').value = el.sourceUrl || '';
   buildDecoPicker();
   syncDecoSel();
-  // apply per-memo font to editor
-  document.getElementById('memo-editor').style.fontFamily = el.font ? FONTS[el.font]?.css||'' : '';
+  // apply per-memo font to editor (after renderBlocks creates the textareas)
+  setTimeout(()=>{ _applyEditorFont(el.font ? FONTS[el.font]?.css||'' : ''); }, 0);
   document.getElementById('rot-display').textContent = (el.rot || 0) + '°';
   const pc=document.getElementById('rot-preview-card');
   if (pc) pc.style.transform=`rotate(${el.rot||0}deg)`;
@@ -2113,7 +2135,7 @@ function setEditorTheme(t) {
 }
 function setBaseFont(f) {
   baseFont = f;
-  document.body.classList.remove('font-sans','font-klee','font-rounded');
+  document.body.classList.remove('font-sans','font-klee','font-rounded','font-noto','font-shippori','font-yomogi','font-zen');
   if (f !== 'georgia') document.body.classList.add('font-'+f);
   localStorage.setItem('snb6f', f);
   document.querySelectorAll('[data-font]').forEach(b=>b.classList.toggle('active', b.dataset.font===f));
