@@ -1069,11 +1069,12 @@ function drawScrap(el, canvas) {
 }
 
 function buildTodoPreview(div, el) {
+  const fontCss = el.font && FONTS[el.font] ? FONTS[el.font].css : null;
   const inner=document.createElement('div'); inner.className='todo-inner';
-  if (el.font && FONTS[el.font]) inner.style.fontFamily = FONTS[el.font].css;
   const hd=document.createElement('div'); hd.className='todo-header';
   const labelText=el.title||'TODO';
   hd.innerHTML=`<i class="fas fa-check-square todo-header-icon"></i><span class="todo-header-label">${esc(labelText)}</span>`;
+  if (fontCss) hd.querySelector('.todo-header-label').style.fontFamily=fontCss;
   inner.appendChild(hd);
   const MAX_ITEMS=5;
   const items=el.items||[];
@@ -1082,6 +1083,7 @@ function buildTodoPreview(div, el) {
     const cb=document.createElement('span'); cb.className='todo-cb'; cb.textContent=it.checked?'☑':'☐';
     const txt=document.createElement('span');
     txt.className='todo-item-text'+(it.checked?' done':''); txt.textContent=it.text||'';
+    if (fontCss) txt.style.fontFamily=fontCss;
     row.appendChild(cb); row.appendChild(txt); inner.appendChild(row);
   });
   if (items.length>MAX_ITEMS) {
@@ -1189,12 +1191,13 @@ function linkifyText(raw) {
 }
 
 function buildMemoPreview(div, el) {
+  const fontCss = el.font && FONTS[el.font] ? FONTS[el.font].css : null;
   const inner = document.createElement('div'); inner.className='scrap-inner';
-  if (el.font && FONTS[el.font]) inner.style.fontFamily = FONTS[el.font].css;
   let textBuf = '';
   const flushText = () => {
     if (!textBuf.trim()) { textBuf=''; return; }
     const tp = document.createElement('div'); tp.className='sp-text';
+    if (fontCss) tp.style.fontFamily = fontCss;
     tp.innerHTML = linkifyText(textBuf.trim()); inner.appendChild(tp);
     textBuf = '';
   };
@@ -1208,6 +1211,7 @@ function buildMemoPreview(div, el) {
       icon.textContent=b.checked?'☑':'☐';
       const txt=document.createElement('span');
       txt.className='sp-check-text'+(b.checked?' done':''); txt.textContent=b.content||'';
+      if (fontCss) txt.style.fontFamily = fontCss;
       row.appendChild(icon); row.appendChild(txt); inner.appendChild(row);
     } else if (b.type==='image') {
       flushText();
@@ -1757,8 +1761,12 @@ function updateFontPick(key) {
   syncFontSel();
   const fontCss = editEl.font ? FONTS[editEl.font]?.css : '';
   _applyEditorFont(fontCss);
-  const inner = document.querySelector(`.scrap[data-id="${editEl.id}"] .scrap-inner`);
-  if (inner) inner.style.fontFamily = fontCss || '';
+  // live update card text elements directly (CSS specificity対策)
+  const card = document.querySelector(`.scrap[data-id="${editEl.id}"]`);
+  if (card) {
+    card.querySelectorAll('.sp-text,.sp-check-text,.todo-item-text,.todo-header-label')
+      .forEach(t => { t.style.fontFamily = fontCss || ''; });
+  }
 }
 function toggleDecoPanel() {
   const panel = document.getElementById('deco-panel');
