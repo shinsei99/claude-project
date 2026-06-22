@@ -981,7 +981,7 @@ function buildTodoPreview(div, el) {
   div.appendChild(inner);
 }
 
-let editTodoEl=null;
+let editTodoEl=null, _todoIsNew=false;
 function openTodo(el) {
   editTodoEl=el;
   document.getElementById('todo-title-in').value=el.title||'';
@@ -1001,7 +1001,15 @@ function closeTodo() {
   const sheet=document.getElementById('todo-sheet');
   sheet.classList.remove('open');
   const box=sheet.querySelector('.sh-box'); if (box) box.style.maxHeight='';
-  editTodoEl=null;
+  if (_todoIsNew && editTodoEl) {
+    pages[curIdx].elements=pages[curIdx].elements.filter(x=>x.id!==editTodoEl.id);
+    document.querySelector(`.scrap[data-id="${editTodoEl.id}"]`)?.remove();
+    const cv=document.getElementById('canvas');
+    if (cv && !pages[curIdx].elements.length)
+      cv.innerHTML='<div class="empty-hint"><i class="fas fa-feather-alt"></i><p>メモやWebクリップを追加しよう</p></div>';
+    save();
+  }
+  _todoIsNew=false; editTodoEl=null;
 }
 function renderTodoItems() {
   const ed=document.getElementById('todo-editor'); ed.innerHTML='';
@@ -1043,7 +1051,7 @@ function saveTodo() {
   editTodoEl.items=newItems;
   const dom=document.querySelector(`.scrap[data-id="${editTodoEl.id}"]`);
   if (dom) rebuildPreview(dom,editTodoEl);
-  touchPage(); save(); closeTodo(); toast('保存しました ✓');
+  _todoIsNew=false; touchPage(); save(); closeTodo(); toast('保存しました ✓');
 }
 function addTodoToPage() {
   const el={id:nid(),type:'todo',
@@ -1057,7 +1065,7 @@ function addTodoToPage() {
   pages[curIdx].elements.push(el);
   const cv=document.getElementById('canvas');
   if (cv) { cv.querySelector('.empty-hint')?.remove(); drawScrap(el,cv); }
-  soundPeta(); openTodo(el); touchPage();
+  soundPeta(); _todoIsNew=true; openTodo(el); touchPage();
 }
 
 function linkifyText(raw) {
