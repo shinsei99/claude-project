@@ -950,7 +950,7 @@ function mkData() {
 // ══════════════════════════════════════════
 function renderPage() {
   const wrap = document.getElementById('page-wrap');
-  [...wrap.children].forEach(c => { if (c.id !== 'fc' && !c.classList.contains('edge-ind')) c.remove(); });
+  [...wrap.children].forEach(c => { if (c.id !== 'fc' && !c.classList.contains('edge-ind') && c !== edgeDragDiv) c.remove(); });
 
   const pg  = pages[curIdx];
   const div = document.createElement('div');
@@ -1458,6 +1458,7 @@ function showDeleteConfirm(div, el) {
 //  EDGE DETECTION (drag to page switch)
 // ══════════════════════════════════════════
 function checkEdge(cx, el, div, canvas, wrRect) {
+  if (isAnim) return;  // ページアニメ中はエッジ判定をスキップ
   const wr=wrRect||document.getElementById('page-wrap').getBoundingClientRect();
   const ZONE=55;
   const inLeft  = cx < wr.left + ZONE && curIdx > 0;
@@ -1487,7 +1488,9 @@ function startEdgeTimer(side, el, div, canvas) {
   });
 
   edgeTimer = setTimeout(() => {
-    edgeTimer=null; edgeSide=null;
+    edgeTimer=null;
+    // edgeSide はリセットしない → checkEdge が同じ端で即再発火するのを防ぐ
+    // ユーザーが端から離れたときに clearEdge() が edgeSide をリセットする
     ['edge-l','edge-r'].forEach(id=>{
       const e2=document.getElementById(id);
       e2.classList.remove('on','timing');
@@ -1507,13 +1510,10 @@ function startEdgeTimer(side, el, div, canvas) {
     });
     setTimeout(()=>{
       curIdx=targetIdx;
-      renderPage();
+      renderPage(); // edgeDragDiv は renderPage() で削除されない（除外済み）
       fc.style.transition='none'; fc.style.transform='rotateY(0deg)'; fc.style.display='none';
       isAnim=false;
-      if (edgeDragDiv) {
-        document.getElementById('page-wrap').appendChild(edgeDragDiv);
-        edgeDragDiv.style.zIndex='80';
-      }
+      // edgeSide はユーザーが端から出たとき checkEdge→clearEdge でリセット
     },380);
   }, 800);
 }
