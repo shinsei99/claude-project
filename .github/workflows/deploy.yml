@@ -21,32 +21,32 @@ jobs:
 
       - name: Deploy to gh-pages
         run: |
-          # デプロイ対象ファイルのチェックサムを記録
-          SRC_SHA=$(sha256sum scrapmemo-petapeta/index.html | awk '{print $1}')
-          echo "Source SHA256: $SRC_SHA"
+          DEPLOY_FOLDERS="scrapmemo-petapeta mom-counter"
 
-          # デプロイ対象フォルダを一時保存
-          cp -r scrapmemo-petapeta /tmp/scrapmemo-petapeta
+          # 各フォルダを一時保存
+          for FOLDER in $DEPLOY_FOLDERS; do
+            cp -r $FOLDER /tmp/$FOLDER
+          done
 
           # gh-pagesブランチに切り替え
           git fetch origin gh-pages
           git checkout gh-pages
 
-          # 既存フォルダを削除してからコピー（二重パス防止）
-          rm -rf ./scrapmemo-petapeta
-          cp -r /tmp/scrapmemo-petapeta ./scrapmemo-petapeta
-
-          # デプロイ後のチェックサムを検証
-          DEST_SHA=$(sha256sum scrapmemo-petapeta/index.html | awk '{print $1}')
-          echo "Dest SHA256:   $DEST_SHA"
-          if [ "$SRC_SHA" != "$DEST_SHA" ]; then
-            echo "ERROR: ファイルのコピーに失敗しました（チェックサム不一致）"
-            exit 1
-          fi
-          echo "チェックサム一致: コピー成功"
+          # 各フォルダをコピー＆検証
+          for FOLDER in $DEPLOY_FOLDERS; do
+            SRC_SHA=$(sha256sum /tmp/$FOLDER/index.html | awk '{print $1}')
+            rm -rf ./$FOLDER
+            cp -r /tmp/$FOLDER ./$FOLDER
+            DEST_SHA=$(sha256sum ./$FOLDER/index.html | awk '{print $1}')
+            if [ "$SRC_SHA" != "$DEST_SHA" ]; then
+              echo "ERROR: $FOLDER のコピーに失敗しました（チェックサム不一致）"
+              exit 1
+            fi
+            echo "$FOLDER: チェックサム一致"
+            git add $FOLDER/
+          done
 
           # 変更があればコミット＆プッシュ
-          git add scrapmemo-petapeta/
           if git diff --cached --quiet; then
             echo "変更なし、スキップ"
           else

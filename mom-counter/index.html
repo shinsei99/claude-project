@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>お母さんの小言＆褒め言葉カウンター</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Hiragino Kaku Gothic ProN', 'メイリオ', 'Noto Sans JP', sans-serif;
+      background: linear-gradient(160deg, #fff0f5 0%, #f0fff8 100%);
+      min-height: 100vh;
+      padding: 16px 12px 48px;
+    }
+
+    /* ── Header ── */
+    .header { text-align: center; padding: 24px 0 8px; margin-bottom: 20px; }
+    .header-avatar {
+      font-size: 56px;
+      display: inline-block;
+      animation: float 3s ease-in-out infinite;
+    }
+    @keyframes float {
+      0%,100% { transform: translateY(0); }
+      50%      { transform: translateY(-8px); }
+    }
+    .header h1 { font-size: clamp(15px,4vw,20px); color: #5a4060; margin-top: 10px; font-weight: bold; }
+    .header p  { font-size: 12px; color: #aaa; margin-top: 4px; }
+    .name-wrap { margin-top: 12px; }
+    .name-input-field {
+      padding: 8px 18px; border-radius: 20px;
+      border: 2px solid #e8d0f0; background: #fff;
+      font-size: 16px; font-weight: bold; color: #5a4060;
+      text-align: center; outline: none; width: 200px;
+      font-family: inherit; transition: border-color 0.2s;
+    }
+    .name-input-field:focus { border-color: #c084fc; }
+    .name-input-field::placeholder { color: #ccc; font-weight: normal; }
+
+    /* ── Layout ── */
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      max-width: 860px;
+      margin: 0 auto 16px;
+    }
+    @media (max-width: 580px) { .main-grid { grid-template-columns: 1fr; } }
+
+    /* ── Card ── */
+    .card {
+      border-radius: 22px;
+      padding: 20px;
+      box-shadow: 0 6px 24px rgba(0,0,0,0.08);
+      max-width: 860px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    .angry-card   { background: #fff5f5; border: 2px solid #ffa8a8; }
+    .praise-card  { background: #f2fff7; border: 2px solid #8fe0b0; }
+    .settings-card { background: #fffbef; border: 2px solid #ffd97a; margin-bottom: 16px; }
+
+    .card-title { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
+    .card-title-icon { font-size: 26px; }
+    .card-title h2 { font-size: 16px; font-weight: bold; }
+    .angry-card   .card-title h2 { color: #d63031; }
+    .praise-card  .card-title h2 { color: #00b894; }
+    .settings-card .card-title h2 { color: #c99a00; }
+
+    /* ── Total ── */
+    .total-display { text-align: center; margin-bottom: 14px; }
+    .total-count {
+      font-size: 56px; font-weight: 900; line-height: 1;
+      transition: transform 0.15s;
+    }
+    .total-count.pop { animation: pop 0.25s ease; }
+    @keyframes pop {
+      0%  { transform: scale(1); }
+      50% { transform: scale(1.3); }
+      100%{ transform: scale(1); }
+    }
+    .angry-card  .total-count { color: #d63031; }
+    .praise-card .total-count { color: #00b894; }
+    .total-label { font-size: 11px; color: #aaa; margin-top: 2px; }
+
+    /* ── Progress ── */
+    .progress-wrap { margin-bottom: 16px; }
+    .progress-info { display: flex; justify-content: space-between; font-size: 11px; color: #888; margin-bottom: 5px; }
+    .progress-bar-bg { width: 100%; height: 10px; border-radius: 5px; overflow: hidden; }
+    .angry-card  .progress-bar-bg { background: #ffd5d5; }
+    .praise-card .progress-bar-bg { background: #c1f0d8; }
+    .progress-bar-fill { height: 100%; border-radius: 5px; transition: width 0.45s cubic-bezier(.4,0,.2,1); }
+    .angry-card  .progress-bar-fill { background: linear-gradient(90deg,#f9c0c0,#d63031); }
+    .praise-card .progress-bar-fill { background: linear-gradient(90deg,#82e0b0,#00b894); }
+
+    /* Milestone ticks */
+    .progress-ticks { position: relative; height: 16px; margin-top: 4px; }
+    .tick {
+      position: absolute;
+      transform: translateX(-50%);
+      font-size: 10px;
+      color: #bbb;
+      white-space: nowrap;
+    }
+    .tick.reached { color: inherit; font-weight: bold; }
+    .angry-card  .tick.reached { color: #d63031; }
+    .praise-card .tick.reached { color: #00b894; }
+
+    /* ── Item rows ── */
+    .items-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+    .item-row {
+      display: flex; align-items: center; gap: 8px;
+      background: #fff; border-radius: 14px; padding: 9px 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+    .item-name { flex: 1; font-size: 14px; color: #333; word-break: break-all; }
+    .item-count { font-size: 20px; font-weight: bold; min-width: 30px; text-align: center; }
+    .angry-card  .item-count { color: #d63031; }
+    .praise-card .item-count { color: #00b894; }
+
+    .btn-plus {
+      width: 34px; height: 34px; border-radius: 50%; border: none;
+      font-size: 22px; font-weight: bold; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: transform 0.1s; flex-shrink: 0;
+    }
+    .btn-plus:active { transform: scale(0.88); }
+    .angry-card  .btn-plus { background: #fc8181; color: #fff; box-shadow: 0 3px 8px rgba(220,80,80,.3); }
+    .angry-card  .btn-plus:hover { background: #d63031; }
+    .praise-card .btn-plus { background: #48d9a0; color: #fff; box-shadow: 0 3px 8px rgba(0,185,130,.3); }
+    .praise-card .btn-plus:hover { background: #00b894; }
+
+    .btn-delete {
+      width: 24px; height: 24px; border-radius: 50%; border: none;
+      background: #eee; color: #999; font-size: 13px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; transition: background 0.15s;
+    }
+    .btn-delete:hover { background: #ddd; color: #666; }
+
+    .btn-add-item {
+      width: 100%; padding: 10px; border-radius: 14px;
+      border: 2px dashed; background: transparent;
+      font-size: 14px; cursor: pointer; transition: background 0.15s; font-family: inherit;
+    }
+    .angry-card  .btn-add-item { border-color: #fc8181; color: #d63031; }
+    .angry-card  .btn-add-item:hover { background: #fff0f0; }
+    .praise-card .btn-add-item { border-color: #48d9a0; color: #00b894; }
+    .praise-card .btn-add-item:hover { background: #edfff7; }
+
+    /* ── Settings tiers ── */
+    .settings-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    @media (max-width: 580px) { .settings-grid { grid-template-columns: 1fr; } }
+
+    .tier-section-title {
+      font-size: 13px; font-weight: bold; color: #888;
+      margin-bottom: 8px; padding-bottom: 4px;
+      border-bottom: 1px solid #f0e0b0;
+    }
+
+    .tiers-list { display: flex; flex-direction: column; gap: 7px; margin-bottom: 10px; }
+    .tier-row {
+      display: flex; align-items: center; gap: 6px;
+      background: #fff; border-radius: 12px;
+      padding: 8px 10px;
+      box-shadow: 0 1px 6px rgba(0,0,0,0.06);
+    }
+    .tier-row .tier-count {
+      width: 52px; padding: 5px 6px;
+      border-radius: 8px; border: 1.5px solid #e2e8f0;
+      font-size: 14px; font-weight: bold;
+      text-align: center; outline: none;
+      font-family: inherit;
+      transition: border-color 0.2s;
+    }
+    .tier-row .tier-count:focus { border-color: #fbd38d; }
+    .tier-label { font-size: 13px; color: #999; white-space: nowrap; }
+    .tier-row .tier-content {
+      flex: 1; padding: 5px 8px;
+      border-radius: 8px; border: 1.5px solid #e2e8f0;
+      font-size: 13px; outline: none; font-family: inherit;
+      transition: border-color 0.2s;
+    }
+    .tier-row .tier-content:focus { border-color: #fbd38d; }
+    .btn-tier-del {
+      width: 22px; height: 22px; border-radius: 50%; border: none;
+      background: #f0f0f0; color: #bbb; font-size: 12px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; transition: background 0.15s;
+    }
+    .btn-tier-del:hover { background: #e0e0e0; color: #888; }
+
+    .btn-add-tier {
+      width: 100%; padding: 8px; border-radius: 10px;
+      border: 2px dashed #fbd38d; background: transparent;
+      font-size: 13px; color: #c99a00; cursor: pointer;
+      transition: background 0.15s; font-family: inherit;
+    }
+    .btn-add-tier:hover { background: #fffbef; }
+
+    /* ── Reset ── */
+    .reset-wrap { text-align: center; max-width: 860px; margin: 20px auto 0; }
+    .btn-reset {
+      padding: 12px 32px; border-radius: 20px; border: none;
+      background: #a0aec0; color: #fff; font-size: 15px;
+      cursor: pointer; transition: background 0.2s; font-family: inherit;
+    }
+    .btn-reset:hover { background: #718096; }
+
+    /* ── Shake ── */
+    @keyframes shake {
+      0%,100% { transform: translateX(0); }
+      20%      { transform: translateX(-9px); }
+      40%      { transform: translateX(9px); }
+      60%      { transform: translateX(-6px); }
+      80%      { transform: translateX(6px); }
+    }
+    .shake { animation: shake 0.42s ease; }
+
+    /* ── Modal ── */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.55);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 1000; opacity: 0; pointer-events: none;
+      transition: opacity 0.28s;
+    }
+    .modal-overlay.show { opacity: 1; pointer-events: all; }
+    .modal-box {
+      border-radius: 26px; padding: 40px 28px 32px;
+      text-align: center; max-width: 340px; width: 90%;
+      transform: scale(0.78);
+      transition: transform 0.3s cubic-bezier(.34,1.56,.64,1);
+    }
+    .modal-overlay.show .modal-box { transform: scale(1); }
+
+    .angry-modal  .modal-box { background: linear-gradient(155deg,#fff5f5,#ffe0e0); border: 3px solid #fc8181; }
+    .praise-modal .modal-box { background: linear-gradient(155deg,#f0fff7,#d4fae7); border: 3px solid #48d9a0; }
+
+    .modal-emoji { font-size: 68px; display: block; margin-bottom: 14px; animation: bounce 0.55s infinite alternate; }
+    @keyframes bounce {
+      from { transform: translateY(0)    rotate(-5deg); }
+      to   { transform: translateY(-12px) rotate(5deg); }
+    }
+    .modal-title { font-size: 21px; font-weight: bold; margin-bottom: 6px; }
+    .angry-modal  .modal-title { color: #d63031; }
+    .praise-modal .modal-title { color: #00b894; }
+
+    .modal-tier-badge {
+      display: inline-block; font-size: 13px;
+      padding: 3px 12px; border-radius: 20px; margin-bottom: 12px; font-weight: bold;
+    }
+    .angry-modal  .modal-tier-badge { background: #ffd5d5; color: #d63031; }
+    .praise-modal .modal-tier-badge { background: #c1f0d8; color: #00875a; }
+
+    .modal-body { font-size: 15px; color: #555; line-height: 1.7; margin-bottom: 24px; }
+    .modal-reward {
+      display: inline-block; margin-top: 10px;
+      font-size: 18px; font-weight: bold;
+      padding: 10px 20px; border-radius: 14px;
+    }
+    .angry-modal  .modal-reward { background: #ffd5d5; color: #d63031; }
+    .praise-modal .modal-reward { background: #c1f0d8; color: #00875a; }
+
+    .btn-modal-close {
+      padding: 12px 30px; border-radius: 20px; border: none;
+      font-size: 15px; font-weight: bold; cursor: pointer;
+      color: #fff; transition: opacity 0.15s; font-family: inherit;
+    }
+    .btn-modal-close:hover { opacity: 0.85; }
+    .angry-modal  .btn-modal-close { background: #d63031; }
+    .praise-modal .btn-modal-close { background: #00b894; }
+
+    /* ── Confetti ── */
+    .confetti-container {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      pointer-events: none; z-index: 999; overflow: hidden;
+    }
+    .confetti-piece { position: absolute; top: -30px; animation: fall linear forwards; }
+    @keyframes fall { to { transform: translateY(110vh) rotate(720deg); opacity: 0; } }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <span class="header-avatar">👩</span>
+    <h1 id="appTitle">お母さんの小言 &amp; 褒め言葉カウンター</h1>
+    <p>怒られ・褒められをしっかり記録しよう！</p>
+    <div class="name-wrap">
+      <input class="name-input-field" id="nameInput" type="text" placeholder="子どもの名前（例: 太郎）" maxlength="20">
+    </div>
+  </div>
+
+  <!-- Settings -->
+  <div class="card settings-card">
+    <div class="card-title">
+      <span class="card-title-icon">⚙️</span>
+      <h2>発動ライン設定</h2>
+    </div>
+    <div class="settings-grid">
+      <!-- Angry tiers -->
+      <div>
+        <div class="tier-section-title">😠 罰ゲーム発動ライン</div>
+        <div class="tiers-list" id="angryTiersList"></div>
+        <button class="btn-add-tier" onclick="addTier('angry')">＋ ラインを追加する</button>
+      </div>
+      <!-- Praise tiers -->
+      <div>
+        <div class="tier-section-title">😊 ご褒美発動ライン</div>
+        <div class="tiers-list" id="praiseTiersList"></div>
+        <button class="btn-add-tier" onclick="addTier('praise')">＋ ラインを追加する</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main cards -->
+  <div class="main-grid">
+    <div class="card angry-card" id="angryCard">
+      <div class="card-title">
+        <span class="card-title-icon">😠</span>
+        <h2 id="angryCardTitle">怒られカウント</h2>
+      </div>
+      <div class="total-display">
+        <div class="total-count" id="angryTotal">0</div>
+        <div class="total-label">合計怒られ回数</div>
+      </div>
+      <div class="progress-wrap">
+        <div class="progress-info">
+          <span id="angryProgressLabel">次の発動まで…</span>
+          <span id="angryProgressText">0 / —</span>
+        </div>
+        <div class="progress-bar-bg">
+          <div class="progress-bar-fill" id="angryProgressBar" style="width:0%"></div>
+        </div>
+        <div class="progress-ticks" id="angryTicks"></div>
+      </div>
+      <div class="items-list" id="angryItemsList"></div>
+      <button class="btn-add-item" onclick="addItem('angry')">＋ 項目を追加する</button>
+    </div>
+
+    <div class="card praise-card" id="praiseCard">
+      <div class="card-title">
+        <span class="card-title-icon">😊</span>
+        <h2 id="praiseCardTitle">褒められカウント</h2>
+      </div>
+      <div class="total-display">
+        <div class="total-count" id="praiseTotal">0</div>
+        <div class="total-label">合計褒められ回数</div>
+      </div>
+      <div class="progress-wrap">
+        <div class="progress-info">
+          <span id="praiseProgressLabel">次のご褒美まで…</span>
+          <span id="praiseProgressText">0 / —</span>
+        </div>
+        <div class="progress-bar-bg">
+          <div class="progress-bar-fill" id="praiseProgressBar" style="width:0%"></div>
+        </div>
+        <div class="progress-ticks" id="praiseTicks"></div>
+      </div>
+      <div class="items-list" id="praiseItemsList"></div>
+      <button class="btn-add-item" onclick="addItem('praise')">＋ 項目を追加する</button>
+    </div>
+  </div>
+
+  <div class="reset-wrap">
+    <button class="btn-reset" onclick="resetAll()">🔄 新学期リセット（全リセット）</button>
+  </div>
+
+  <!-- Angry Modal -->
+  <div class="modal-overlay angry-modal" id="angryModal" onclick="handleOverlayClick(event,'angry')">
+    <div class="modal-box">
+      <span class="modal-emoji">🚨</span>
+      <div class="modal-title">警告！罰ゲーム発生！！</div>
+      <div class="modal-tier-badge" id="angryModalBadge"></div>
+      <div class="modal-body">
+        <span class="modal-reward" id="penaltyDisplay"></span>
+      </div>
+      <button class="btn-modal-close" onclick="closeModal('angry')">わかりました…😢</button>
+    </div>
+  </div>
+
+  <!-- Praise Modal -->
+  <div class="modal-overlay praise-modal" id="praiseModal" onclick="handleOverlayClick(event,'praise')">
+    <div class="modal-box">
+      <span class="modal-emoji">🎉</span>
+      <div class="modal-title">おめでとう！ご褒美ゲット！</div>
+      <div class="modal-tier-badge" id="praiseModalBadge"></div>
+      <div class="modal-body">
+        <span class="modal-reward" id="rewardDisplay"></span>
+      </div>
+      <button class="btn-modal-close" onclick="closeModal('praise')">やった〜！🥳</button>
+    </div>
+  </div>
+
+  <div class="confetti-container" id="confettiContainer"></div>
+
+  <script>
+    const STORAGE_KEY = 'mom-counter-v2';
+    const CONFETTI = ['🎉','🎊','⭐','✨','🌟','🎈','🥳','💫','🎀','🍬','🌸','🎁'];
+
+    let state = {
+      name: '',
+      angryItems: [
+        {id:1, name:'宿題してない', count:0},
+        {id:2, name:'片付け忘れた', count:0},
+        {id:3, name:'起きるの遅い', count:0}
+      ],
+      praiseItems: [
+        {id:4, name:'テスト頑張った', count:0},
+        {id:5, name:'お手伝いした', count:0},
+        {id:6, name:'早起きできた', count:0}
+      ],
+      settings: {
+        angryTiers: [
+          {id:1, count:3,  content:'部屋の掃除'},
+          {id:2, count:5,  content:'お小遣い100円減額'},
+          {id:3, count:10, content:'ゲーム禁止1週間'}
+        ],
+        praiseTiers: [
+          {id:4, count:3,  content:'おやつ1個増える'},
+          {id:5, count:5,  content:'ゲーム30分延長'},
+          {id:6, count:10, content:'好きなごはんリクエスト'}
+        ]
+      },
+      triggeredAngryTiers: [],
+      triggeredPraiseTiers: [],
+      nextId: 7,
+      nextTierId: 7
+    };
+
+    let pendingModals = [];
+    let modalShowing = false;
+
+    // ── Storage ──────────────────────────────────────
+    function load() {
+      try {
+        const s = localStorage.getItem(STORAGE_KEY);
+        if (s) Object.assign(state, JSON.parse(s));
+      } catch(e) {}
+    }
+    function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+
+    function esc(s) {
+      return String(s)
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+        .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+    function getTotal(type) {
+      return state[type + 'Items'].reduce((s,i) => s + i.count, 0);
+    }
+    function sortedTiers(type) {
+      return [...state.settings[type + 'Tiers']].sort((a,b) => a.count - b.count);
+    }
+    function triggeredKey(type) {
+      return 'triggered' + (type === 'angry' ? 'Angry' : 'Praise') + 'Tiers';
+    }
+
+    // ── Render items ─────────────────────────────────
+    function renderItems(type) {
+      const list = document.getElementById(type + 'ItemsList');
+      list.innerHTML = '';
+      state[type + 'Items'].forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'item-row';
+        div.id = 'row-' + item.id;
+        div.innerHTML = `
+          <span class="item-name">${esc(item.name)}</span>
+          <span class="item-count" id="cnt-${item.id}">${item.count}</span>
+          <button class="btn-plus" onclick="increment('${type}',${item.id})">＋</button>
+          <button class="btn-delete" onclick="deleteItem('${type}',${item.id})" title="削除">✕</button>
+        `;
+        list.appendChild(div);
+      });
+    }
+
+    // ── Render tiers in settings ──────────────────────
+    function renderTiers(type) {
+      const list = document.getElementById(type + 'TiersList');
+      list.innerHTML = '';
+      sortedTiers(type).forEach(tier => {
+        const div = document.createElement('div');
+        div.className = 'tier-row';
+        div.innerHTML = `
+          <input class="tier-count" type="number" min="1" value="${tier.count}"
+            onchange="updateTierCount('${type}',${tier.id},this.value)"
+            oninput="updateTierCount('${type}',${tier.id},this.value)">
+          <span class="tier-label">回で</span>
+          <input class="tier-content" type="text" value="${esc(tier.content)}" placeholder="内容を入力"
+            oninput="updateTierContent('${type}',${tier.id},this.value)">
+          <button class="btn-tier-del" onclick="deleteTier('${type}',${tier.id})" title="削除">✕</button>
+        `;
+        list.appendChild(div);
+      });
+    }
+
+    // ── Update UI ─────────────────────────────────────
+    function updateUI() {
+      ['angry','praise'].forEach(type => {
+        const total   = getTotal(type);
+        const tiers   = sortedTiers(type);
+        const tKey    = triggeredKey(type);
+        const maxCount = tiers.length ? tiers[tiers.length - 1].count : 0;
+
+        // Next untriggered tier
+        const next = tiers.find(t => !state[tKey].includes(t.id));
+        const barMax = next ? next.count : (maxCount || 1);
+        const pct    = maxCount === 0 ? 0 : Math.min((total / barMax) * 100, 100);
+
+        document.getElementById(type + 'Total').textContent = total;
+        document.getElementById(type + 'ProgressBar').style.width = pct + '%';
+
+        if (next) {
+          const label = type === 'angry' ? '次の発動まで…' : '次のご褒美まで…';
+          document.getElementById(type + 'ProgressLabel').textContent = label;
+          document.getElementById(type + 'ProgressText').textContent  = `${total} / ${next.count}回`;
+        } else if (tiers.length === 0) {
+          document.getElementById(type + 'ProgressLabel').textContent = '発動ラインを設定してください';
+          document.getElementById(type + 'ProgressText').textContent  = '';
+        } else {
+          const label = type === 'angry' ? '全罰ゲームクリア 😱' : '全ご褒美ゲット 🎉';
+          document.getElementById(type + 'ProgressLabel').textContent = label;
+          document.getElementById(type + 'ProgressText').textContent  = `${total}回`;
+        }
+
+        // Milestone ticks
+        renderTicks(type, total, tiers, maxCount);
+      });
+    }
+
+    function renderTicks(type, total, tiers, maxCount) {
+      const container = document.getElementById(type + 'Ticks');
+      container.innerHTML = '';
+      if (!maxCount || !tiers.length) return;
+      tiers.forEach(tier => {
+        const pct = Math.min((tier.count / maxCount) * 100, 100);
+        const tick = document.createElement('div');
+        tick.className = 'tick' + (total >= tier.count ? ' reached' : '');
+        tick.style.left = pct + '%';
+        tick.textContent = tier.count + '回';
+        container.appendChild(tick);
+      });
+    }
+
+    // ── Increment ─────────────────────────────────────
+    function increment(type, id) {
+      const item = state[type + 'Items'].find(i => i.id === id);
+      if (!item) return;
+      item.count++;
+      save();
+
+      const cnt = document.getElementById('cnt-' + id);
+      if (cnt) cnt.textContent = item.count;
+
+      const row = document.getElementById('row-' + id);
+      if (row && type === 'angry') {
+        row.classList.remove('shake');
+        void row.offsetWidth;
+        row.classList.add('shake');
+      }
+
+      const totalEl = document.getElementById(type + 'Total');
+      totalEl.classList.remove('pop');
+      void totalEl.offsetWidth;
+      totalEl.classList.add('pop');
+
+      updateUI();
+      checkThresholds(type);
+    }
+
+    function checkThresholds(type) {
+      const total = getTotal(type);
+      const tKey  = triggeredKey(type);
+      const newly = sortedTiers(type).filter(t => total >= t.count && !state[tKey].includes(t.id));
+      if (!newly.length) return;
+      newly.forEach(t => state[tKey].push(t.id));
+      save();
+      newly.forEach(t => pendingModals.push({type, tier: t}));
+      if (!modalShowing) showNextModal();
+    }
+
+    // ── Modal queue ───────────────────────────────────
+    function showNextModal() {
+      if (!pendingModals.length) { modalShowing = false; return; }
+      modalShowing = true;
+      const {type, tier} = pendingModals.shift();
+
+      if (type === 'angry') {
+        document.getElementById('angryModalBadge').textContent = `${tier.count}回達成！`;
+        document.getElementById('penaltyDisplay').textContent  = tier.content || '罰ゲーム！';
+        document.getElementById('angryModal').classList.add('show');
+        const card = document.getElementById('angryCard');
+        card.classList.remove('shake');
+        void card.offsetWidth;
+        card.classList.add('shake');
+      } else {
+        document.getElementById('praiseModalBadge').textContent = `${tier.count}回達成！`;
+        document.getElementById('rewardDisplay').textContent    = tier.content || 'ご褒美ゲット！';
+        document.getElementById('praiseModal').classList.add('show');
+        launchConfetti();
+      }
+    }
+
+    function closeModal(type) {
+      document.getElementById(type + 'Modal').classList.remove('show');
+      if (type === 'praise') clearConfetti();
+      setTimeout(showNextModal, 350);
+    }
+
+    function handleOverlayClick(e, type) {
+      if (e.target === e.currentTarget) closeModal(type);
+    }
+
+    // ── Confetti ──────────────────────────────────────
+    let confettiTimer = null;
+    function launchConfetti() {
+      const c = document.getElementById('confettiContainer');
+      c.innerHTML = '';
+      for (let i = 0; i < 55; i++) {
+        const el = document.createElement('div');
+        el.className = 'confetti-piece';
+        el.textContent = CONFETTI[Math.floor(Math.random() * CONFETTI.length)];
+        el.style.left     = (Math.random() * 100) + 'vw';
+        el.style.fontSize = (14 + Math.random() * 18) + 'px';
+        el.style.animation = `fall ${(2+Math.random()*2.5).toFixed(2)}s ${(Math.random()*2).toFixed(2)}s linear forwards`;
+        c.appendChild(el);
+      }
+      clearTimeout(confettiTimer);
+      confettiTimer = setTimeout(clearConfetti, 6000);
+    }
+    function clearConfetti() { document.getElementById('confettiContainer').innerHTML = ''; }
+
+    // ── Items ─────────────────────────────────────────
+    function addItem(type) {
+      const label = type === 'angry' ? '怒られた項目名' : '褒められた項目名';
+      const name  = prompt(label + 'を入力してください：');
+      if (!name?.trim()) return;
+      state[type + 'Items'].push({id: state.nextId++, name: name.trim(), count: 0});
+      save();
+      renderItems(type);
+    }
+
+    function deleteItem(type, id) {
+      if (!confirm('この項目を削除しますか？')) return;
+      state[type + 'Items'] = state[type + 'Items'].filter(i => i.id !== id);
+      save();
+      renderItems(type);
+      updateUI();
+    }
+
+    // ── Tiers ─────────────────────────────────────────
+    function addTier(type) {
+      state.settings[type + 'Tiers'].push({id: state.nextTierId++, count: 1, content: ''});
+      save();
+      renderTiers(type);
+      updateUI();
+    }
+
+    function deleteTier(type, id) {
+      state.settings[type + 'Tiers'] = state.settings[type + 'Tiers'].filter(t => t.id !== id);
+      // Remove from triggered if it was there
+      const tKey = triggeredKey(type);
+      state[tKey] = state[tKey].filter(tid => tid !== id);
+      save();
+      renderTiers(type);
+      updateUI();
+    }
+
+    function updateTierCount(type, id, val) {
+      const tier = state.settings[type + 'Tiers'].find(t => t.id === id);
+      if (!tier) return;
+      tier.count = parseInt(val) || 1;
+      save();
+      updateUI();
+    }
+
+    function updateTierContent(type, id, val) {
+      const tier = state.settings[type + 'Tiers'].find(t => t.id === id);
+      if (!tier) return;
+      tier.content = val;
+      save();
+    }
+
+    // ── Reset ─────────────────────────────────────────
+    function resetAll() {
+      if (!confirm('本当に全カウントをリセットしますか？\n（項目・設定は保持されます）')) return;
+      state.angryItems  = state.angryItems.map(i  => ({...i, count: 0}));
+      state.praiseItems = state.praiseItems.map(i => ({...i, count: 0}));
+      state.triggeredAngryTiers  = [];
+      state.triggeredPraiseTiers = [];
+      pendingModals = [];
+      modalShowing  = false;
+      save();
+      renderItems('angry');
+      renderItems('praise');
+      updateUI();
+    }
+
+    // ── Name ──────────────────────────────────────────
+    function updateTitle() {
+      const n = state.name.trim();
+      document.getElementById('angryCardTitle').textContent  = n ? `${n}の怒られカウント`  : '怒られカウント';
+      document.getElementById('praiseCardTitle').textContent = n ? `${n}の褒められカウント` : '褒められカウント';
+      document.getElementById('nameInput').value = state.name;
+    }
+
+    document.getElementById('nameInput').addEventListener('input', e => {
+      state.name = e.target.value;
+      save();
+      updateTitle();
+    });
+
+    // ── Init ──────────────────────────────────────────
+    load();
+    updateTitle();
+    renderItems('angry');
+    renderItems('praise');
+    renderTiers('angry');
+    renderTiers('praise');
+    updateUI();
+  </script>
+</body>
+</html>
