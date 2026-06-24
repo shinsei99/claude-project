@@ -27,16 +27,64 @@
     }
     .header h1 { font-size: clamp(15px,4vw,20px); color: #5a4060; margin-top: 10px; font-weight: bold; }
     .header p  { font-size: 12px; color: #aaa; margin-top: 4px; }
-    .name-wrap { margin-top: 12px; }
-    .name-input-field {
-      padding: 8px 18px; border-radius: 20px;
-      border: 2px solid #e8d0f0; background: #fff;
-      font-size: 16px; font-weight: bold; color: #5a4060;
-      text-align: center; outline: none; width: 200px;
-      font-family: inherit; transition: border-color 0.2s;
+
+    /* ── User Switcher ── */
+    .user-switcher {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+      margin-top: 14px;
     }
-    .name-input-field:focus { border-color: #c084fc; }
-    .name-input-field::placeholder { color: #ccc; font-weight: normal; }
+    .user-pill {
+      display: flex;
+      align-items: center;
+      border-radius: 20px;
+      border: 2px solid #e8d0f0;
+      background: #fff;
+      overflow: hidden;
+      transition: border-color 0.2s;
+    }
+    .user-pill.active {
+      background: #c084fc;
+      border-color: #c084fc;
+    }
+    .user-pill:not(.active):hover { border-color: #c084fc; }
+    .user-pill-name {
+      padding: 7px 14px;
+      border: none;
+      background: transparent;
+      font-size: 15px;
+      font-weight: bold;
+      color: #5a4060;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .user-pill.active .user-pill-name { color: #fff; }
+    .user-pill-del {
+      padding: 7px 10px 7px 0;
+      border: none;
+      background: transparent;
+      color: rgba(90,64,96,0.45);
+      font-size: 12px;
+      cursor: pointer;
+      font-family: inherit;
+      line-height: 1;
+    }
+    .user-pill-del:hover { color: #d63031; }
+    .btn-add-user {
+      padding: 7px 16px;
+      border-radius: 20px;
+      border: 2px dashed #e8d0f0;
+      background: transparent;
+      font-size: 14px;
+      color: #bbb;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+      font-weight: bold;
+    }
+    .btn-add-user:hover { border-color: #c084fc; color: #c084fc; }
 
     /* ── Layout ── */
     .main-grid {
@@ -291,9 +339,7 @@
     <span class="header-avatar">👩</span>
     <h1 id="appTitle">ママカウンター</h1>
     <p>怒られ・褒められをしっかり記録しよう！</p>
-    <div class="name-wrap">
-      <input class="name-input-field" id="nameInput" type="text" placeholder="子どもの名前（例: 太郎）" maxlength="20">
-    </div>
+    <div class="user-switcher" id="userSwitcher"></div>
   </div>
 
   <!-- Settings -->
@@ -303,13 +349,11 @@
       <h2>発動ライン設定</h2>
     </div>
     <div class="settings-grid">
-      <!-- Angry tiers -->
       <div>
         <div class="tier-section-title">😠 罰ゲーム発動ライン</div>
         <div class="tiers-list" id="angryTiersList"></div>
         <button class="btn-add-tier" onclick="addTier('angry')">＋ ラインを追加する</button>
       </div>
-      <!-- Praise tiers -->
       <div>
         <div class="tier-section-title">😊 ご褒美発動ライン</div>
         <div class="tiers-list" id="praiseTiersList"></div>
@@ -400,51 +444,168 @@
   <div class="confetti-container" id="confettiContainer"></div>
 
   <script>
-    const STORAGE_KEY = 'mom-counter-v2';
+    const STORAGE_KEY     = 'mom-counter-v3';
+    const STORAGE_KEY_OLD = 'mom-counter-v2';
     const CONFETTI = ['🎉','🎊','⭐','✨','🌟','🎈','🥳','💫','🎀','🍬','🌸','🎁'];
 
-    let state = {
-      name: '',
-      angryItems: [
-        {id:1, name:'宿題してない', count:0},
-        {id:2, name:'片付け忘れた', count:0},
-        {id:3, name:'起きるの遅い', count:0}
-      ],
-      praiseItems: [
-        {id:4, name:'テスト頑張った', count:0},
-        {id:5, name:'お手伝いした', count:0},
-        {id:6, name:'早起きできた', count:0}
-      ],
-      settings: {
-        angryTiers: [
-          {id:1, count:3,  content:'部屋の掃除'},
-          {id:2, count:5,  content:'お小遣い100円減額'},
-          {id:3, count:10, content:'ゲーム禁止1週間'}
+    function makeDefaultUser(id, name) {
+      return {
+        id,
+        name: name || '',
+        angryItems: [
+          {id:1, name:'宿題してない', count:0},
+          {id:2, name:'片付け忘れた', count:0},
+          {id:3, name:'起きるの遅い', count:0}
         ],
-        praiseTiers: [
-          {id:4, count:3,  content:'おやつ1個増える'},
-          {id:5, count:5,  content:'ゲーム30分延長'},
-          {id:6, count:10, content:'好きなごはんリクエスト'}
-        ]
-      },
-      triggeredAngryTiers: [],
-      triggeredPraiseTiers: [],
-      nextId: 7,
-      nextTierId: 7
+        praiseItems: [
+          {id:4, name:'テスト頑張った', count:0},
+          {id:5, name:'お手伝いした', count:0},
+          {id:6, name:'早起きできた', count:0}
+        ],
+        settings: {
+          angryTiers: [
+            {id:1, count:3,  content:'部屋の掃除'},
+            {id:2, count:5,  content:'お小遣い100円減額'},
+            {id:3, count:10, content:'ゲーム禁止1週間'}
+          ],
+          praiseTiers: [
+            {id:4, count:3,  content:'おやつ1個増える'},
+            {id:5, count:5,  content:'ゲーム30分延長'},
+            {id:6, count:10, content:'好きなごはんリクエスト'}
+          ]
+        },
+        triggeredAngryTiers: [],
+        triggeredPraiseTiers: [],
+        nextId: 7,
+        nextTierId: 7
+      };
+    }
+
+    let appState = {
+      currentUserId: 1,
+      nextUserId: 2,
+      users: []
     };
+    let state; // 現在のユーザーデータへの参照
 
     let pendingModals = [];
-    let modalShowing = false;
+    let modalShowing  = false;
 
     // ── Storage ──────────────────────────────────────
     function load() {
       try {
         const s = localStorage.getItem(STORAGE_KEY);
-        if (s) Object.assign(state, JSON.parse(s));
-      } catch(e) {}
+        if (s) {
+          Object.assign(appState, JSON.parse(s));
+        } else {
+          const first = makeDefaultUser(1, '');
+          // v2からマイグレーション
+          const v2 = localStorage.getItem(STORAGE_KEY_OLD);
+          if (v2) {
+            const old = JSON.parse(v2);
+            Object.assign(first, old);
+            first.id = 1;
+          }
+          appState.users = [first];
+        }
+      } catch(e) {
+        appState.users = [makeDefaultUser(1, '')];
+      }
+      state = currentUser();
     }
-    function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
 
+    function save() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
+    }
+
+    function currentUser() {
+      return appState.users.find(u => u.id === appState.currentUserId) || appState.users[0];
+    }
+
+    // ── User management ───────────────────────────────
+    function renderUserSwitcher() {
+      const container = document.getElementById('userSwitcher');
+      container.innerHTML = '';
+      appState.users.forEach(u => {
+        const isActive = u.id === appState.currentUserId;
+        const pill = document.createElement('div');
+        pill.className = 'user-pill' + (isActive ? ' active' : '');
+
+        const nameBtn = document.createElement('button');
+        nameBtn.className = 'user-pill-name';
+        nameBtn.textContent = u.name || '名前未設定';
+        nameBtn.onclick = isActive ? renameUser : () => switchToUser(u.id);
+        pill.appendChild(nameBtn);
+
+        if (!isActive) {
+          const delBtn = document.createElement('button');
+          delBtn.className = 'user-pill-del';
+          delBtn.textContent = '✕';
+          delBtn.title = '削除';
+          delBtn.onclick = (e) => { e.stopPropagation(); deleteUser(u.id); };
+          pill.appendChild(delBtn);
+        }
+
+        container.appendChild(pill);
+      });
+
+      const addBtn = document.createElement('button');
+      addBtn.className = 'btn-add-user';
+      addBtn.textContent = '＋ 追加';
+      addBtn.onclick = addUser;
+      container.appendChild(addBtn);
+    }
+
+    function switchToUser(id) {
+      appState.currentUserId = id;
+      state = currentUser();
+      pendingModals = [];
+      modalShowing  = false;
+      save();
+      renderAll();
+    }
+
+    function renameUser() {
+      const name = prompt('名前を入力してください：', state.name);
+      if (name === null) return;
+      state.name = name.trim();
+      save();
+      updateTitle();
+      renderUserSwitcher();
+    }
+
+    function addUser() {
+      const name = prompt('子どもの名前を入力してください：');
+      if (!name?.trim()) return;
+      const newUser = makeDefaultUser(appState.nextUserId++, name.trim());
+      appState.users.push(newUser);
+      appState.currentUserId = newUser.id;
+      state = currentUser();
+      pendingModals = [];
+      modalShowing  = false;
+      save();
+      renderAll();
+    }
+
+    function deleteUser(id) {
+      if (appState.users.length === 1) {
+        alert('最後のユーザーは削除できません。');
+        return;
+      }
+      const u = appState.users.find(u => u.id === id);
+      if (!confirm(`「${u.name || '名前未設定'}」を削除しますか？\nカウントデータもすべて削除されます。`)) return;
+      appState.users = appState.users.filter(u => u.id !== id);
+      if (appState.currentUserId === id) {
+        appState.currentUserId = appState.users[0].id;
+      }
+      state = currentUser();
+      pendingModals = [];
+      modalShowing  = false;
+      save();
+      renderAll();
+    }
+
+    // ── Helpers ───────────────────────────────────────
     function esc(s) {
       return String(s)
         .replace(/&/g,'&amp;').replace(/</g,'&lt;')
@@ -501,13 +662,12 @@
     // ── Update UI ─────────────────────────────────────
     function updateUI() {
       ['angry','praise'].forEach(type => {
-        const total   = getTotal(type);
-        const tiers   = sortedTiers(type);
-        const tKey    = triggeredKey(type);
+        const total    = getTotal(type);
+        const tiers    = sortedTiers(type);
+        const tKey     = triggeredKey(type);
         const maxCount = tiers.length ? tiers[tiers.length - 1].count : 0;
 
-        // Next untriggered tier
-        const next = tiers.find(t => !state[tKey].includes(t.id));
+        const next   = tiers.find(t => !state[tKey].includes(t.id));
         const barMax = next ? next.count : (maxCount || 1);
         const pct    = maxCount === 0 ? 0 : Math.min((total / barMax) * 100, 100);
 
@@ -527,7 +687,6 @@
           document.getElementById(type + 'ProgressText').textContent  = `${total}回`;
         }
 
-        // Milestone ticks
         renderTicks(type, total, tiers, maxCount);
       });
     }
@@ -537,7 +696,7 @@
       container.innerHTML = '';
       if (!maxCount || !tiers.length) return;
       tiers.forEach(tier => {
-        const pct = Math.min((tier.count / maxCount) * 100, 100);
+        const pct  = Math.min((tier.count / maxCount) * 100, 100);
         const tick = document.createElement('div');
         tick.className = 'tick' + (total >= tier.count ? ' reached' : '');
         tick.style.left = pct + '%';
@@ -573,9 +732,9 @@
     }
 
     function checkThresholds(type) {
-      const total = getTotal(type);
-      const tKey  = triggeredKey(type);
-      const newly = sortedTiers(type).filter(t => total >= t.count && !state[tKey].includes(t.id));
+      const total  = getTotal(type);
+      const tKey   = triggeredKey(type);
+      const newly  = sortedTiers(type).filter(t => total >= t.count && !state[tKey].includes(t.id));
       if (!newly.length) return;
       newly.forEach(t => state[tKey].push(t.id));
       save();
@@ -624,8 +783,8 @@
         const el = document.createElement('div');
         el.className = 'confetti-piece';
         el.textContent = CONFETTI[Math.floor(Math.random() * CONFETTI.length)];
-        el.style.left     = (Math.random() * 100) + 'vw';
-        el.style.fontSize = (14 + Math.random() * 18) + 'px';
+        el.style.left      = (Math.random() * 100) + 'vw';
+        el.style.fontSize  = (14 + Math.random() * 18) + 'px';
         el.style.animation = `fall ${(2+Math.random()*2.5).toFixed(2)}s ${(Math.random()*2).toFixed(2)}s linear forwards`;
         c.appendChild(el);
       }
@@ -662,7 +821,6 @@
 
     function deleteTier(type, id) {
       state.settings[type + 'Tiers'] = state.settings[type + 'Tiers'].filter(t => t.id !== id);
-      // Remove from triggered if it was there
       const tKey = triggeredKey(type);
       state[tKey] = state[tKey].filter(tid => tid !== id);
       save();
@@ -700,28 +858,27 @@
       updateUI();
     }
 
-    // ── Name ──────────────────────────────────────────
+    // ── Title ─────────────────────────────────────────
     function updateTitle() {
       const n = state.name.trim();
       document.getElementById('angryCardTitle').textContent  = n ? `${n}の怒られカウント`  : '怒られカウント';
       document.getElementById('praiseCardTitle').textContent = n ? `${n}の褒められカウント` : '褒められカウント';
-      document.getElementById('nameInput').value = state.name;
     }
 
-    document.getElementById('nameInput').addEventListener('input', e => {
-      state.name = e.target.value;
-      save();
+    // ── Render all ────────────────────────────────────
+    function renderAll() {
+      renderUserSwitcher();
       updateTitle();
-    });
+      renderItems('angry');
+      renderItems('praise');
+      renderTiers('angry');
+      renderTiers('praise');
+      updateUI();
+    }
 
     // ── Init ──────────────────────────────────────────
     load();
-    updateTitle();
-    renderItems('angry');
-    renderItems('praise');
-    renderTiers('angry');
-    renderTiers('praise');
-    updateUI();
+    renderAll();
   </script>
 </body>
 </html>
