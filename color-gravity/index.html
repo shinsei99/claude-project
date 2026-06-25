@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>カラー・グラビティ / Color Gravity</title>
+<style>
+  :root{ --cyan:#7df9ff; }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{ margin:0; height:100%; background:#05030f; overflow:hidden;
+    font-family:system-ui,-apple-system,"Helvetica Neue",sans-serif; color:#fff; }
+  #app{ width:100%; min-height:100%; display:flex; flex-direction:column; align-items:center;
+    justify-content:center; padding:12px; user-select:none; }
+  .title{ text-align:center; margin-bottom:8px; }
+  .title h1{ margin:0; font-size:30px; font-weight:900; letter-spacing:.18em; color:var(--cyan);
+    text-shadow:0 0 8px var(--cyan),0 0 18px var(--cyan); }
+  .title p{ margin:2px 0 0; font-size:11px; letter-spacing:.12em; color:rgba(125,242,255,.6); }
+  .stage{ position:relative; width:100%; max-width:900px; }
+  canvas{ width:100%; aspect-ratio:3/2; display:block; border-radius:16px;
+    border:1px solid rgba(60,200,255,.2); box-shadow:0 0 40px rgba(60,200,255,.15);
+    background:#05030f; touch-action:none; }
+  .hud{ position:absolute; top:0; left:0; right:0; z-index:10; display:flex;
+    justify-content:space-between; padding:8px 10px; pointer-events:none; }
+  .col{ display:flex; flex-direction:column; gap:5px; }
+  .col.right{ align-items:flex-end; }
+  .pill{ display:flex; align-items:center; gap:5px; padding:4px 11px; border-radius:999px;
+    background:rgba(0,0,0,.42); backdrop-filter:blur(6px); border:1px solid rgba(255,255,255,.1);
+    font-size:12px; font-weight:700; }
+  .pill .lbl{ color:rgba(255,255,255,.55); font-weight:500; font-size:10px; }
+  .star{ color:#ffe14d; font-size:14px; line-height:1; }
+  .dot{ width:12px; height:12px; border-radius:50%; display:inline-block; }
+  .diamond{ width:11px; height:11px; transform:rotate(45deg); display:inline-block; }
+  .hint{ position:absolute; bottom:48px; left:0; right:0; z-index:10; display:flex;
+    justify-content:center; padding:0 12px; pointer-events:none; }
+  .hint div{ padding:5px 12px; border-radius:8px; background:rgba(0,0,0,.45); backdrop-filter:blur(6px);
+    border:1px solid rgba(255,255,255,.1); font-size:11px; color:rgba(190,235,255,.85);
+    text-align:center; max-width:640px; }
+  .flash{ position:absolute; top:33%; left:0; right:0; z-index:20; display:flex; justify-content:center;
+    pointer-events:none; }
+  .flash div{ padding:8px 20px; border-radius:12px; background:rgba(0,0,0,.7);
+    border:1px solid rgba(244,114,182,.4); color:#fbcfe8; font-weight:800;
+    text-shadow:0 0 8px #f472b6; animation:pulse 1s infinite; }
+  @keyframes pulse{ 0%,100%{opacity:1} 50%{opacity:.55} }
+  .overlay{ position:absolute; inset:0; z-index:30; display:flex; align-items:center; justify-content:center;
+    border-radius:16px; background:rgba(0,0,0,.65); backdrop-filter:blur(3px); }
+  .panel{ text-align:center; padding:24px; border-radius:16px; border:1px solid rgba(255,255,255,.15);
+    background:linear-gradient(to bottom,rgba(255,255,255,.05),rgba(0,0,0,.4)); }
+  .panel .big{ font-size:30px; font-weight:900; margin-bottom:4px; }
+  .panel .sub{ font-size:12px; color:rgba(255,255,255,.6); margin-bottom:16px; }
+  .row{ display:flex; gap:8px; justify-content:center; flex-wrap:wrap; }
+  button{ font-family:inherit; cursor:pointer; border:none; }
+  .btn{ padding:8px 18px; border-radius:12px; font-weight:800; font-size:14px;
+    background:rgba(255,255,255,.1); color:#fff; border:1px solid rgba(255,255,255,.12);
+    transition:background .15s; }
+  .btn:hover{ background:rgba(255,255,255,.2); }
+  .btn.primary{ background:var(--cyan); color:#000; border-color:var(--cyan); }
+  .btn.primary:hover{ background:#a6fbff; }
+  .controls{ margin-top:12px; width:100%; max-width:900px; display:flex; flex-direction:column;
+    align-items:center; gap:8px; }
+  .ctl-row{ display:flex; gap:8px; justify-content:center; flex-wrap:wrap; }
+  .small{ padding:6px 16px; font-size:13px; }
+  .sel{ display:flex; gap:6px; flex-wrap:wrap; justify-content:center; }
+  .lv{ width:32px; height:32px; border-radius:10px; font-size:12px; font-weight:800;
+    display:flex; align-items:center; justify-content:center; border:1px solid rgba(255,255,255,.1);
+    background:rgba(255,255,255,.1); color:#fff; }
+  .lv:hover:not(:disabled){ background:rgba(255,255,255,.2); }
+  .lv.cur{ background:var(--cyan); color:#000; border-color:var(--cyan); }
+  .lv:disabled{ background:rgba(0,0,0,.3); color:rgba(255,255,255,.25);
+    border-color:rgba(255,255,255,.05); cursor:not-allowed; }
+  .note{ font-size:10px; color:rgba(255,255,255,.4); text-align:center; max-width:600px; margin:0; }
+  .hidden{ display:none !important; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="title">
+    <h1>COLOR&nbsp;GRAVITY</h1>
+    <p>カラー・グラビティ ／ 宇宙重力×色合成パズル</p>
+  </div>
+
+  <div class="stage">
+    <div class="hud">
+      <div class="col">
+        <div class="pill" id="hud-stage">stage</div>
+        <div class="pill"><span class="lbl">残弾</span><span id="hud-balls"></span></div>
+      </div>
+      <div class="col right">
+        <div class="pill"><span class="lbl">現在</span><span class="dot" id="hud-cur-dot"></span><span id="hud-cur-name"></span></div>
+        <div class="pill"><span class="lbl">目標</span><span class="diamond" id="hud-tgt-dot"></span><span id="hud-tgt-name"></span></div>
+      </div>
+    </div>
+
+    <div class="hint"><div id="hud-hint"></div></div>
+    <div class="flash hidden" id="flash"><div id="flash-text"></div></div>
+
+    <canvas id="game"></canvas>
+
+    <div class="overlay hidden" id="overlay">
+      <div class="panel" id="panel"></div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <div class="ctl-row">
+      <button class="btn small" id="btn-retry">↺ リトライ</button>
+      <button class="btn small" id="btn-solve">💡 正解を見る</button>
+      <button class="btn small" id="btn-skip">ステージスキップ ⏭</button>
+    </div>
+    <div class="sel" id="selector"></div>
+    <p class="note">砲台をドラッグして引っ張り、離すと星が発射。点線は予測軌道。ゲートで色が混ざり、結晶と同じ色で当てればクリア。全20面。詰まったら「💡 正解を見る」で正解の軌道を再現できる。</p>
+  </div>
+</div>
+
+<script>
+/* =========================================================================
+   カラー・グラビティ (Color Gravity) — 完全自己完結 / CDN不要
+   加法混色: 星の色は原色集合 {R,B,Y}。ゲート通過で原色が加算される。
+   重力ルール: 星が含む原色を持つ惑星だけが引力を及ぼす(属性一致)。
+   ゴール: 結晶(目標色)と同色になって体当たり → クリア。色違いは弾かれる。
+   ========================================================================= */
+"use strict";
+const W=900,H=600,STAR_R=7,G_CONST=1.0,MAX_SPEED=16,MAX_PULL=210,LAUNCH_SPEED=12;
+const PRIMARIES=['R','B','Y'];
+const HEX={ '':'#cdd6ff','R':'#ff3b5c','B':'#3b8bff','Y':'#ffe14d',
+  'RB':'#c14dff','RY':'#ff9b3b','BY':'#39ff9d','RBY':'#ffffff' };
+const JNAME={ '':'無色','R':'赤','B':'青','Y':'黄','RB':'紫','RY':'橙','BY':'緑','RBY':'白' };
+const keyOf=set=>PRIMARIES.filter(c=>set.has(c)).join('');
+const hexOf=set=>HEX[keyOf(set)]||'#fff';
+
+// ------------------ ステージ定義 (全20面) ------------------
+// sol: 正解の発射速度ベクトル(物理ソルバーで探索済・必ずクリアできる)。「正解を見る」で再現。
+const STAGES=[
+  { name:'1. 重力で曲げろ',
+    hint:'下から星をスリングショット。赤い惑星の引力で軌道が曲がる。赤い結晶に当てろ！',
+    balls:5, start:['R'], cannon:{x:450,y:558},
+    planets:[{x:480,y:320,r:48,mass:6000,color:'R'}], gates:[],
+    crystal:{x:235,y:165,r:22,key:'R'}, blackholes:[], reflectors:[],
+    sol:{vx:-6.5826,vy:-5.236} },
+  { name:'2. ゲートで染まれ',
+    hint:'無色の星は引力を受けない。青ゲートをくぐると青に染まり、青惑星に引かれる。',
+    balls:5, start:[], cannon:{x:450,y:558},
+    planets:[{x:300,y:235,r:42,mass:4600,color:'B'}],
+    gates:[{id:'g1',x:455,y:415,r:34,primary:'B'}],
+    crystal:{x:165,y:165,r:22,key:'B'}, blackholes:[], reflectors:[],
+    sol:{vx:-1.2167,vy:-7.682} },
+  { name:'3. 二色を混ぜろ（紫）',
+    hint:'赤ゲート＋青ゲートの両方を通れば紫になる。紫の結晶を狙え。',
+    balls:5, start:[], cannon:{x:450,y:558},
+    planets:[{x:470,y:300,r:44,mass:5400,color:'R'}],
+    gates:[{id:'g1',x:610,y:430,r:40,primary:'R'},{id:'g2',x:300,y:300,r:40,primary:'B'}],
+    crystal:{x:185,y:170,r:24,key:'RB'}, blackholes:[], reflectors:[],
+    sol:{vx:4.9075,vy:-2.8333} },
+  { name:'4. ブラックホール回避（緑）',
+    hint:'青→黄ゲートを縦に通って緑に。左のブラックホールを避け、黄惑星で右上の結晶へ。',
+    balls:5, start:[], cannon:{x:450,y:558},
+    planets:[{x:660,y:250,r:38,mass:4200,color:'Y'}],
+    gates:[{id:'g1',x:450,y:470,r:40,primary:'B'},{id:'g2',x:450,y:380,r:40,primary:'Y'}],
+    crystal:{x:560,y:150,r:24,key:'BY'},
+    blackholes:[{x:300,y:330,r:22,mass:7000}], reflectors:[],
+    sol:{vx:3.1257,vy:0.2186} },
+  { name:'5. プリズムの試練（白）',
+    hint:'赤・青・黄を縦に通れば白に。左のプリズム(赤を弾く壁)とブラックホールに注意。',
+    balls:5, start:[], cannon:{x:450,y:558},
+    planets:[{x:660,y:300,r:34,mass:3400,color:'Y'}],
+    gates:[{id:'g1',x:450,y:480,r:38,primary:'R'},{id:'g2',x:450,y:410,r:38,primary:'B'},{id:'g3',x:450,y:340,r:38,primary:'Y'}],
+    crystal:{x:560,y:150,r:24,key:'RBY'},
+    blackholes:[{x:280,y:300,r:20,mass:6000}],
+    reflectors:[{x1:300,y1:430,x2:300,y2:520,color:'R'}],
+    sol:{vx:0.7121,vy:-5.4089} },
+  { name:'6. 橙の航路（橙）',
+    hint:'赤＋黄＝橙。左右のゲートを弧で通り、黄惑星の引力で上の結晶へ。',
+    balls:5, start:[], cannon:{x:450,y:558},
+    planets:[{x:470,y:300,r:42,mass:5000,color:'Y'}],
+    gates:[{id:'g1',x:300,y:430,r:40,primary:'R'},{id:'g2',x:620,y:430,r:40,primary:'Y'}],
+    crystal:{x:455,y:140,r:24,key:'RY'}, blackholes:[], reflectors:[],
+    sol:{vx:3.6986,vy:-1.9666} },
+  { name:'7. 鏡で跳ね返せ（赤）',
+    hint:'赤い星を右の鏡で跳ね返し、赤惑星で曲げて左上の結晶へ。',
+    balls:5, start:['R'], cannon:{x:200,y:558},
+    planets:[{x:560,y:330,r:44,mass:6000,color:'R'}], gates:[],
+    crystal:{x:250,y:160,r:24,key:'R'}, blackholes:[],
+    reflectors:[{x1:640,y1:200,x2:760,y2:360,color:'R'}],
+    sol:{vx:-0.9587,vy:-4.5103} },
+  { name:'8. 重力スイングバイ（青）',
+    hint:'青ゲートで染まり、青惑星をスイングバイして右上へ回り込め。',
+    balls:5, start:[], cannon:{x:450,y:558},
+    planets:[{x:450,y:300,r:46,mass:6400,color:'B'}],
+    gates:[{id:'g1',x:450,y:470,r:42,primary:'B'}],
+    crystal:{x:680,y:200,r:24,key:'B'}, blackholes:[], reflectors:[],
+    sol:{vx:-3.317,vy:-6.8009} },
+  { name:'9. 紫の二重星',
+    hint:'縦の赤・青ゲートで紫に。右の赤惑星に引かれて右上の結晶へ。',
+    balls:5, start:[], cannon:{x:450,y:558},
+    planets:[{x:560,y:300,r:40,mass:4800,color:'R'}],
+    gates:[{id:'g1',x:450,y:470,r:40,primary:'R'},{id:'g2',x:450,y:385,r:40,primary:'B'}],
+    crystal:{x:650,y:185,r:24,key:'RB'}, blackholes:[], reflectors:[],
+    sol:{vx:-0.0679,vy:-7.7775} },
+  { name:'10. 緑の弧を描け',
+    hint:'青い星を右の黄惑星でスイングバイ。緑になって右上へ大きく弧を描け。',
+    balls:5, start:['B'], cannon:{x:200,y:558},
+    planets:[{x:560,y:320,r:44,mass:6000,color:'Y'}],
+    gates:[{id:'g1',x:330,y:380,r:40,primary:'Y'}],
+    crystal:{x:720,y:170,r:24,key:'BY'}, blackholes:[], reflectors:[],
+    sol:{vx:6.3482,vy:-8.1253} },
+  { name:'11. 橙と暗黒（橙）',
+    hint:'赤い星を黄ゲートで橙に。中央のブラックホールを避けて右上の結晶へ。',
+    balls:5, start:['R'], cannon:{x:200,y:558},
+    planets:[{x:620,y:300,r:40,mass:5200,color:'Y'}],
+    gates:[{id:'g1',x:360,y:400,r:40,primary:'Y'}],
+    crystal:{x:720,y:160,r:24,key:'RY'},
+    blackholes:[{x:470,y:250,r:22,mass:7000}], reflectors:[],
+    sol:{vx:4.1959,vy:-1.9122} },
+  { name:'12. 白への収束',
+    hint:'赤・青・黄を縦に通って白に。右の黄惑星に導かれて結晶へ。',
+    balls:6, start:[], cannon:{x:450,y:558},
+    planets:[{x:560,y:300,r:36,mass:3800,color:'Y'}],
+    gates:[{id:'g1',x:450,y:485,r:40,primary:'R'},{id:'g2',x:450,y:415,r:40,primary:'B'},{id:'g3',x:450,y:345,r:40,primary:'Y'}],
+    crystal:{x:650,y:185,r:24,key:'RBY'}, blackholes:[], reflectors:[],
+    sol:{vx:1.6791,vy:-10.6012} },
+  { name:'13. 反射の回廊（青）',
+    hint:'青い星を右の鏡で反射、青惑星で曲げて左上の結晶へ。',
+    balls:6, start:['B'], cannon:{x:450,y:558},
+    planets:[{x:450,y:300,r:40,mass:5200,color:'B'}], gates:[],
+    crystal:{x:160,y:200,r:24,key:'B'}, blackholes:[],
+    reflectors:[{x1:560,y1:260,x2:720,y2:380,color:'B'}],
+    sol:{vx:-6.7016,vy:-3.9475} },
+  { name:'14. 紫の関門',
+    hint:'左右のゲートで紫に。中央のブラックホールすれすれを抜けろ。',
+    balls:6, start:[], cannon:{x:450,y:558},
+    planets:[{x:230,y:280,r:34,mass:3800,color:'R'},{x:670,y:280,r:34,mass:3800,color:'B'}],
+    gates:[{id:'g1',x:300,y:455,r:36,primary:'R'},{id:'g2',x:600,y:455,r:36,primary:'B'}],
+    crystal:{x:450,y:140,r:24,key:'RB'},
+    blackholes:[{x:450,y:330,r:20,mass:6000}], reflectors:[],
+    sol:{vx:5.1898,vy:2.7594} },
+  { name:'15. 緑の周回軌道',
+    hint:'青い星を黄ゲートで緑に。黄惑星をスイングバイして右へ。',
+    balls:6, start:['B'], cannon:{x:450,y:558},
+    planets:[{x:450,y:300,r:46,mass:6400,color:'Y'}],
+    gates:[{id:'g1',x:450,y:460,r:42,primary:'Y'}],
+    crystal:{x:700,y:200,r:24,key:'BY'}, blackholes:[], reflectors:[],
+    sol:{vx:-3.2494,vy:-7.2982} },
+  { name:'16. 橙の跳躍',
+    hint:'黄色い星を赤ゲートで橙に。右の鏡と黄惑星を使って左上へ。',
+    balls:6, start:['Y'], cannon:{x:200,y:558},
+    planets:[{x:560,y:320,r:42,mass:5600,color:'Y'}],
+    gates:[{id:'g1',x:340,y:380,r:38,primary:'R'}],
+    crystal:{x:250,y:150,r:24,key:'RY'}, blackholes:[],
+    reflectors:[{x1:640,y1:220,x2:760,y2:360,color:'Y'}],
+    sol:{vx:2.8415,vy:0.6822} },
+  { name:'17. 白の試練・改',
+    hint:'赤・青・黄ゲートで白に。二つのブラックホールの間を抜けろ。',
+    balls:6, start:[], cannon:{x:450,y:558},
+    planets:[{x:230,y:320,r:32,mass:3200,color:'B'},{x:670,y:320,r:32,mass:3200,color:'Y'}],
+    gates:[{id:'g1',x:300,y:475,r:32,primary:'R'},{id:'g2',x:450,y:445,r:32,primary:'B'},{id:'g3',x:600,y:475,r:32,primary:'Y'}],
+    crystal:{x:450,y:130,r:24,key:'RBY'},
+    blackholes:[{x:340,y:250,r:18,mass:5000},{x:560,y:250,r:18,mass:5000}], reflectors:[],
+    sol:{vx:7.2079,vy:-1.4665} },
+  { name:'18. 双子の暗黒（紫）',
+    hint:'縦のゲートで紫に。双子のブラックホールに挟まれた狭路を突破。',
+    balls:6, start:[], cannon:{x:450,y:558},
+    planets:[{x:450,y:250,r:38,mass:5200,color:'R'}],
+    gates:[{id:'g1',x:300,y:440,r:36,primary:'R'},{id:'g2',x:600,y:440,r:36,primary:'B'}],
+    crystal:{x:450,y:120,r:24,key:'RB'},
+    blackholes:[{x:330,y:300,r:18,mass:4600},{x:570,y:300,r:18,mass:4600}], reflectors:[],
+    sol:{vx:-5.5901,vy:1.8163} },
+  { name:'19. 緑の鏡像',
+    hint:'青い星を黄ゲートで緑に。黄惑星で大きく回し右上の鏡際の結晶へ。',
+    balls:6, start:['B'], cannon:{x:200,y:558},
+    planets:[{x:540,y:320,r:46,mass:6800,color:'Y'}],
+    gates:[{id:'g1',x:340,y:410,r:42,primary:'Y'}],
+    crystal:{x:760,y:230,r:24,key:'BY'}, blackholes:[],
+    reflectors:[{x1:560,y1:120,x2:720,y2:150,color:'Y'}],
+    sol:{vx:7.0204,vy:-8.6695} },
+  { name:'20. 究極の白（最終）',
+    hint:'最終試練。赤・青・黄を縦に通り白へ。二つの暗黒星を避け抜け！',
+    balls:7, start:[], cannon:{x:450,y:558},
+    planets:[{x:680,y:250,r:30,mass:3000,color:'Y'}],
+    gates:[{id:'g1',x:450,y:490,r:38,primary:'R'},{id:'g2',x:450,y:420,r:38,primary:'B'},{id:'g3',x:450,y:350,r:38,primary:'Y'}],
+    crystal:{x:300,y:160,r:24,key:'RBY'},
+    blackholes:[{x:330,y:300,r:18,mass:4200},{x:600,y:400,r:18,mass:4200}], reflectors:[],
+    sol:{vx:-1.3499,vy:-3.5165} },
+];
+
+// ------------------ 物理ステップ ------------------
+function stepSim(s, st, triggered){
+  let ax=0,ay=0;
+  for(const p of st.planets){
+    if(!s.color.has(p.color)) continue;
+    const dx=p.x-s.x, dy=p.y-s.y, d2=dx*dx+dy*dy, d=Math.sqrt(d2)||1e-4;
+    if(d<p.r+STAR_R) return 'crash';
+    const f=G_CONST*p.mass/Math.max(d2,p.r*p.r); ax+=f*dx/d; ay+=f*dy/d;
+  }
+  for(const b of st.blackholes){
+    const dx=b.x-s.x, dy=b.y-s.y, d2=dx*dx+dy*dy, d=Math.sqrt(d2)||1e-4;
+    if(d<b.r+STAR_R) return 'blackhole';
+    const f=G_CONST*b.mass/Math.max(d2,b.r*b.r*0.4); ax+=f*dx/d; ay+=f*dy/d;
+  }
+  s.vx+=ax; s.vy+=ay;
+  const sp=Math.hypot(s.vx,s.vy);
+  if(sp>MAX_SPEED){ s.vx=s.vx/sp*MAX_SPEED; s.vy=s.vy/sp*MAX_SPEED; }
+  s.x+=s.vx; s.y+=s.vy;
+  for(const r of st.reflectors){
+    if(!s.color.has(r.color)) continue;
+    const abx=r.x2-r.x1, aby=r.y2-r.y1;
+    const t=Math.max(0,Math.min(1,((s.x-r.x1)*abx+(s.y-r.y1)*aby)/(abx*abx+aby*aby||1)));
+    const cx=r.x1+abx*t, cy=r.y1+aby*t;
+    let dx=s.x-cx, dy=s.y-cy, dist=Math.hypot(dx,dy)||1e-4;
+    if(dist<STAR_R+6){ const nx=dx/dist, ny=dy/dist, vd=s.vx*nx+s.vy*ny;
+      if(vd<0){ s.vx-=2*vd*nx; s.vy-=2*vd*ny; s.x=cx+nx*(STAR_R+7); s.y=cy+ny*(STAR_R+7); } }
+  }
+  for(const g of st.gates){
+    if(Math.hypot(g.x-s.x,g.y-s.y)<g.r && !triggered.has(g.id)){ triggered.add(g.id); s.color.add(g.primary); return 'gate'; }
+  }
+  const cr=st.crystal;
+  if(Math.hypot(cr.x-s.x,cr.y-s.y)<cr.r+STAR_R){
+    if(keyOf(s.color)===cr.key) return 'win';
+    let dx=s.x-cr.x, dy=s.y-cr.y, dist=Math.hypot(dx,dy)||1e-4;
+    const nx=dx/dist, ny=dy/dist, vd=s.vx*nx+s.vy*ny;
+    if(vd<0){ s.vx-=2*vd*nx; s.vy-=2*vd*ny; }
+    s.x=cr.x+nx*(cr.r+STAR_R+2); s.y=cr.y+ny*(cr.r+STAR_R+2);
+    return 'reject';
+  }
+  if(s.x<-70||s.x>W+70||s.y>H+70||s.y<-650) return 'out';
+  return 'none';
+}
+function computeLaunch(cannon,ax,ay){
+  let px=cannon.x-ax, py=cannon.y-ay, mag=Math.hypot(px,py)||1e-4;
+  const power=Math.min(mag,MAX_PULL)/MAX_PULL;
+  return { vx:(px/mag)*LAUNCH_SPEED*power, vy:(py/mag)*LAUNCH_SPEED*power, power, dx:px/mag, dy:py/mag };
+}
+function glowCircle(ctx,x,y,r,color,blur){ ctx.save(); ctx.shadowColor=color; ctx.shadowBlur=blur;
+  ctx.fillStyle=color; ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill(); ctx.restore(); }
+
+// ------------------ ゲーム本体 ------------------
+const canvas=document.getElementById('game');
+const ctx=canvas.getContext('2d');
+const dpr=Math.min(window.devicePixelRatio||1,2);
+canvas.width=W*dpr; canvas.height=H*dpr; ctx.scale(dpr,dpr);
+
+const starfield=Array.from({length:140},()=>({ x:Math.random()*W, y:Math.random()*H,
+  r:Math.random()*1.4+0.3, a:Math.random()*0.6+0.2, tw:Math.random()*Math.PI*2 }));
+
+const G={ stage:null, idx:0, mode:'aim', t:0, balls:0, maxUnlocked:0,
+  star:null, trail:[], particles:[], triggered:new Set(), aim:{active:false,x:0,y:0}, solPath:null };
+
+const $=id=>document.getElementById(id);
+let flashTimer=null;
+function flash(txt){ $('flash-text').textContent=txt; $('flash').classList.remove('hidden');
+  if(flashTimer)clearTimeout(flashTimer); flashTimer=setTimeout(()=>$('flash').classList.add('hidden'),1300); }
+
+function syncHUD(){
+  const st=G.stage; const sk=G.star?keyOf(G.star.color):keyOf(new Set(st.start));
+  $('hud-stage').textContent=st.name;
+  let stars=''; for(let i=0;i<Math.max(0,G.balls);i++) stars+='<span class="star">★</span>';
+  $('hud-balls').innerHTML = G.balls>0?stars:'<span style="font-size:10px;color:#f87171">なし</span>';
+  $('hud-cur-dot').style.background=HEX[sk]; $('hud-cur-dot').style.boxShadow='0 0 8px '+HEX[sk];
+  $('hud-cur-name').textContent=JNAME[sk];
+  $('hud-tgt-dot').style.background=HEX[st.crystal.key]; $('hud-tgt-dot').style.boxShadow='0 0 8px '+HEX[st.crystal.key];
+  $('hud-tgt-name').textContent=JNAME[st.crystal.key];
+  $('hud-hint').textContent=st.hint;
+}
+function buildSelector(){
+  const wrap=$('selector'); wrap.innerHTML='';
+  STAGES.forEach((s,i)=>{
+    const b=document.createElement('button'); b.className='lv'+(i===G.idx?' cur':'');
+    const locked=i>G.maxUnlocked; b.disabled=locked; b.textContent=locked?'🔒':(i+1);
+    b.onclick=()=>selectStage(i); wrap.appendChild(b);
+  });
+}
+function showOverlay(html){ $('panel').innerHTML=html; $('overlay').classList.remove('hidden'); }
+function hideOverlay(){ $('overlay').classList.add('hidden'); }
+
+function init(i){
+  G.idx=i; G.stage=JSON.parse(JSON.stringify(STAGES[i]));
+  G.mode='aim'; G.star=null; G.trail=[]; G.particles=[]; G.triggered=new Set(); G.aim.active=false; G.solPath=null;
+  G.balls=G.stage.balls; hideOverlay(); syncHUD(); buildSelector();
+}
+function selectStage(i){ if(i>G.maxUnlocked) return; init(i); }
+function retry(){ init(G.idx); }
+function skip(){ const n=Math.min(STAGES.length-1,G.idx+1); init(n); }
+function nextStage(){ const n=Math.min(STAGES.length-1,G.idx+1); init(n); }
+
+function launch(){
+  if(G.mode!=='aim') return;
+  const lr=computeLaunch(G.stage.cannon,G.aim.x,G.aim.y);
+  if(lr.power<0.06) return;
+  G.star={ x:G.stage.cannon.x, y:G.stage.cannon.y, vx:lr.vx, vy:lr.vy, color:new Set(G.stage.start) };
+  G.trail=[]; G.triggered=new Set(); G.mode='flying'; syncHUD();
+}
+// ------------------ 正解再現（デモ） ------------------
+// 保存済みの正解ベクトル sol で星を飛ばし、正しい軌道を再現する。残弾は消費しない。
+function computeSolPath(st){
+  const sim={x:st.cannon.x,y:st.cannon.y,vx:st.sol.vx,vy:st.sol.vy,color:new Set(st.start)};
+  const tg=new Set(), pts=[];
+  for(let i=0;i<1500;i++){ pts.push({x:sim.x,y:sim.y});
+    const ev=stepSim(sim,st,tg);
+    if(ev==='win'||ev==='crash'||ev==='out'||ev==='blackhole') break; }
+  return pts;
+}
+function showSolution(){
+  if(G.mode!=='aim') return;
+  const st=G.stage; if(!st.sol) return;
+  G.solPath=computeSolPath(st);
+  G.star={ x:st.cannon.x, y:st.cannon.y, vx:st.sol.vx, vy:st.sol.vy, color:new Set(st.start) };
+  G.trail=[]; G.triggered=new Set(); G.aim.active=false; G.mode='demo'; syncHUD();
+  flash('正解の軌道を再現中…');
+}
+
+function loseBall(){
+  G.balls--;
+  if(G.balls<=0){ G.balls=0; G.mode='lost';
+    showOverlay('<div class="big" style="color:#f87171;text-shadow:0 0 10px #f87171">GAME OVER</div>'
+      +'<div class="sub">残弾がなくなった…</div>'
+      +'<div class="row"><button class="btn primary" id="ov-retry">リトライ</button>'
+      +'<button class="btn" id="ov-skip">スキップ →</button></div>');
+    $('ov-retry').onclick=retry; $('ov-skip').onclick=skip;
+  } else { G.mode='aim'; G.star=null; G.triggered=new Set(); }
+  syncHUD();
+}
+function doWin(){
+  G.mode='won'; G.maxUnlocked=Math.max(G.maxUnlocked,Math.min(STAGES.length-1,G.idx+1));
+  const cr=G.stage.crystal, col=HEX[cr.key];
+  for(let k=0;k<80;k++){ const a=Math.random()*Math.PI*2, sp=Math.random()*5+1;
+    G.particles.push({x:cr.x,y:cr.y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:60,max:60,color:col,size:Math.random()*3+1}); }
+  buildSelector();
+  const last=G.idx>=STAGES.length-1;
+  showOverlay('<div class="big" style="color:'+col+';text-shadow:0 0 10px '+col+'">STAGE CLEAR!</div>'
+    +'<div class="sub">'+JNAME[cr.key]+'の結晶を共鳴させた</div>'
+    +'<div class="row">'
+    +(last?'<div class="btn primary" style="cursor:default;background:linear-gradient(90deg,#ec4899,#facc15)">全ステージ制覇！🎉</div>'
+          :'<button class="btn primary" id="ov-next">次のステージ →</button>')
+    +'<button class="btn" id="ov-again">もう一度</button></div>');
+  if(!last) $('ov-next').onclick=nextStage;
+  $('ov-again').onclick=retry;
+}
+
+// ------------------ 入力 ------------------
+function toLocal(e){ const r=canvas.getBoundingClientRect();
+  return { x:(e.clientX-r.left)/r.width*W, y:(e.clientY-r.top)/r.height*H }; }
+canvas.addEventListener('pointerdown',e=>{ if(G.mode!=='aim')return; e.preventDefault();
+  const p=toLocal(e); G.aim.active=true; G.aim.x=p.x; G.aim.y=p.y; });
+window.addEventListener('pointermove',e=>{ if(!G.aim.active)return; const p=toLocal(e); G.aim.x=p.x; G.aim.y=p.y; });
+window.addEventListener('pointerup',()=>{ if(!G.aim.active)return; G.aim.active=false; launch(); });
+$('btn-retry').onclick=retry; $('btn-skip').onclick=skip; $('btn-solve').onclick=showSolution;
+
+// ------------------ 描画 & ループ ------------------
+function drawStar(x,y,r,color,t){ ctx.save(); ctx.translate(x,y); ctx.rotate(t*0.01);
+  ctx.shadowColor=color; ctx.shadowBlur=18; ctx.fillStyle=color; ctx.beginPath();
+  for(let i=0;i<10;i++){ const ang=Math.PI/5*i-Math.PI/2, rad=i%2?r*0.45:r;
+    const px=Math.cos(ang)*rad, py=Math.sin(ang)*rad; i?ctx.lineTo(px,py):ctx.moveTo(px,py); }
+  ctx.closePath(); ctx.fill(); ctx.fillStyle='#fff'; ctx.shadowBlur=0;
+  ctx.beginPath(); ctx.arc(0,0,r*0.25,0,Math.PI*2); ctx.fill(); ctx.restore(); }
+
+function draw(){
+  const st=G.stage, t=G.t; if(!st) return;
+  const bg=ctx.createLinearGradient(0,0,W,H);
+  bg.addColorStop(0,'#0a0720'); bg.addColorStop(0.5,'#0b0518'); bg.addColorStop(1,'#120726');
+  ctx.fillStyle=bg; ctx.fillRect(0,0,W,H);
+  ctx.save(); ctx.globalCompositeOperation='lighter';
+  const neb=[['#3a1a6a',180,140,0.18],['#1a3a6a',720,420,0.16],['#6a1a4a',520,120,0.10]];
+  for(const n of neb){ const rg=ctx.createRadialGradient(n[1],n[2],0,n[1],n[2],260);
+    rg.addColorStop(0,n[0]); rg.addColorStop(1,'transparent'); ctx.globalAlpha=n[3]; ctx.fillStyle=rg;
+    ctx.beginPath(); ctx.arc(n[1],n[2],260,0,Math.PI*2); ctx.fill(); }
+  ctx.restore();
+  for(const s of starfield){ const tw=0.5+0.5*Math.sin(t*0.03+s.tw); ctx.globalAlpha=s.a*tw;
+    ctx.fillStyle='#cfe0ff'; ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,Math.PI*2); ctx.fill(); }
+  ctx.globalAlpha=1;
+
+  for(const r of st.reflectors){ const col=HEX[r.color];
+    ctx.save(); ctx.lineCap='round'; ctx.shadowColor=col; ctx.shadowBlur=18; ctx.strokeStyle=col;
+    ctx.globalAlpha=0.85; ctx.lineWidth=7; ctx.beginPath(); ctx.moveTo(r.x1,r.y1); ctx.lineTo(r.x2,r.y2); ctx.stroke();
+    ctx.globalAlpha=0.3; ctx.lineWidth=14; ctx.stroke(); ctx.restore(); }
+
+  for(const p of st.planets){ const col=HEX[p.color]; const active=!G.star||G.star.color.has(p.color);
+    const rg=ctx.createRadialGradient(p.x-p.r*0.3,p.y-p.r*0.3,p.r*0.1,p.x,p.y,p.r);
+    rg.addColorStop(0,'#fff'); rg.addColorStop(0.25,col); rg.addColorStop(1,'#0a0a14');
+    ctx.save(); if(active){ctx.shadowColor=col; ctx.shadowBlur=26;} ctx.globalAlpha=active?1:0.45;
+    ctx.fillStyle=rg; ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2); ctx.fill();
+    ctx.globalAlpha=active?0.18:0.06; ctx.strokeStyle=col; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.arc(p.x,p.y,p.r+18+6*Math.sin(t*0.04),0,Math.PI*2); ctx.stroke(); ctx.restore(); }
+
+  for(const b of st.blackholes){ ctx.save();
+    const rg=ctx.createRadialGradient(b.x,b.y,0,b.x,b.y,b.r*2.4);
+    rg.addColorStop(0,'#000'); rg.addColorStop(0.5,'#1a0030'); rg.addColorStop(1,'transparent');
+    ctx.fillStyle=rg; ctx.beginPath(); ctx.arc(b.x,b.y,b.r*2.4,0,Math.PI*2); ctx.fill();
+    ctx.translate(b.x,b.y); ctx.rotate(t*0.05); ctx.strokeStyle='#a64dff'; ctx.shadowColor='#a64dff';
+    ctx.shadowBlur=20; ctx.lineWidth=3; ctx.globalAlpha=0.8; ctx.beginPath(); ctx.arc(0,0,b.r+8,0.3,Math.PI*1.6); ctx.stroke();
+    ctx.fillStyle='#000'; ctx.shadowBlur=0; ctx.globalAlpha=1; ctx.beginPath(); ctx.arc(0,0,b.r,0,Math.PI*2); ctx.fill(); ctx.restore(); }
+
+  for(const gt of st.gates){ const col=HEX[gt.primary]; const passed=G.triggered.has(gt.id);
+    ctx.save(); ctx.globalAlpha=passed?0.3:1; ctx.shadowColor=col; ctx.shadowBlur=22; ctx.strokeStyle=col;
+    ctx.lineWidth=4; ctx.beginPath(); ctx.arc(gt.x,gt.y,gt.r,0,Math.PI*2); ctx.stroke();
+    ctx.globalAlpha=(passed?0.12:0.4)*(0.6+0.4*Math.sin(t*0.08)); ctx.lineWidth=2;
+    ctx.beginPath(); ctx.arc(gt.x,gt.y,gt.r-7,0,Math.PI*2); ctx.stroke(); ctx.restore(); }
+
+  const cr=st.crystal, ccol=HEX[cr.key];
+  ctx.save(); ctx.translate(cr.x,cr.y); ctx.rotate(t*0.02);
+  const pulse=1+0.12*Math.sin(t*0.07); ctx.shadowColor=ccol; ctx.shadowBlur=30;
+  ctx.strokeStyle=ccol; ctx.globalAlpha=0.5; ctx.lineWidth=2;
+  ctx.beginPath(); ctx.arc(0,0,cr.r+12+3*Math.sin(t*0.06),0,Math.PI*2); ctx.stroke();
+  const R=cr.r*pulse; ctx.globalAlpha=1; const grd=ctx.createLinearGradient(-R,-R,R,R);
+  grd.addColorStop(0,'#fff'); grd.addColorStop(0.5,ccol); grd.addColorStop(1,ccol); ctx.fillStyle=grd;
+  ctx.beginPath(); ctx.moveTo(0,-R); ctx.lineTo(R*0.8,0); ctx.lineTo(0,R); ctx.lineTo(-R*0.8,0); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle='#fff'; ctx.globalAlpha=0.6; ctx.lineWidth=1.2; ctx.stroke(); ctx.restore();
+
+  if(G.trail.length>1){ ctx.save(); ctx.globalCompositeOperation='lighter'; ctx.lineCap='round';
+    for(let i=1;i<G.trail.length;i++){ const a=G.trail[i-1], b=G.trail[i], al=i/G.trail.length;
+      ctx.globalAlpha=al*0.9; ctx.strokeStyle=HEX[b.key]||'#fff'; ctx.lineWidth=al*5+1;
+      ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke(); } ctx.restore(); }
+
+  ctx.save(); ctx.globalCompositeOperation='lighter';
+  for(const p of G.particles){ ctx.globalAlpha=Math.max(0,p.life/p.max); glowCircle(ctx,p.x,p.y,p.size,p.color,8); }
+  ctx.restore(); ctx.globalAlpha=1;
+
+  if(G.mode==='aim' && G.aim.active){
+    const lr=computeLaunch(st.cannon,G.aim.x,G.aim.y);
+    if(lr.power>0.06){
+      const sim={x:st.cannon.x,y:st.cannon.y,vx:lr.vx,vy:lr.vy,color:new Set(st.start)}, tg=new Set();
+      ctx.save();
+      for(let i=0;i<260;i++){ const ev=stepSim(sim,st,tg);
+        if(i%4===0){ ctx.globalAlpha=Math.max(0.12,0.85-i/300); ctx.fillStyle=hexOf(sim.color);
+          ctx.beginPath(); ctx.arc(sim.x,sim.y,2.4,0,Math.PI*2); ctx.fill(); }
+        if(ev==='win'||ev==='crash'||ev==='out'||ev==='blackhole') break; }
+      ctx.restore();
+      ctx.save(); ctx.globalAlpha=0.9; ctx.strokeStyle='#fff'; ctx.lineWidth=2;
+      ctx.beginPath(); ctx.moveTo(st.cannon.x,st.cannon.y);
+      ctx.lineTo(st.cannon.x+lr.dx*lr.power*70,st.cannon.y+lr.dy*lr.power*70); ctx.stroke(); ctx.restore();
+    }
+  }
+
+  // 正解の予測軌道（デモ中のみ・金の点線）
+  if(G.mode==='demo' && G.solPath && G.solPath.length>1){
+    ctx.save(); ctx.setLineDash([4,7]); ctx.lineDashOffset=-t*0.6;
+    ctx.strokeStyle='rgba(255,225,77,0.55)'; ctx.shadowColor='#ffe14d'; ctx.shadowBlur=10; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.moveTo(G.solPath[0].x,G.solPath[0].y);
+    for(let i=1;i<G.solPath.length;i++) ctx.lineTo(G.solPath[i].x,G.solPath[i].y);
+    ctx.stroke(); ctx.restore();
+  }
+
+  drawStar(st.cannon.x,st.cannon.y,11,HEX[keyOf(new Set(st.start))]||'#fff',t);
+  if(G.star){ const demo=G.mode==='demo'; const col=hexOf(G.star.color);
+    if(demo) glowCircle(ctx,G.star.x,G.star.y,STAR_R+9,'#ffe14d',26);
+    glowCircle(ctx,G.star.x,G.star.y,STAR_R+4,col,22);
+    ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(G.star.x,G.star.y,STAR_R*0.5,0,Math.PI*2); ctx.fill(); }
+}
+
+function frame(){
+  G.t++;
+  if((G.mode==='flying'||G.mode==='demo') && G.star){
+    const demo=G.mode==='demo';
+    const ev=stepSim(G.star,G.stage,G.triggered);
+    G.trail.push({x:G.star.x,y:G.star.y,key:keyOf(G.star.color)});
+    if(G.trail.length>64) G.trail.shift();
+    if(G.t%2===0) G.particles.push({x:G.star.x,y:G.star.y,vx:(Math.random()-0.5)*0.6,vy:(Math.random()-0.5)*0.6,
+      life:28,max:28,color:demo?'#ffe14d':hexOf(G.star.color),size:Math.random()*2+1});
+    if(ev==='gate'){ syncHUD(); const col=hexOf(G.star.color);
+      for(let k=0;k<18;k++){ const a=Math.random()*Math.PI*2, sp=Math.random()*3+1;
+        G.particles.push({x:G.star.x,y:G.star.y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:34,max:34,color:col,size:Math.random()*2.5+1}); } }
+    else if(ev==='win'){ if(demo) flash('これが正解の軌道だ！'); doWin(); }
+    else if(demo){ /* 正解は必ずクリアするが、万一の終端はリセット(残弾は減らさない) */
+      if(ev==='crash'||ev==='blackhole'||ev==='out'){ G.mode='aim'; G.star=null; G.solPath=null; G.triggered=new Set(); syncHUD(); } }
+    else if(ev==='crash'){ flash('惑星に衝突！'); loseBall(); }
+    else if(ev==='blackhole'){ flash('ブラックホールに飲まれた…'); loseBall(); }
+    else if(ev==='reject'){ flash('色が違う！弾かれた'); }
+    else if(ev==='out') loseBall();
+  }
+  for(const p of G.particles){ p.x+=p.vx; p.y+=p.vy; p.vy+=0.03; p.life--; }
+  if(G.particles.length>0) G.particles=G.particles.filter(p=>p.life>0).slice(-260);
+  draw();
+  requestAnimationFrame(frame);
+}
+
+init(0);
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
