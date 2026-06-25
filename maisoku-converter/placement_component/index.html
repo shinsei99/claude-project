@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: sans-serif; font-size: 12px; background: #fff; user-select: none; }
+
+/* ── レイアウト選択 ──────────────────────────────── */
+#layout-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 6px 4px;
+  background: #f0f0f0;
+  border-bottom: 1px solid #ddd;
+}
+#layout-bar span { color: #666; font-size: 11px; margin-right: 2px; }
+.layout-btn {
+  padding: 3px 10px;
+  border: 1.5px solid #bbb;
+  border-radius: 12px;
+  background: #fff;
+  color: #555;
+  cursor: pointer;
+  font-size: 11px;
+  transition: all 0.12s;
+}
+.layout-btn:hover { border-color: #888; }
+.layout-btn.active {
+  background: #555;
+  border-color: #555;
+  color: #fff;
+}
+
+/* ── 画像チップ ──────────────────────────────────── */
+#toggle-bar {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 5px 6px 4px;
+  border-bottom: 1px solid #eee;
+}
+.toggle-chip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border: 2px solid #ccc;
+  border-radius: 14px;
+  padding: 2px 9px;
+  cursor: pointer;
+  font-size: 11px;
+  transition: all 0.12s;
+  white-space: nowrap;
+}
+.toggle-chip .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+
+/* ── プレビュー ──────────────────────────────────── */
+#preview-wrap { padding: 5px 6px 2px; }
+#preview {
+  position: relative;
+  border: 2px solid #888;
+  background: #e0e0e0;
+  overflow: hidden;
+  display: inline-block;
+}
+.quad-line { position: absolute; background: rgba(120,120,120,0.5); pointer-events: none; }
+#data-area {
+  position: absolute; top: 0; right: 0; bottom: 0;
+  background: rgba(255,255,255,0.88);
+  border-left: 2px dashed #bbb;
+  display: flex; align-items: center; justify-content: center;
+  pointer-events: none;
+}
+#data-label { color: #aaa; font-size: 10px; writing-mode: vertical-rl; letter-spacing: 1px; }
+#img-layer { position: absolute; inset: 0; }
+
+/* ── 画像アイテム ────────────────────────────────── */
+.img-item {
+  position: absolute;
+  border: 2px solid #666;
+  overflow: hidden;
+  cursor: move;
+}
+.img-item img {
+  width: 100%; height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+  display: block;
+  background: #fff;
+}
+.img-badge {
+  position: absolute; top: 2px; left: 2px;
+  font-size: 9px; padding: 1px 5px; border-radius: 3px;
+  color: #fff; pointer-events: none; font-weight: bold;
+}
+.resize-handle {
+  position: absolute; bottom: 0; right: 0;
+  width: 16px; height: 16px;
+  cursor: se-resize; z-index: 10;
+}
+.resize-handle::after {
+  content: '';
+  position: absolute; bottom: 2px; right: 2px;
+  width: 0; height: 0;
+  border-style: solid; border-width: 0 0 10px 10px;
+  border-color: transparent transparent rgba(0,0,0,0.45) transparent;
+}
+
+#hint { color: #999; font-size: 10px; padding: 2px 6px 4px; }
+</style>
+</head>
+<body>
+
+<!-- レイアウト選択 -->
+<div id="layout-bar">
+  <span>レイアウト:</span>
+  <button class="layout-btn active" data-layout="4grid">4分割</button>
+  <button class="layout-btn" data-layout="2col">縦2分割</button>
+  <button class="layout-btn" data-layout="2row">横2分割</button>
+</div>
+
+<!-- 画像 ON/OFF チップ -->
+<div id="toggle-bar"></div>
+
+<!-- プレビュー -->
+<div id="preview-wrap">
+  <div id="preview">
+    <div class="quad-line" id="hl"></div>
+    <div class="quad-line" id="vl1"></div>
+    <div class="quad-line" id="vl2"></div>
+    <div id="data-area"><div id="data-label">データエリア</div></div>
+    <div id="img-layer"></div>
+  </div>
+</div>
+<div id="hint">ドラッグで移動 / 右下角をドラッグでリサイズ</div>
+
+<script>
+const COLORS = {
+  '外観写真': '#dc3232',
+  '室内写真': '#3278dc',
+  '間取り図': '#32b450',
+  '地図':    '#a03cc8',
+};
+
+let args        = null;
+let placements  = {};       // {label: {enabled, x, y, w, h}}
+let currentLayout = '4grid';
+let initialized   = false;
+let prevImageKeys = '';
+
+// ── Streamlit通信 ─────────────────────────────────
+function sendValue() {
+  window.parent.postMessage({
+    isStreamlitMessage: true,
+    type: 'streamlit:setComponentValue',
+    value: JSON.parse(JSON.stringify(placements)),
+    dataType: 'json',
+  }, '*');
+}
+function sendHeight() {
+  window.parent.postMessage({
+    isStreamlitMessage: true,
+    type: 'streamlit:setFrameHeight',
+    height: document.body.scrollHeight + 8,
+  }, '*');
+}
+
+window.addEventListener('message', function(e) {
+  if (!e.data || e.data.type !== 'streamlit:render') return;
+  args = e.data.args;
+  const imageKeys = Object.keys(args.images || {}).sort().join(',');
+  if (!initialized || imageKeys !== prevImageKeys) {
+    prevImageKeys = imageKeys;
+    currentLayout = '4grid';
+    initPlacements('4grid');
+    initialized = true;
+  }
+  render();
+  setTimeout(sendHeight, 50);
+});
+
+window.parent.postMessage({
+  isStreamlitMessage: true,
+  type: 'streamlit:componentReady',
+  apiVersion: 1,
+}, '*');
+
+// ── レイアウト計算 ─────────────────────────────────
+function calcLayout(layout, labels, IAW, ch) {
+  // labels: 有効画像の順番リスト
+  const n = labels.length;
+  if (n === 0) return {};
+  const result = {};
+
+  if (layout === '4grid') {
+    // 2列 × 2行グリッド（最大4枚）
+    const cols = n <= 1 ? 1 : 2;
+    const rows = n <= 2 ? 1 : 2;
+    const w = Math.round(IAW / cols);
+    const h = Math.round(ch  / rows);
+    labels.forEach((lbl, i) => {
+      result[lbl] = { x: (i % cols) * w, y: Math.floor(i / cols) * h, w, h };
+    });
+
+  } else if (layout === '2col') {
+    // 縦2分割：左右2列、画像を列に均等配分
+    const cols = n === 1 ? 1 : 2;
+    const colW = Math.round(IAW / cols);
+    // 各列に何枚入るか
+    const perCol = cols === 1 ? n : Math.ceil(n / 2);
+    labels.forEach((lbl, i) => {
+      const col  = cols === 1 ? 0 : (i < Math.ceil(n / 2) ? 0 : 1);
+      const rowInCol = cols === 1 ? i : (col === 0 ? i : i - Math.ceil(n / 2));
+      const rowsInCol = cols === 1 ? n : (col === 0 ? Math.ceil(n / 2) : Math.floor(n / 2));
+      const h = Math.round(ch / rowsInCol);
+      result[lbl] = { x: col * colW, y: rowInCol * h, w: colW, h };
+    });
+
+  } else if (layout === '2row') {
+    // 横2分割：上下2行、画像を行に均等配分
+    const rows = n === 1 ? 1 : 2;
+    const rowH = Math.round(ch / rows);
+    labels.forEach((lbl, i) => {
+      const row = rows === 1 ? 0 : (i < Math.ceil(n / 2) ? 0 : 1);
+      const colInRow = rows === 1 ? i : (row === 0 ? i : i - Math.ceil(n / 2));
+      const colsInRow = rows === 1 ? n : (row === 0 ? Math.ceil(n / 2) : Math.floor(n / 2));
+      const w = Math.round(IAW / colsInRow);
+      result[lbl] = { x: colInRow * w, y: row * rowH, w, h: rowH };
+    });
+  }
+  return result;
+}
+
+// ── 初期配置 ──────────────────────────────────────
+function initPlacements(layout) {
+  if (!args) return;
+  const IAW = Math.round((args.container_w || 600) * (args.img_area_ratio || 0.72));
+  const ch  = args.container_h || 424;
+  const images  = args.images || {};
+  const initPl  = args.initial_placements || {};
+  const labels  = Object.keys(images);
+
+  const grid = calcLayout(layout, labels, IAW, ch);
+
+  labels.forEach(lbl => {
+    if (initPl[lbl] !== undefined) {
+      placements[lbl] = { ...initPl[lbl] };
+    } else {
+      const d = grid[lbl] || { x: 0, y: 0, w: Math.round(IAW / 2), h: Math.round(ch / 2) };
+      placements[lbl] = { enabled: true, ...d };
+    }
+    if (placements[lbl].enabled === undefined) placements[lbl].enabled = true;
+  });
+}
+
+// ── レイアウト再適用 ──────────────────────────────
+function applyLayout(layout) {
+  if (!args) return;
+  const IAW = Math.round((args.container_w || 600) * (args.img_area_ratio || 0.72));
+  const ch  = args.container_h || 424;
+  const images  = args.images || {};
+  const enabledLabels = Object.keys(images).filter(l => placements[l]?.enabled);
+
+  const grid = calcLayout(layout, enabledLabels, IAW, ch);
+  enabledLabels.forEach(lbl => {
+    if (grid[lbl]) {
+      placements[lbl] = { ...placements[lbl], ...grid[lbl] };
+    }
+  });
+}
+
+// ── レンダリング ──────────────────────────────────
+function render() {
+  if (!args) return;
+  const cw  = args.container_w  || 600;
+  const ch  = args.container_h  || 424;
+  const iar = args.img_area_ratio || 0.72;
+  const IAW = Math.round(cw * iar);
+  const images = args.images || {};
+
+  // プレビューサイズ
+  const preview = document.getElementById('preview');
+  preview.style.width  = cw + 'px';
+  preview.style.height = ch + 'px';
+
+  // データエリア
+  document.getElementById('data-area').style.width = (cw - IAW) + 'px';
+  document.getElementById('data-label').style.width  = (cw - IAW) + 'px';
+  document.getElementById('data-label').style.height = ch + 'px';
+
+  // グリッド線
+  document.getElementById('hl').style.cssText  = `top:${ch/2}px; left:0; width:${IAW}px; height:1px;`;
+  document.getElementById('vl1').style.cssText = `left:${IAW/2}px; top:0; width:1px; height:${ch}px;`;
+  document.getElementById('vl2').style.cssText = `left:${IAW}px; top:0; width:1px; height:${ch}px; background:rgba(100,100,100,0.35);`;
+
+  // ── 切り替えチップ ──────────────────────────────
+  const bar = document.getElementById('toggle-bar');
+  bar.innerHTML = '';
+  Object.keys(images).forEach(label => {
+    const pl    = placements[label] || { enabled: true };
+    const color = COLORS[label] || '#666';
+    const chip  = document.createElement('div');
+    chip.className = 'toggle-chip';
+    chip.style.borderColor = color;
+    if (pl.enabled) {
+      chip.style.background = color;
+      chip.style.color = '#fff';
+    } else {
+      chip.style.background = '';
+      chip.style.color = color;
+    }
+    const dot = document.createElement('span');
+    dot.className = 'dot';
+    dot.style.background = pl.enabled ? '#fff' : color;
+    chip.appendChild(dot);
+    const txt = document.createElement('span');
+    txt.textContent = label + (pl.enabled ? '' : '（未使用）');
+    chip.appendChild(txt);
+    chip.addEventListener('click', () => {
+      placements[label].enabled = !placements[label].enabled;
+      // レイアウトを再適用して余白を埋める
+      applyLayout(currentLayout);
+      render();
+      sendValue();
+      setTimeout(sendHeight, 50);
+    });
+    bar.appendChild(chip);
+  });
+
+  // ── 画像アイテム ────────────────────────────────
+  const layer = document.getElementById('img-layer');
+  layer.innerHTML = '';
+  Object.keys(images).forEach(label => {
+    const pl = placements[label];
+    if (!pl || !pl.enabled) return;
+    const color = COLORS[label] || '#666';
+
+    const el = document.createElement('div');
+    el.className = 'img-item';
+    el.style.cssText = `left:${pl.x}px;top:${pl.y}px;width:${pl.w}px;height:${pl.h}px;border-color:${color};z-index:5;`;
+
+    const img = document.createElement('img');
+    img.src = images[label];
+    el.appendChild(img);
+
+    const badge = document.createElement('div');
+    badge.className = 'img-badge';
+    badge.textContent = label;
+    badge.style.background = color + 'cc';
+    el.appendChild(badge);
+
+    const rh = document.createElement('div');
+    rh.className = 'resize-handle';
+    el.appendChild(rh);
+
+    makeDraggable(el, label, cw, ch);
+    makeResizable(el, rh, label);
+    layer.appendChild(el);
+  });
+}
+
+// ── レイアウトボタン ──────────────────────────────
+document.querySelectorAll('.layout-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.layout-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentLayout = btn.dataset.layout;
+    applyLayout(currentLayout);
+    render();
+    sendValue();
+    setTimeout(sendHeight, 50);
+  });
+});
+
+// ── ドラッグ ──────────────────────────────────────
+function makeDraggable(el, label, cw, ch) {
+  el.addEventListener('mousedown', function(e) {
+    if (e.target.classList.contains('resize-handle')) return;
+    e.preventDefault();
+    const sx = e.clientX - parseInt(el.style.left);
+    const sy = e.clientY - parseInt(el.style.top);
+    el.style.zIndex = 100;
+    const move = function(e) {
+      const nx = Math.max(0, Math.min(cw - parseInt(el.style.width),  e.clientX - sx));
+      const ny = Math.max(0, Math.min(ch - parseInt(el.style.height), e.clientY - sy));
+      el.style.left = nx + 'px'; el.style.top = ny + 'px';
+      placements[label].x = nx; placements[label].y = ny;
+    };
+    const up = function() {
+      el.style.zIndex = 5;
+      sendValue();
+      document.removeEventListener('mousemove', move);
+      document.removeEventListener('mouseup',   up);
+    };
+    document.addEventListener('mousemove', move);
+    document.addEventListener('mouseup',   up);
+  });
+}
+
+// ── リサイズ ──────────────────────────────────────
+function makeResizable(el, handle, label) {
+  handle.addEventListener('mousedown', function(e) {
+    e.preventDefault(); e.stopPropagation();
+    const sx = e.clientX, sy = e.clientY;
+    const sw = parseInt(el.style.width), sh = parseInt(el.style.height);
+    el.style.zIndex = 100;
+    const move = function(e) {
+      const nw = Math.max(40, sw + (e.clientX - sx));
+      const nh = Math.max(30, sh + (e.clientY - sy));
+      el.style.width = nw + 'px'; el.style.height = nh + 'px';
+      placements[label].w = nw; placements[label].h = nh;
+    };
+    const up = function() {
+      el.style.zIndex = 5;
+      sendValue();
+      document.removeEventListener('mousemove', move);
+      document.removeEventListener('mouseup',   up);
+    };
+    document.addEventListener('mousemove', move);
+    document.addEventListener('mouseup',   up);
+  });
+}
+</script>
+</body>
+</html>
