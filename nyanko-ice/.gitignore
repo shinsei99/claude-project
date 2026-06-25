@@ -1,0 +1,6 @@
+node_modules/
+ios/App/Pods/
+ios/App/Podfile.lock
+android/.gradle/
+*.log
+.DS_Store

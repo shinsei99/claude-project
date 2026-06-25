@@ -32,3 +32,8 @@
 !petapeta-extension/**
 !.github/
 !.github/**
+!nyanko-ice/
+!nyanko-ice/**
+nyanko-ice/node_modules/
+nyanko-ice/ios/
+nyanko-ice/android/

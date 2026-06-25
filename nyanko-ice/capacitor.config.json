@@ -1,0 +1,13 @@
+{
+  "appId": "com.daikyo.nyankoice",
+  "appName": "にゃんこアイス",
+  "webDir": "www",
+  "plugins": {
+    "AdMob": {
+      "appId": {
+        "ios": "ca-app-pub-7896238888737384~2734537173",
+        "android": "ca-app-pub-3940256099942544~3347511713"
+      }
+    }
+  }
+}

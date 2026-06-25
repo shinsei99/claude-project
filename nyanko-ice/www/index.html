@@ -1,0 +1,1034 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>にゃんこアイス 🍦</title>
+<style>
+  :root{
+    --navy:#1A237E;
+    --blue:#3F51B5;
+    --gold:#FFD700;
+  }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{ margin:0; padding:0; height:100%; }
+  body{
+    background:
+      radial-gradient(circle at 20% 10%, #283593 0%, transparent 50%),
+      radial-gradient(circle at 85% 0%, #5C6BC0 0%, transparent 45%),
+      linear-gradient(160deg, #1A237E 0%, #121858 100%);
+    display:flex; align-items:center; justify-content:center;
+    min-height:100%;
+    font-family:"Hiragino Maru Gothic ProN","Hiragino Sans","Noto Sans JP",system-ui,sans-serif;
+    overflow:hidden;
+  }
+  #stage{ display:flex; flex-direction:column; align-items:center; gap:6px; }
+  #wrap{
+    position:relative;
+    width:min(100vw, 50vh);
+    max-width:470px;
+    aspect-ratio:500/760;
+    box-shadow:0 20px 60px rgba(0,0,0,.45), 0 0 0 4px rgba(255,255,255,.06);
+    border-radius:22px;
+    overflow:hidden;
+  }
+  canvas{ display:block; width:100%; height:100%; border-radius:22px; cursor:pointer; }
+  #hint{
+    position:absolute; left:0; right:0; bottom:8px; text-align:center;
+    color:rgba(255,255,255,.55); font-size:11px; letter-spacing:.04em; pointer-events:none;
+  }
+  /* ===== バナー広告（常時表示） ===== */
+  #banner{
+    position:relative;
+    width:min(100vw, 50vh); max-width:470px; height:56px;
+    border-radius:12px; overflow:hidden; cursor:pointer;
+    background:linear-gradient(100deg,#fff 0%,#FFF3E0 100%);
+    box-shadow:0 6px 18px rgba(0,0,0,.35);
+    display:flex; align-items:center; gap:10px; padding:0 12px;
+    color:#3F51B5; font-weight:700;
+  }
+  #banner .ad-badge{
+    background:#FFB300; color:#5D4037; font-size:9px; font-weight:800;
+    padding:2px 5px; border-radius:4px; letter-spacing:.06em;
+  }
+  #banner .ad-ico{ font-size:26px; }
+  #banner .ad-main{ font-size:14px; line-height:1.2; }
+  #banner .ad-sub{ font-size:10px; color:#8D6E63; font-weight:600; }
+  #banner .ad-cta{
+    margin-left:auto; background:#3F51B5; color:#fff; font-size:12px;
+    padding:7px 12px; border-radius:18px; white-space:nowrap;
+  }
+  /* ===== 全画面広告オーバーレイ（共通） ===== */
+  .ad-full{
+    position:absolute; inset:0; z-index:20;
+    background:rgba(8,10,30,.92);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:14px; padding:24px; text-align:center; color:#fff;
+  }
+  .ad-full.hidden{ display:none; }
+  .ad-full .ad-tag{
+    position:absolute; top:12px; left:12px;
+    background:#FFB300; color:#5D4037; font-size:10px; font-weight:800;
+    padding:3px 7px; border-radius:5px; letter-spacing:.08em;
+  }
+  .ad-card{
+    width:86%; max-width:340px; aspect-ratio:4/3; border-radius:18px;
+    background:linear-gradient(135deg,#FF80AB,#7E57C2,#29B6F6);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:8px; box-shadow:0 12px 30px rgba(0,0,0,.4); color:#fff;
+  }
+  .ad-card .big{ font-size:42px; }
+  .ad-card .ttl{ font-size:20px; font-weight:800; text-shadow:0 2px 4px rgba(0,0,0,.3); }
+  .ad-card .desc{ font-size:12px; opacity:.95; }
+  .ad-full .cd{ font-size:13px; color:#B3E5FC; min-height:18px; }
+  .ad-full button{
+    font-family:inherit; border:none; cursor:pointer; font-weight:800;
+    padding:12px 28px; border-radius:24px; font-size:16px;
+  }
+  .ad-full .closebtn, .ad-full .claim{ background:#FF80AB; color:#fff; box-shadow:0 6px 16px rgba(0,0,0,.35); }
+  .ad-full .skip{ background:transparent; color:rgba(255,255,255,.5); font-size:12px; padding:6px; }
+  .ad-full .bar{ width:80%; max-width:300px; height:8px; border-radius:6px; background:rgba(255,255,255,.2); overflow:hidden; }
+  .ad-full .bar > i{ display:block; height:100%; width:0%; background:#FFD54F; transition:width .3s linear; }
+  .reward-hl{ color:#FFD54F; font-weight:800; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="wrap">
+    <canvas id="game" width="500" height="760"></canvas>
+    <div id="hint">コーンをタップ → 移動先をタップ（空きがあればどこへでもOK）</div>
+
+    <!-- インタースティシャル広告（3ステージごと） -->
+    <div id="interstitial" class="ad-full hidden">
+      <span class="ad-tag">広告 / AD</span>
+      <div class="ad-card"><div class="big">🍰</div><div class="ttl">スイーツ夢ランド</div><div class="desc">いますぐ無料でダウンロード！</div></div>
+      <div class="cd"></div>
+      <button class="closebtn">とじる ✕</button>
+    </div>
+
+    <!-- 動画リワード広告（コンテニュー時） -->
+    <div id="rewarded" class="ad-full hidden">
+      <span class="ad-tag">リワード広告 / AD</span>
+      <div class="ad-card"><div class="big">🎬</div><div class="ttl">どうがを見てふっかつ！</div><div class="desc"><span class="reward-hl">コンテニュー</span>するには動画をさいごまで視聴</div></div>
+      <div class="bar"><i></i></div>
+      <div class="cd"></div>
+      <button class="claim">▶ コンテニューする</button>
+      <button class="skip">やめて さいしょから</button>
+    </div>
+  </div>
+
+  <!-- バナー広告（画面下に常時表示） -->
+  <div id="banner">
+    <span class="ad-ico">🍦</span>
+    <div>
+      <div class="ad-main">ひんやりスイーツ便<span class="ad-badge" style="margin-left:6px">AD</span></div>
+      <div class="ad-sub">サンプルバナー広告（実広告SDKに差し替え）</div>
+    </div>
+    <span class="ad-cta">みる</span>
+  </div>
+</div>
+
+<script>
+"use strict";
+(function(){
+
+/* ===================== 定数・設定 ===================== */
+const W = 500, H = 760;
+const LANES = 5;          // コーンの本数
+const MAXH  = 7;          // 1コーンの最大段数
+const R     = 20;         // アイスの半径（直径40px）
+const STEP  = 40;         // 段の高さ
+const BASEY = 684;        // 一番下(1段目)のアイス中心Y
+const LANE_W = W / LANES; // 100
+const laneX = c => LANE_W * c + LANE_W / 2;       // 50,150,...,450
+const ORDER_BOARD = { x: 78, y: 66 };             // 星が飛んでいく先
+
+// フレーバー定義（後半ほどステージが上がると登場）
+const FLAV = {
+  vanilla:    { color:'#FFF6E0', shade:'#EBD9AE' },
+  choco:      { color:'#A1715B', shade:'#5D4037' },
+  strawberry: { color:'#FF9EBB', shade:'#EC5F86' },
+  mint:       { color:'#A8E6D5', shade:'#3FAE97' },   // STAGE3〜
+  soda:       { color:'#8FD8FB', shade:'#29B6F6' },   // STAGE5〜
+  grape:      { color:'#BBA4E6', shade:'#7E57C2' },   // STAGE7〜
+  rainbow:    { color:'#FFFFFF', shade:'#DDDDDD' },   // ワイルド（どの色にも化ける）
+};
+const FLAVS = ['vanilla','choco','strawberry','mint','soda','grape']; // rainbowは含めない（注文色にならない）
+// そのステージで使える色数（3色→3,5,7ステージで1色ずつ追加）
+const flavCount = s => Math.min(FLAVS.length, 3 + (s>=3?1:0) + (s>=5?1:0) + (s>=7?1:0));
+const randFlav  = () => FLAVS[(Math.random()*flavCount(stage))|0];
+
+// Nextの生成：たまにレインボーアイスが出る
+const RAINBOW_CHANCE = 0.10;
+const genNext = () => Math.random() < RAINBOW_CHANCE ? 'rainbow' : randFlav();
+// 注文一致判定：レインボーはどの色とも一致するワイルド
+const wild = (flavor, want) => flavor === want || flavor === 'rainbow';
+
+// ネコ店長の猫種（ステージごとに変わる）
+const CATS = [
+  { name:'ロシアンブルー', fur:['#CAD4DA','#A6B4BC','#788C97'], ear:'#8C9BA5', eye:'#66BB6A', pupil:'#1B5E20', mark:'none' },
+  { name:'ちゃトラ',       fur:['#FFE0B2','#FFB74D','#EF8C2E'], ear:'#FB8C00', eye:'#FFCA28', pupil:'#5D4037', mark:'tabby' },
+  { name:'くろねこ',       fur:['#62757F','#41525B','#28353B'], ear:'#28353B', eye:'#FFD54F', pupil:'#2E2E1B', mark:'none' },
+  { name:'しろねこ',       fur:['#FFFFFF','#ECEFF1','#CBD3D8'], ear:'#E0E4E6', eye:'#4FC3F7', pupil:'#0277BD', mark:'none' },
+  { name:'みけねこ',       fur:['#FFFFFF','#F4F4F4','#DCCFC8'], ear:'#E5DAD4', eye:'#9CCC65', pupil:'#33691E', mark:'calico' },
+  { name:'シャムねこ',     fur:['#F5EAD4','#E7D3B0','#CDAE82'], ear:'#7A584A', eye:'#4FC3F7', pupil:'#01579B', mark:'point' },
+];
+const catOf = s => CATS[(s-1) % CATS.length];
+
+/* ===================== ゲーム状態 ===================== */
+let cones, order, nextFlav, score, combo, prevOrder, selected, particles,
+    gameOver, catSuccess, last,
+    stage, ordersLeft, stageClear, dropTimer;
+
+const quotaOf    = s => 4 + s;                       // ステージごとのノルマ(注文数)
+const intervalOf = s => Math.max(3.5, 7.0 - (s-1)*0.3); // 落下間隔(秒)
+
+/* ---- 進行状況のセーブ／ロード ---- */
+const SAVE_KEY = 'nyanko_ice_save';
+function saveProgress(){
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify({ stage, score, ordersLeft })); } catch(e){}
+}
+function loadProgress(){
+  try { const s = JSON.parse(localStorage.getItem(SAVE_KEY)); if (s && s.stage>=1) return s; } catch(e){}
+  return null;
+}
+function clearProgress(){ try { localStorage.removeItem(SAVE_KEY); } catch(e){} }
+
+// 起動時：セーブがあれば続きから、無ければ最初から
+function boot(){
+  const s = loadProgress();
+  if (s){
+    stage = s.stage; score = s.score;
+    gameOver = false;
+    startStage();
+    ordersLeft = s.ordersLeft;           // ステージ途中の残数も復元
+  } else {
+    reset();
+  }
+}
+
+// 最初から（ステージ1）
+function reset(){
+  stage = 1;
+  score = 0;
+  gameOver = false;
+  startStage();
+  saveProgress();
+}
+
+// コンテニュー：今のステージ・スコア・注文の残数を引き継いで再開
+function continueStage(){
+  gameOver = false;
+  const keep = ordersLeft;
+  startStage();
+  ordersLeft = keep;
+  saveProgress();
+}
+
+function startStage(fresh){
+  cones = [[],[],[],[],[]];
+  order = makeOrder();
+  prevOrder = null;
+  nextFlav = genNext();
+  combo = 0;
+  selected = -1;
+  particles = [];
+  catSuccess = 0;
+  stageClear = false;
+  ordersLeft = quotaOf(stage);
+  dropTimer = intervalOf(stage);
+
+  // 初期配置：各コーンに 2〜3 個ランダムに積む
+  for (let c=0;c<LANES;c++){
+    const n = 2 + ((Math.random()*2)|0);
+    for (let i=0;i<n;i++) cones[c].push(mkIce(randFlav(), laneX(c), BASEY - i*STEP));
+  }
+  layout(true);
+}
+
+function advanceStage(){
+  stage++;
+  startStage();
+  saveProgress();
+  // インタースティシャル広告：3ステージクリアごと（3,6,9…クリア後）
+  if ((stage-1) % 3 === 0) showInterstitial();
+}
+
+function mkIce(flavor, x, y){ return { flavor, x, y, tx:x, ty:y, flight:null }; }
+function makeOrder(){ return [randFlav(), randFlav(), randFlav()]; }
+const eqArr = (a,b) => a && b && a.length===b.length && a.every((v,i)=>v===b[i]);
+
+/* ===================== レイアウト（目標位置の算出） ===================== */
+function layout(snap){
+  for (let c=0;c<LANES;c++){
+    const col = cones[c];
+    for (let i=0;i<col.length;i++){
+      const ice = col[i];
+      ice.tx = laneX(c);
+      ice.ty = BASEY - i*STEP;
+      // 選択中コーンの一番上は「肉球が掴んで」少し浮く
+      if (c===selected && i===col.length-1) ice.ty -= 30;
+      if (snap){ ice.x = ice.tx; ice.y = ice.ty; }
+    }
+  }
+}
+
+/* ===================== 入力 ===================== */
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+
+// 高解像度対応
+const dpr = Math.min(window.devicePixelRatio||1, 2);
+canvas.width = W*dpr; canvas.height = H*dpr;
+canvas.style.width='100%'; canvas.style.height='100%';
+ctx.scale(dpr,dpr);
+
+let audio;
+let nowT = 0;  // 経過秒（レインボーの色変化アニメ用）
+
+/* ===================== 広告 ===================== */
+/* ネイティブ(Capacitor+AdMob)では本物の広告、ブラウザではDOMモックにフォールバック */
+let adPaused = false;
+const elInter = document.getElementById('interstitial');
+const elRew   = document.getElementById('rewarded');
+const elBanner= document.getElementById('banner');
+
+const Cap      = window.Capacitor;
+const AdMob    = Cap && Cap.Plugins && Cap.Plugins.AdMob;          // プラグイン（ネイティブのみ）
+const platform = (Cap && Cap.getPlatform) ? Cap.getPlatform() : 'web';
+const TESTING  = true;   // ★本番リリース時は false にする
+
+// AdMob広告ユニットID（下記はGoogle公式テストID。★本番は自分のIDに差し替え）
+const AD_IDS = {
+  // iOS: バナーは本番ID。interstitial/rewardは未取得のためテストIDのまま（取得後に差し替え）
+  ios:     { banner:'ca-app-pub-7896238888737384/4100011194', interstitial:'ca-app-pub-7896238888737384/9096765542', reward:'ca-app-pub-7896238888737384/4965948848' },
+  android: { banner:'ca-app-pub-3940256099942544/6300978111', interstitial:'ca-app-pub-3940256099942544/1033173712', reward:'ca-app-pub-3940256099942544/5224354917' },
+};
+const adId = kind => (AD_IDS[platform] || AD_IDS.android)[kind];
+
+// 起動時：ネイティブならAdMob初期化＋バナー表示。Webなら下部DOMバナーをそのまま使う
+async function initAds(){
+  if (!AdMob){ elBanner.style.display='flex'; return; }
+  try{
+    await AdMob.initialize({ initializeForTesting: TESTING });
+    elBanner.style.display='none';                              // ネイティブバナーを使う
+    await AdMob.showBanner({ adId: adId('banner'), position:'BOTTOM_CENTER', margin:0, isTesting:TESTING });
+  }catch(e){ console.warn('AdMob init failed', e); elBanner.style.display='flex'; }
+}
+
+// インタースティシャル：ネイティブはAdMob、WebはDOMモック
+function showInterstitial(onClose){
+  if (!AdMob) return showInterstitialMock(onClose);
+  adPaused = true;
+  (async()=>{
+    const finish = ()=>{ adPaused=false; if(onClose) onClose(); };
+    try{
+      // ※イベント名は @capacitor-community/admob v6 準拠。導入版に合わせ要確認
+      const sub = await AdMob.addListener('interstitialAdDismissed', ()=>{ sub && sub.remove && sub.remove(); finish(); });
+      await AdMob.prepareInterstitial({ adId: adId('interstitial'), isTesting:TESTING });
+      await AdMob.showInterstitial();
+    }catch(e){ console.warn(e); finish(); }
+  })();
+}
+
+// 動画リワード：最後まで見たら onReward、途中離脱は onSkip
+function showRewarded(onReward, onSkip){
+  if (!AdMob) return showRewardedMock(onReward, onSkip);
+  adPaused = true;
+  (async()=>{
+    let earned = false, subR, subD;
+    const cleanup = ()=>{ subR&&subR.remove&&subR.remove(); subD&&subD.remove&&subD.remove(); };
+    try{
+      subR = await AdMob.addListener('onRewardedVideoAdReward', ()=>{ earned = true; });
+      subD = await AdMob.addListener('onRewardedVideoAdDismissed', ()=>{
+        cleanup(); adPaused=false; earned ? (onReward&&onReward()) : (onSkip&&onSkip());
+      });
+      await AdMob.prepareRewardVideoAd({ adId: adId('reward'), isTesting:TESTING });
+      await AdMob.showRewardVideoAd();
+    }catch(e){ console.warn(e); cleanup(); adPaused=false; if(onSkip) onSkip(); }
+  })();
+}
+
+/* ---- 以下はブラウザ用のDOMモック（ネイティブでは未使用） ---- */
+function showInterstitialMock(onClose){
+  adPaused = true;
+  elInter.classList.remove('hidden');
+  const cd = elInter.querySelector('.cd');
+  const btn = elInter.querySelector('.closebtn');
+  let t = 5; btn.style.display='none';
+  cd.textContent = t+' 秒後にとじられます';
+  const iv = setInterval(()=>{
+    t--;
+    if (t<=0){ clearInterval(iv); cd.textContent=''; btn.style.display='inline-block'; }
+    else cd.textContent = t+' 秒後にとじられます';
+  }, 1000);
+  btn.onclick = ()=>{ elInter.classList.add('hidden'); adPaused=false; if(onClose) onClose(); };
+}
+function showRewardedMock(onReward, onSkip){
+  adPaused = true;
+  elRew.classList.remove('hidden');
+  const cd = elRew.querySelector('.cd');
+  const bar = elRew.querySelector('.bar > i');
+  const claim = elRew.querySelector('.claim');
+  const skip = elRew.querySelector('.skip');
+  const total = 5;              // プロトタイプは5秒（本番AdMob動画は約30秒）
+  let t = total; claim.style.display='none';
+  bar.style.width='0%';
+  cd.textContent = 'どうが さいせいちゅう… '+t+'s';
+  const iv = setInterval(()=>{
+    t--;
+    bar.style.width = ((total-t)/total*100)+'%';
+    if (t<=0){ clearInterval(iv); cd.textContent='✓ しちょう かんりょう！ ほうしゅうゲット'; claim.style.display='inline-block'; }
+    else cd.textContent = 'どうが さいせいちゅう… '+t+'s';
+  }, 1000);
+  claim.onclick = ()=>{ if(t>0) return; elRew.classList.add('hidden'); adPaused=false; if(onReward) onReward(); };
+  skip.onclick  = ()=>{ clearInterval(iv); elRew.classList.add('hidden'); adPaused=false; if(onSkip) onSkip(); };
+}
+function blip(freq, dur, type, gain){
+  try{
+    if(!audio) audio = new (window.AudioContext||window.webkitAudioContext)();
+    const o=audio.createOscillator(), g=audio.createGain();
+    o.type=type||'sine'; o.frequency.value=freq;
+    g.gain.value=gain||0.06;
+    o.connect(g); g.connect(audio.destination);
+    const t=audio.currentTime;
+    g.gain.setValueAtTime(g.gain.value,t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t+dur);
+    o.start(t); o.stop(t+dur);
+  }catch(e){}
+}
+
+canvas.addEventListener('pointerdown', e=>{
+  if (adPaused) return;   // 広告表示中は操作を受け付けない
+  const rect = canvas.getBoundingClientRect();
+  const x = (e.clientX-rect.left) * (W/rect.width);
+  const y = (e.clientY-rect.top)  * (H/rect.height);
+
+  if (gameOver){
+    // コンテニュー → 動画リワード広告を視聴してから再開
+    if (x>W/2-110 && x<W/2+110 && y>444 && y<500){
+      showRewarded(continueStage, ()=>{ clearProgress(); reset(); });
+    } else if (x>W/2-110 && x<W/2+110 && y>512 && y<562){ clearProgress(); reset(); } // さいしょから
+    return;
+  }
+  if (stageClear){
+    if (x>W/2-90 && x<W/2+90 && y>470 && y<532) advanceStage();   // つぎのステージへ
+    return;
+  }
+  const c = Math.max(0, Math.min(LANES-1, (x/LANE_W)|0));
+  tap(c);
+});
+
+function tap(c){
+  if (selected===-1){
+    if (cones[c].length>0){ selected=c; blip(520,0.08,'triangle',0.05); layout(); }
+    return;
+  }
+  if (c===selected){ selected=-1; layout(); return; } // 選択解除
+  if (canMove(selected, c)){
+    const ice = cones[selected].pop();
+    cones[c].push(ice);
+    selected = -1;
+    blip(680,0.09,'sine',0.05);
+    layout();                                              // 目標スロット確定
+    ice.flight = { x0: ice.x, y0: ice.y, t: 0, dur: 0.38 }; // すくって弧を描いて落とす
+    resolveSales();
+    checkAllFull();
+  } else {
+    selected = -1;               // 条件を満たさなければキャンセル
+    blip(180,0.12,'sawtooth',0.04);
+    layout();
+  }
+}
+
+const topOf = col => col[col.length-1];
+function canMove(src,dst){
+  if (cones[src].length===0) return false;   // 掴むアイスが無い
+  if (cones[dst].length>=MAXH) return false; // 移動先が満杯
+  return true;                               // 色に関係なく自由に移動OK
+}
+
+/* ===================== 注文の判定と売却 ===================== */
+function resolveSales(){
+  let guard = 0;
+  while (guard++ < 40){
+    let sold = false;
+    for (let c=0;c<LANES && !sold;c++){
+      const col = cones[c];
+      for (let s=0; s+3<=col.length; s++){
+        if (wild(col[s].flavor,order[0]) && wild(col[s+1].flavor,order[1]) && wild(col[s+2].flavor,order[2])){
+          sellAt(c, s);
+          sold = true;
+          break;
+        }
+      }
+    }
+    if (!sold || stageClear) break;
+  }
+}
+
+function sellAt(c, start){
+  const isCombo = eqArr(order, prevOrder);
+  if (isCombo) combo++; else combo = 0;
+  const pts = 100 * (isCombo ? 2 : 1) * stage;
+  score += pts;
+
+  // 星パーティクル＆消滅
+  const removed = cones[c].splice(start, 3);
+  for (const ice of removed) burstStars(ice.tx, ice.ty, isCombo); // 正しいスロット位置で弾けさせる
+
+  // カップ全消しボーナス
+  if (cones[c].length===0){
+    const bonus = 500 * stage; score += bonus;
+    popText('カップすっきり! +¥'+bonus, laneX(c), BASEY-70, '#FFD700');
+    burstStars(laneX(c), BASEY-90, true);
+    blip(1000,0.16,'square',0.07);
+    if (cones.every(col=>col.length===0)){     // 盤面まるごと全消し
+      const big = 2000 * stage; score += big;
+      popText('PERFECT!! +¥'+big, W/2, 300, '#FF80AB');
+      for (let i=0;i<LANES;i++) burstStars(laneX(i), BASEY-120, true);
+      blip(1320,0.25,'square',0.08);
+    }
+  }
+
+  ordersLeft--;                    // 注文の残数を減らす
+  prevOrder = order.slice();
+  order = makeOrder();             // 次の注文へ
+  catSuccess = 1.3;                // ネコ店長 喜ぶ
+  spawnHearts();
+
+  if (isCombo){ blip(880,0.12,'square',0.07); blip(1320,0.18,'sine',0.05); }
+  else blip(740,0.12,'triangle',0.06);
+
+  layout();
+  saveProgress();
+  if (ordersLeft<=0) doStageClear();  // ノルマ達成でステージクリア
+}
+
+/* ===================== 落下補充ロジック（一定時間で1個ずつ） ===================== */
+function timedDrop(){
+  const avail = [];
+  for (let c=0;c<LANES;c++) if (cones[c].length < MAXH) avail.push(c);
+  if (avail.length===0){ triggerGameOver(); return; }   // 落とす場所が無い＝満タン
+  const c = avail[(Math.random()*avail.length)|0];
+  cones[c].push(mkIce(nextFlav, laneX(c), -50));         // 画面外上部から
+  nextFlav = genNext();
+  layout();
+  blip(300 + cones[c].length*40, 0.06, 'sine', 0.04);
+  resolveSales();
+  checkAllFull();
+}
+
+/* ===================== ネコ店長 ===================== */
+function spawnHearts(){
+  for (let i=0;i<4;i++){
+    particles.push({
+      type:'heart',
+      x: 250 + (Math.random()*60-30),
+      y: 200,
+      vx:(Math.random()*40-20), vy:-(50+Math.random()*40),
+      life:1.1, max:1.1,
+      color: Math.random()<0.5 ? '#FF80AB' : '#FFD54F',
+      size: 9+Math.random()*6, rot:0, vr:0
+    });
+  }
+}
+
+/* ===================== パーティクル（星） ===================== */
+function burstStars(x,y,gold){
+  const n = 22 + ((Math.random()*6)|0);
+  for (let i=0;i<n;i++){
+    const a = (Math.PI*2*i)/n + Math.random()*0.5;
+    const sp = 120 + Math.random()*180;
+    particles.push({
+      type:'star',
+      x, y,
+      vx: Math.cos(a)*sp, vy: Math.sin(a)*sp,
+      tx: ORDER_BOARD.x, ty: ORDER_BOARD.y,
+      life: 1.0 + Math.random()*0.7, max: 1.7,
+      color: gold ? '#FFD700' : pickStarColor(),
+      size: 6 + Math.random()*7,
+      rot: Math.random()*Math.PI, vr: (Math.random()*8-4)
+    });
+  }
+}
+function pickStarColor(){
+  const c = ['#FFFFFF','#FF80AB','#FFD54F','#B3E5FC'];
+  return c[(Math.random()*c.length)|0];
+}
+function popText(text,x,y,color){
+  particles.push({ type:'text', text, x, y, vx:0, vy:-26, life:1.7, max:1.7, color, size:18, rot:0, vr:0 });
+}
+
+function updateParticles(dt){
+  for (let i=particles.length-1;i>=0;i--){
+    const p = particles[i];
+    p.life -= dt;
+    if (p.type==='star'){
+      const ax = (p.tx - p.x), ay = (p.ty - p.y);
+      const pull = (1 - p.life/p.max) * 6;   // 時間が経つほど注文ボードへ吸い込まれる
+      p.vx = p.vx*0.90 + ax*pull*dt;
+      p.vy = p.vy*0.90 + ay*pull*dt;
+    } else if (p.type==='heart'){
+      p.vy += 30*dt; // ほんの少しだけ重力
+    } // text はそのまま上昇
+    p.x += p.vx*dt; p.y += p.vy*dt; p.rot += p.vr*dt;
+    if (p.life<=0) particles.splice(i,1);
+  }
+}
+
+/* ===================== クリア / ゲームオーバー ===================== */
+function doStageClear(){
+  stageClear = true;
+  selected = -1;
+  blip(784,0.12,'square',0.07);
+  setTimeout(()=>blip(1047,0.12,'square',0.07),120);
+  setTimeout(()=>blip(1319,0.22,'sine',0.06),240);
+}
+function checkAllFull(){
+  if (gameOver || stageClear) return;
+  for (const col of cones) if (col.length < MAXH) return; // 1つでも空きがあればOK
+  triggerGameOver();
+}
+function triggerGameOver(){
+  if (gameOver) return;
+  gameOver = true;
+  blip(220,0.3,'sawtooth',0.07);
+  setTimeout(()=>blip(160,0.4,'sawtooth',0.06),140);
+}
+
+/* ===================== 描画 ===================== */
+function roundRect(x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);
+  ctx.arcTo(x+w,y,x+w,y+h,r);
+  ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r);
+  ctx.arcTo(x,y,x+w,y,r);
+  ctx.closePath();
+}
+
+function drawBackground(){
+  ctx.save();
+  // やわらかいボケ円（奥行き）
+  const blobs=[[80,150,95,'rgba(124,138,230,.20)'],[430,80,82,'rgba(92,107,192,.22)'],
+               [250,300,150,'rgba(57,73,171,.22)'],[55,420,72,'rgba(149,117,205,.14)']];
+  for (const [x,y,r,c] of blobs){ ctx.fillStyle=c; ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill(); }
+  // 雪のきらめき
+  ctx.fillStyle='rgba(255,255,255,0.10)';
+  for (let i=0;i<32;i++){
+    const x=(i*97+33)%W, y=(i*71+18)%660;
+    ctx.beginPath(); ctx.arc(x,y,(i%3)+1.3,0,Math.PI*2); ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawCounter(){
+  // アイス屋のカウンター
+  ctx.save();
+  ctx.shadowColor='rgba(0,0,0,.30)'; ctx.shadowBlur=14; ctx.shadowOffsetY=-3;
+  const g=ctx.createLinearGradient(0,704,0,H);
+  g.addColorStop(0,'#FFFCF4'); g.addColorStop(1,'#EAD6B4');
+  ctx.fillStyle=g;
+  roundRect(-12, 706, W+24, H-706+14, 20); ctx.fill();
+  ctx.restore();
+  ctx.strokeStyle='rgba(255,255,255,.85)'; ctx.lineWidth=2;
+  ctx.beginPath(); ctx.moveTo(10,709); ctx.lineTo(W-10,709); ctx.stroke();
+  ctx.fillStyle='rgba(63,81,181,.10)'; ctx.fillRect(0,726,W,3);
+}
+
+function drawCones(){
+  for (let c=0;c<LANES;c++){
+    const x = laneX(c);
+    // 段スロットのガイド
+    ctx.strokeStyle = (c===selected) ? 'rgba(255,215,0,.65)' : 'rgba(255,255,255,.12)';
+    ctx.lineWidth = (c===selected)?3:2;
+    roundRect(x-R-5, BASEY-(MAXH-1)*STEP-R-5, (R+5)*2, MAXH*STEP+10, 18);
+    ctx.stroke();
+
+    // ワッフルコーン本体
+    ctx.save();
+    ctx.shadowColor='rgba(0,0,0,.25)'; ctx.shadowBlur=8; ctx.shadowOffsetY=3;
+    const cg=ctx.createLinearGradient(x-24,0,x+24,0);
+    cg.addColorStop(0,'#C9954F'); cg.addColorStop(.5,'#E9C083'); cg.addColorStop(1,'#C9954F');
+    ctx.fillStyle=cg;
+    ctx.beginPath();
+    ctx.moveTo(x-26, BASEY+16); ctx.lineTo(x+26, BASEY+16); ctx.lineTo(x, BASEY+74);
+    ctx.closePath(); ctx.fill();
+    ctx.restore();
+    // ワッフル網目
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(x-26, BASEY+16); ctx.lineTo(x+26, BASEY+16); ctx.lineTo(x, BASEY+74);
+    ctx.closePath(); ctx.clip();
+    ctx.strokeStyle='rgba(120,80,40,.45)'; ctx.lineWidth=1.4;
+    for (let k=-3;k<=3;k++){ ctx.beginPath(); ctx.moveTo(x+k*8, BASEY+16); ctx.lineTo(x, BASEY+74); ctx.stroke(); }
+    for (let k=0;k<3;k++){ const yy=BASEY+24+k*16; ctx.beginPath(); ctx.moveTo(x-26+k*5, yy); ctx.lineTo(x+26-k*5, yy); ctx.stroke(); }
+    ctx.restore();
+    // コーンの口（リム）
+    ctx.fillStyle='#F0D6A6';
+    ctx.beginPath(); ctx.ellipse(x, BASEY+16, 26, 6, 0,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle='rgba(160,110,60,.5)'; ctx.lineWidth=1.5; ctx.stroke();
+  }
+}
+
+function rainbowGrad(x, y, r){
+  const hue = (nowT*70) % 360;
+  const g = ctx.createLinearGradient(x-r, y-r, x+r, y+r);
+  for (let i=0;i<=6;i++) g.addColorStop(i/6, 'hsl('+((hue+i*60)%360)+',85%,66%)');
+  return g;
+}
+function starPath(x,y,r){
+  ctx.beginPath();
+  for (let i=0;i<5;i++){
+    let a=-Math.PI/2 + i*2*Math.PI/5;
+    ctx.lineTo(x+Math.cos(a)*r, y+Math.sin(a)*r);
+    a += Math.PI/5;
+    ctx.lineTo(x+Math.cos(a)*r*0.45, y+Math.sin(a)*r*0.45);
+  }
+  ctx.closePath();
+}
+
+function drawIce(ice){
+  const rainbow = ice.flavor==='rainbow';
+  // 本体（やわらかい影つき）
+  ctx.save();
+  ctx.shadowColor='rgba(20,24,70,.30)'; ctx.shadowBlur=9; ctx.shadowOffsetY=4;
+  if (rainbow){
+    ctx.fillStyle = rainbowGrad(ice.x, ice.y, R);
+  } else {
+    const f = FLAV[ice.flavor];
+    const g = ctx.createRadialGradient(ice.x-7, ice.y-9, 3, ice.x, ice.y, R+2);
+    g.addColorStop(0, '#ffffff');
+    g.addColorStop(0.28, f.color);
+    g.addColorStop(1, f.shade);
+    ctx.fillStyle=g;
+  }
+  ctx.beginPath(); ctx.arc(ice.x, ice.y, R, 0, Math.PI*2); ctx.fill();
+  ctx.restore();
+  // 下側の陰影（立体感）
+  ctx.save();
+  ctx.beginPath(); ctx.arc(ice.x, ice.y, R, 0, Math.PI*2); ctx.clip();
+  ctx.fillStyle='rgba(0,0,0,.12)';
+  ctx.beginPath(); ctx.ellipse(ice.x, ice.y+R*0.55, R, R*0.75, 0,0,Math.PI*2); ctx.fill();
+  ctx.restore();
+  // リムライト
+  ctx.lineWidth=2; ctx.strokeStyle='rgba(255,255,255,.55)';
+  ctx.beginPath(); ctx.arc(ice.x, ice.y, R-1, Math.PI*1.05, Math.PI*1.8); ctx.stroke();
+  // 光沢
+  ctx.fillStyle='rgba(255,255,255,.9)';
+  ctx.beginPath(); ctx.ellipse(ice.x-6, ice.y-8, 5.5, 3.6, -0.5,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='rgba(255,255,255,.55)';
+  ctx.beginPath(); ctx.arc(ice.x+6, ice.y-2, 1.8, 0,Math.PI*2); ctx.fill();
+  // レインボーは中央に★で識別
+  if (ice.flavor==='rainbow'){
+    ctx.save();
+    ctx.shadowColor='rgba(0,0,0,.3)'; ctx.shadowBlur=3;
+    ctx.fillStyle='rgba(255,255,255,.95)';
+    starPath(ice.x, ice.y+1, 7); ctx.fill();
+    ctx.restore();
+  }
+}
+
+function drawPaw(ice){
+  const px = ice.x, py = ice.y - R - 16;
+  ctx.fillStyle='#FF80AB';
+  ctx.beginPath(); ctx.arc(px, py, 13, 0, Math.PI*2); ctx.fill();      // 肉球パッド
+  ctx.fillStyle='#F8BBD0';
+  for (const a of [-0.7,-0.2,0.3]){
+    ctx.beginPath(); ctx.arc(px+Math.sin(a)*11, py-9, 4.5, 0, Math.PI*2); ctx.fill();
+  }
+  ctx.fillStyle='#fff';
+  ctx.font='bold 16px sans-serif'; ctx.textAlign='center';
+  ctx.fillText('🐾', px, py+5);
+}
+
+function miniIce(x,y,flavor,r){
+  ctx.fillStyle = flavor==='rainbow' ? rainbowGrad(x,y,r) : FLAV[flavor].color;
+  ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
+  ctx.lineWidth=1.5; ctx.strokeStyle='rgba(255,255,255,.5)'; ctx.stroke();
+  if (flavor==='rainbow'){
+    ctx.fillStyle='rgba(255,255,255,.95)'; starPath(x,y,r*0.5); ctx.fill();
+  }
+}
+
+function drawUI(){
+  // 注文ボード（左上）
+  ctx.fillStyle='rgba(255,255,255,.10)';
+  roundRect(12, 32, 150, 64, 14); ctx.fill();
+  ctx.strokeStyle='rgba(255,255,255,.35)'; ctx.lineWidth=2;
+  roundRect(12, 32, 150, 64, 14); ctx.stroke();
+  ctx.fillStyle='#fff'; ctx.font='bold 13px sans-serif'; ctx.textAlign='left';
+  ctx.fillText('ちゅうもん', 22, 50);
+  ctx.fillStyle='#FFD54F'; ctx.font='bold 13px sans-serif'; ctx.textAlign='right';
+  ctx.fillText('のこり '+Math.max(0,ordersLeft), 154, 50);
+  ctx.textAlign='left';
+  for (let i=0;i<order.length;i++) miniIce(40+i*38, 74, order[i], 13);
+
+  // Next（右上）
+  ctx.fillStyle='rgba(255,255,255,.10)';
+  roundRect(W-118, 32, 106, 64, 14); ctx.fill();
+  ctx.strokeStyle='rgba(255,255,255,.35)'; ctx.lineWidth=2;
+  roundRect(W-118, 32, 106, 64, 14); ctx.stroke();
+  ctx.fillStyle='#fff'; ctx.font='bold 13px sans-serif'; ctx.textAlign='left';
+  ctx.fillText('つぎ', W-108, 50);
+  miniIce(W-65, 74, nextFlav, 15);
+
+  // スコア（中央上）
+  ctx.textAlign='center';
+  ctx.fillStyle='#FFD54F'; ctx.font='bold 26px sans-serif';
+  ctx.fillText('¥'+score, W/2, 24);
+  ctx.fillStyle='#B3E5FC'; ctx.font='bold 14px sans-serif';
+  ctx.fillText('STAGE '+stage, W/2, 48);
+  if (combo>0){
+    ctx.fillStyle='#FFD700'; ctx.font='bold 15px sans-serif';
+    ctx.fillText('COMBO x'+(combo+1)+'!  (¥2倍)', W/2, 112);
+  }
+}
+
+function drawCat(){
+  const cx=250, cy=178;
+  // ピンチ判定：いずれかのコーンが6段以上
+  let pinch=false; for (const col of cones) if (col.length>=6) pinch=true;
+  const happy = catSuccess>0;
+  const cat = catOf(stage);
+
+  // 接地影
+  ctx.fillStyle='rgba(0,0,0,.12)';
+  ctx.beginPath(); ctx.ellipse(cx, cy+44, 46, 12, 0,0,Math.PI*2); ctx.fill();
+
+  // 耳
+  ctx.fillStyle=cat.ear;
+  if (pinch){ // イカ耳（横に伏せる）
+    ctx.save();ctx.translate(cx-44,cy-30);ctx.rotate(-1.1);
+    ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(34,6);ctx.lineTo(8,22);ctx.closePath();ctx.fill();ctx.restore();
+    ctx.save();ctx.translate(cx+44,cy-30);ctx.rotate(1.1);
+    ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(-34,6);ctx.lineTo(-8,22);ctx.closePath();ctx.fill();ctx.restore();
+  } else { // ピンと立った耳（内側ピンク付き）
+    ctx.beginPath();ctx.moveTo(cx-44,cy-22);ctx.lineTo(cx-22,cy-58);ctx.lineTo(cx-8,cy-26);ctx.closePath();ctx.fill();
+    ctx.beginPath();ctx.moveTo(cx+44,cy-22);ctx.lineTo(cx+22,cy-58);ctx.lineTo(cx+8,cy-26);ctx.closePath();ctx.fill();
+    ctx.fillStyle='#F8BBD0';
+    ctx.beginPath();ctx.moveTo(cx-36,cy-26);ctx.lineTo(cx-24,cy-49);ctx.lineTo(cx-16,cy-28);ctx.closePath();ctx.fill();
+    ctx.beginPath();ctx.moveTo(cx+36,cy-26);ctx.lineTo(cx+24,cy-49);ctx.lineTo(cx+16,cy-28);ctx.closePath();ctx.fill();
+  }
+  // 頭
+  ctx.save();
+  ctx.shadowColor='rgba(0,0,0,.22)'; ctx.shadowBlur=10; ctx.shadowOffsetY=4;
+  const g=ctx.createRadialGradient(cx-14,cy-16,6,cx,cy+8,56);
+  g.addColorStop(0,cat.fur[0]); g.addColorStop(.55,cat.fur[1]); g.addColorStop(1,cat.fur[2]);
+  ctx.fillStyle=g;
+  ctx.beginPath(); ctx.ellipse(cx,cy,52,46,0,0,Math.PI*2); ctx.fill();
+  ctx.restore();
+  // 猫種ごとの模様
+  ctx.save();
+  ctx.beginPath(); ctx.ellipse(cx,cy,52,46,0,0,Math.PI*2); ctx.clip();
+  if (cat.mark==='tabby'){
+    ctx.strokeStyle=cat.fur[2]; ctx.lineWidth=4; ctx.lineCap='round';
+    for (let k=-1;k<=1;k++){ ctx.beginPath(); ctx.moveTo(cx+k*11,cy-46); ctx.lineTo(cx+k*11,cy-26); ctx.stroke(); }
+    ctx.beginPath(); ctx.moveTo(cx-54,cy-4); ctx.lineTo(cx-32,cy-1); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx+54,cy-4); ctx.lineTo(cx+32,cy-1); ctx.stroke();
+  } else if (cat.mark==='calico'){
+    ctx.fillStyle='#FFB74D'; ctx.beginPath(); ctx.ellipse(cx-26,cy-16,20,18,0,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='#5D4037'; ctx.beginPath(); ctx.ellipse(cx+27,cy-4,17,20,0,0,Math.PI*2); ctx.fill();
+  } else if (cat.mark==='point'){
+    ctx.fillStyle=cat.ear; ctx.beginPath(); ctx.ellipse(cx,cy+12,27,22,0,0,Math.PI*2); ctx.fill();
+  }
+  ctx.restore();
+  // ほっぺ
+  ctx.fillStyle='rgba(255,138,171,.45)';
+  ctx.beginPath(); ctx.ellipse(cx-32,cy+8,9,6,0,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(cx+32,cy+8,9,6,0,0,Math.PI*2); ctx.fill();
+
+  // 目
+  ctx.strokeStyle=cat.pupil; ctx.fillStyle=cat.eye; ctx.lineWidth=3;
+  if (happy){ // 細い「^ ^」目
+    ctx.beginPath(); ctx.arc(cx-18,cy-2,9,Math.PI*1.05,Math.PI*1.95); ctx.stroke();
+    ctx.beginPath(); ctx.arc(cx+18,cy-2,9,Math.PI*1.05,Math.PI*1.95); ctx.stroke();
+  } else {
+    for (const ex of [-18,18]){
+      ctx.beginPath(); ctx.ellipse(cx+ex,cy-2,7,9,0,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle=cat.pupil;
+      ctx.beginPath(); ctx.ellipse(cx+ex,cy-2,2.4,5,0,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle='#fff';
+      ctx.beginPath(); ctx.arc(cx+ex-2,cy-5,1.6,0,Math.PI*2); ctx.fill(); // ハイライト
+      ctx.fillStyle=cat.eye;
+    }
+  }
+  // 鼻
+  ctx.fillStyle='#FF80AB';
+  ctx.beginPath();ctx.moveTo(cx-4,cy+12);ctx.lineTo(cx+4,cy+12);ctx.lineTo(cx,cy+17);ctx.closePath();ctx.fill();
+  // 口
+  ctx.strokeStyle='#546E7A'; ctx.lineWidth=2; ctx.beginPath();
+  if (happy){ ctx.arc(cx,cy+14,7,0.1*Math.PI,0.9*Math.PI); }
+  else { ctx.moveTo(cx-7,cy+20); ctx.quadraticCurveTo(cx,cy+24,cx+7,cy+20); }
+  ctx.stroke();
+  // ヒゲ
+  ctx.strokeStyle='rgba(255,255,255,.6)'; ctx.lineWidth=1.5;
+  for (const s of [-1,1]) for (const dy of [-2,4]){
+    ctx.beginPath(); ctx.moveTo(cx+s*16,cy+10+dy*0.5);
+    ctx.lineTo(cx+s*52,cy+6+dy); ctx.stroke();
+  }
+  if (pinch){
+    ctx.fillStyle='rgba(255,82,82,.95)'; ctx.font='bold 13px sans-serif'; ctx.textAlign='center';
+    ctx.fillText('ピンチ…！', cx, cy+72);
+  } else {
+    ctx.fillStyle='rgba(255,255,255,.72)'; ctx.font='bold 12px sans-serif'; ctx.textAlign='center';
+    ctx.fillText(cat.name+' てんちょう', cx, cy+66);
+  }
+}
+
+function drawStar(p){
+  ctx.save();
+  ctx.globalAlpha = Math.max(0, Math.min(1, p.life/0.6));
+  ctx.translate(p.x,p.y); ctx.rotate(p.rot);
+  ctx.fillStyle=p.color;
+  ctx.beginPath();
+  for (let i=0;i<5;i++){
+    const o=p.size, inr=p.size*0.45;
+    let a=-Math.PI/2 + i*2*Math.PI/5;
+    ctx.lineTo(Math.cos(a)*o, Math.sin(a)*o);
+    a += Math.PI/5;
+    ctx.lineTo(Math.cos(a)*inr, Math.sin(a)*inr);
+  }
+  ctx.closePath(); ctx.fill();
+  ctx.restore();
+}
+function drawHeart(p){
+  ctx.save();
+  ctx.globalAlpha=Math.max(0,Math.min(1,p.life/1.1));
+  ctx.translate(p.x,p.y); ctx.fillStyle=p.color;
+  const s=p.size;
+  ctx.beginPath();
+  ctx.moveTo(0,s*0.3);
+  ctx.bezierCurveTo(0,-s*0.2, -s, -s*0.2, -s, s*0.25);
+  ctx.bezierCurveTo(-s, s*0.7, 0, s*0.9, 0, s*1.2);
+  ctx.bezierCurveTo(0, s*0.9, s, s*0.7, s, s*0.25);
+  ctx.bezierCurveTo(s, -s*0.2, 0, -s*0.2, 0, s*0.3);
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawText(p){
+  ctx.save();
+  ctx.globalAlpha = Math.max(0, Math.min(1, p.life/0.8));
+  ctx.font='bold '+p.size+'px sans-serif'; ctx.textAlign='center';
+  ctx.lineJoin='round'; ctx.lineWidth=4; ctx.strokeStyle='rgba(20,24,70,.9)';
+  ctx.strokeText(p.text, p.x, p.y);
+  ctx.fillStyle=p.color; ctx.fillText(p.text, p.x, p.y);
+  ctx.restore();
+}
+function drawParticles(){
+  for (const p of particles){
+    if (p.type==='star') drawStar(p);
+    else if (p.type==='text') drawText(p);
+    else drawHeart(p);
+  }
+}
+
+function drawButton(x,y,w,h,fill,label,fontPx){
+  ctx.fillStyle=fill; roundRect(x,y,w,h,16); ctx.fill();
+  ctx.strokeStyle='#fff'; ctx.lineWidth=2; roundRect(x,y,w,h,16); ctx.stroke();
+  ctx.fillStyle='#fff'; ctx.font='bold '+(fontPx||22)+'px sans-serif'; ctx.textAlign='center';
+  ctx.fillText(label, x+w/2, y+h/2+(fontPx||22)*0.34);
+}
+
+function drawGameOver(){
+  ctx.fillStyle='rgba(10,12,40,.80)';
+  ctx.fillRect(0,0,W,H);
+  ctx.textAlign='center';
+  ctx.fillStyle='#fff'; ctx.font='bold 44px sans-serif';
+  ctx.fillText('GAME OVER', W/2, 330);
+  ctx.fillStyle='#B3E5FC'; ctx.font='bold 18px sans-serif';
+  ctx.fillText('STAGE '+stage+' でちからつきた…', W/2, 372);
+  ctx.fillStyle='#FFD54F'; ctx.font='bold 22px sans-serif';
+  ctx.fillText('¥'+score, W/2, 408);
+  // コンテニュー（動画リワード）／ さいしょから
+  drawButton(W/2-110, 444, 220, 56, '#FF80AB', '🎬 動画を見てコンテニュー', 16);
+  drawButton(W/2-110, 512, 220, 50, '#3F51B5', 'さいしょから', 18);
+}
+
+function drawStageClear(){
+  ctx.fillStyle='rgba(26,35,126,.80)';
+  ctx.fillRect(0,0,W,H);
+  ctx.textAlign='center';
+  ctx.fillStyle='#FFD700'; ctx.font='bold 40px sans-serif';
+  ctx.fillText('STAGE '+stage+' CLEAR!', W/2, 350);
+  ctx.fillStyle='#fff'; ctx.font='bold 20px sans-serif';
+  ctx.fillText('スコア ¥'+score, W/2, 392);
+  // つぎのネコ店長 予告
+  ctx.fillStyle='#B3E5FC'; ctx.font='bold 14px sans-serif';
+  ctx.fillText('つぎのてんちょう: '+catOf(stage+1).name, W/2, 418);
+  // 色が増える予告
+  if (flavCount(stage+1) > flavCount(stage)){
+    ctx.fillStyle='#A8E6D5'; ctx.font='bold 15px sans-serif';
+    ctx.fillText('★ あたらしい味がとうじょう！', W/2, 442);
+  }
+  // つぎのステージへ ボタン
+  ctx.fillStyle='#FF80AB';
+  roundRect(W/2-90,470,180,62,16); ctx.fill();
+  ctx.strokeStyle='#fff'; ctx.lineWidth=2; roundRect(W/2-90,470,180,62,16); ctx.stroke();
+  ctx.fillStyle='#fff'; ctx.font='bold 20px sans-serif';
+  ctx.fillText('つぎのステージへ', W/2, 509);
+}
+
+/* ===================== メインループ ===================== */
+function update(dt){
+  // アイスを目標位置へ。移動中(flight)は弧を描いて「すくって落とす」
+  for (const col of cones) for (const ice of col){
+    if (ice.flight){
+      const f = ice.flight; f.t += dt / f.dur;
+      const t = Math.min(1, f.t);
+      const te = t<0.5 ? 2*t*t : 1 - Math.pow(-2*t+2, 2)/2; // easeInOut
+      const x1 = ice.tx, y1 = ice.ty;
+      const mx = (f.x0 + x1) / 2;
+      const peak = Math.min(f.y0, y1) - 100;                // 弧の頂点
+      ice.x = (1-te)*(1-te)*f.x0 + 2*(1-te)*te*mx   + te*te*x1;
+      ice.y = (1-te)*(1-te)*f.y0 + 2*(1-te)*te*peak + te*te*y1;
+      if (t>=1) ice.flight = null;
+    } else {
+      ice.x += (ice.tx - ice.x) * Math.min(1, dt*14);
+      ice.y += (ice.ty - ice.y) * Math.min(1, dt*14);
+    }
+  }
+  if (catSuccess>0) catSuccess -= dt;
+  updateParticles(dt);
+
+  // 一定時間ごとにランダムなコーンへ1個落下（広告表示中は停止）
+  if (!gameOver && !stageClear && !adPaused){
+    dropTimer -= dt;
+    if (dropTimer<=0){ timedDrop(); dropTimer = intervalOf(stage); }
+  }
+}
+
+function render(){
+  ctx.clearRect(0,0,W,H);
+  drawBackground();
+  drawCat();
+  drawCounter();
+  drawCones();
+  for (const col of cones) for (const ice of col) drawIce(ice);
+  // 選択中の肉球
+  if (selected>=0 && cones[selected].length>0) drawPaw(topOf(cones[selected]));
+  drawParticles();
+  drawUI();
+  if (stageClear) drawStageClear();
+  if (gameOver) drawGameOver();
+}
+
+function frame(t){
+  if (!last) last=t;
+  let dt=(t-last)/1000; last=t;
+  if (dt>0.05) dt=0.05;
+  nowT += dt;
+  update(dt); render();
+  requestAnimationFrame(frame);
+}
+
+boot();
+initAds();
+requestAnimationFrame(frame);
+
+})();
+</script>
+</body>
+</html>
