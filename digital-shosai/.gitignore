@@ -1,0 +1,14 @@
+/node_modules
+/.next
+/out
+/build
+
+# pdf.js のワーカー・cMap・標準フォントは npm scripts(predev/prebuild)で自動生成するため追跡しない
+/public/pdf.worker.min.mjs
+/public/cmaps
+/public/standard_fonts
+.env.local
+.env*.local
+next-env.d.ts
+*.tsbuildinfo
+.DS_Store
