@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>サイボーグ・ディフェンス / Cyborg Defense</title>
+<style>
+  :root{ --cyan:#41e3ff; --red:#ff4d5e; --green:#7dff9b; }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{ margin:0; height:100%; background:#06040f; overflow:hidden;
+    font-family:system-ui,-apple-system,"Helvetica Neue",sans-serif; color:#fff; }
+  #app{ width:100%; min-height:100%; display:flex; flex-direction:column; align-items:center;
+    justify-content:center; padding:10px; user-select:none; }
+  .title{ text-align:center; margin-bottom:6px; }
+  .title h1{ margin:0; font-size:24px; font-weight:900; letter-spacing:.16em; color:var(--cyan);
+    text-shadow:0 0 8px var(--cyan),0 0 18px rgba(65,227,255,.6); }
+  .title p{ margin:2px 0 0; font-size:10px; letter-spacing:.18em; color:rgba(65,227,255,.55); }
+  .stage{ position:relative; width:100%; max-width:440px; }
+  canvas{ width:100%; aspect-ratio:9/16; display:block; border-radius:16px;
+    border:1px solid rgba(65,227,255,.22); box-shadow:0 0 40px rgba(65,227,255,.15);
+    background:#06040f; touch-action:none; }
+  .hud{ position:absolute; top:0; left:0; right:0; z-index:10; display:flex;
+    justify-content:space-between; padding:8px 10px; pointer-events:none; }
+  .col{ display:flex; flex-direction:column; gap:5px; }
+  .col.right{ align-items:flex-end; }
+  .pill{ display:flex; align-items:center; gap:6px; padding:4px 11px; border-radius:999px;
+    background:rgba(0,0,0,.42); backdrop-filter:blur(6px); border:1px solid rgba(255,255,255,.1);
+    font-size:12px; font-weight:800; }
+  .pill .lbl{ color:rgba(255,255,255,.55); font-weight:500; font-size:10px; }
+  .overlay{ position:absolute; inset:0; z-index:30; display:flex; align-items:center; justify-content:center;
+    border-radius:16px; background:rgba(0,0,0,.68); backdrop-filter:blur(3px); }
+  .overlay.hidden{ display:none; }
+  .panel{ text-align:center; padding:24px 22px; border-radius:16px; border:1px solid rgba(65,227,255,.25);
+    background:linear-gradient(to bottom,rgba(65,227,255,.06),rgba(0,0,0,.4)); max-width:300px; }
+  .panel .big{ font-size:26px; font-weight:900; margin-bottom:4px; color:var(--cyan);
+    text-shadow:0 0 12px rgba(65,227,255,.6); }
+  .panel .sub{ font-size:12px; color:rgba(255,255,255,.65); margin-bottom:14px; line-height:1.6; }
+  .panel .score{ font-size:15px; font-weight:800; margin-bottom:14px; }
+  button{ font-family:inherit; cursor:pointer; border:none; }
+  .btn{ padding:9px 22px; border-radius:12px; font-weight:800; font-size:15px;
+    background:var(--cyan); color:#001016; border:1px solid var(--cyan);
+    box-shadow:0 0 16px rgba(65,227,255,.4); transition:transform .1s; }
+  .btn:active{ transform:scale(.94); }
+  .controls{ margin-top:10px; width:100%; max-width:440px; display:flex; gap:7px; }
+  .ub{ flex:1; padding:9px 4px; border-radius:12px; background:rgba(255,255,255,.06);
+    border:1px solid rgba(255,255,255,.12); color:#fff; display:flex; flex-direction:column;
+    align-items:center; gap:2px; transition:transform .1s,background .15s; }
+  .ub:active{ transform:scale(.95); }
+  .ub:disabled{ opacity:.4; }
+  .ub .ut{ font-size:12px; font-weight:800; }
+  .ub .uv{ font-size:10px; color:rgba(255,255,255,.55); }
+  .ub .uc{ font-size:11px; font-weight:800; color:#ffe14d; }
+  .ub.afford{ border-color:rgba(255,225,77,.5); background:rgba(255,225,77,.08); }
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="title">
+    <h1>CYBORG DEFENSE</h1>
+    <p>サイボーグ・ディフェンス</p>
+  </div>
+  <div class="stage">
+    <canvas id="game"></canvas>
+    <div class="hud">
+      <div class="col">
+        <div class="pill"><span class="lbl">SCORE</span><span id="hScore">0</span></div>
+        <div class="pill"><span class="lbl">WAVE</span><span id="hWave">1</span></div>
+      </div>
+      <div class="col right">
+        <div class="pill"><span style="color:#ffe14d">◈</span><span id="hCoin">0</span></div>
+        <div class="pill"><span style="color:var(--green)">♥</span><span id="hHp">100</span></div>
+      </div>
+    </div>
+    <div class="overlay" id="overlay">
+      <div class="panel">
+        <div class="big" id="ovTitle">CYBORG DEFENSE</div>
+        <div class="sub" id="ovSub">左右ドラッグで部隊を移動。射撃は自動。<br><br><b style="color:#41e3ff">複製ゲート</b>は毎回シャッフルの3択。<span style="color:#41e3ff">×2 ×3</span> は強いが <span style="color:#ff6b7a">÷2 -N</span> の罠に挟まれる。<br><b style="color:#ff4d5e">⚡感電バリア</b>は避けないと部隊が減る。<br><b style="color:#ff5fae">重装ブルート</b>は硬く、突破されると部隊を食う。<br><br>位置取りで敵ロボの群れを迎撃せよ。</div>
+        <div class="score" id="ovScore" style="display:none"></div>
+        <button class="btn" id="startBtn">出撃</button>
+      </div>
+    </div>
+  </div>
+  <div class="controls">
+    <button class="ub" id="upSoldier"><span class="ut">基本兵士+1</span><span class="uv" id="vSoldier">基本1/6</span><span class="uc" id="cSoldier">◈25</span></button>
+    <button class="ub" id="upRate"><span class="ut">連射 ↑</span><span class="uv" id="vRate">Lv1</span><span class="uc" id="cRate">◈15</span></button>
+    <button class="ub" id="upDmg"><span class="ut">威力 ↑</span><span class="uv" id="vDmg">Lv1</span><span class="uc" id="cDmg">◈20</span></button>
+  </div>
+</div>
+<script>
+(()=>{
+"use strict";
+const cv = document.getElementById('game');
+const ctx = cv.getContext('2d');
+let W=0, H=0, DPR=1;
+
+function resize(){
+  const r = cv.getBoundingClientRect();
+  DPR = Math.min(2, window.devicePixelRatio||1);
+  W = r.width; H = r.height;
+  cv.width = Math.round(W*DPR); cv.height = Math.round(H*DPR);
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+}
+window.addEventListener('resize', resize);
+
+// ---------- 状態 ----------
+const G = {
+  running:false, over:false, t:0, wave:1, score:0, coins:0, spawnAcc:0, gateTimer:14,
+  bossTimer:45, hazTimer:13, shake:0, slowmo:0,
+};
+const player = {
+  x:0, soldiers:1, base:1, fireRate:1, damage:1, cd:0, hp:100, maxHp:100, w:64,
+  upS:0, upR:0, upD:0, flash:0,
+};
+let bullets=[], enemies=[], gates=[], shields=[], hazards=[], parts=[], texts=[];
+
+const BEST = +(localStorage.getItem('cyborg_best')||0);
+
+// ---------- 入力 ----------
+let dragging=false;
+function px(e){ const r=cv.getBoundingClientRect(); const t=e.touches?e.touches[0]:e; return t.clientX-r.left; }
+function down(e){ dragging=true; movePlayer(px(e)); e.preventDefault(); }
+function move(e){ if(dragging) movePlayer(px(e)); }
+function up(){ dragging=false; }
+// 可動・敵出現を中央寄りの帯に制限（横移動の範囲を狭める）
+function margin(){ return Math.max(player.w/2, W*0.16); }
+function movePlayer(x){ const m=margin(); player.x = Math.max(m, Math.min(W-m, x)); }
+cv.addEventListener('mousedown',down); window.addEventListener('mousemove',move); window.addEventListener('mouseup',up);
+cv.addEventListener('touchstart',down,{passive:false}); cv.addEventListener('touchmove',move,{passive:false}); window.addEventListener('touchend',up);
+
+// ---------- ヘルパ ----------
+const rnd=(a,b)=>a+Math.random()*(b-a);
+function playLineY(){ return H-70; }
+function soldierPositions(){
+  const n=player.soldiers, perRow=6, sp=18, rowH=20, lineY=playLineY();
+  const pos=[], rows=Math.ceil(n/perRow);
+  for(let r=0;r<rows;r++){
+    const inRow=Math.min(perRow, n-r*perRow);
+    for(let c=0;c<inRow;c++){
+      const off=(c-(inRow-1)/2)*sp;
+      pos.push({ x:player.x+off, y:lineY - r*rowH });
+    }
+  }
+  return pos;
+}
+
+function burst(x,y,color,n,spd){
+  for(let i=0;i<n;i++){ const a=rnd(0,Math.PI*2), s=rnd(.3,1)*spd;
+    parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:rnd(.3,.7),max:.7,color,r:rnd(1.5,3.5)}); }
+}
+function floatText(x,y,txt,color){ texts.push({x,y,txt,color,life:.9}); }
+
+// ---------- スポーン ----------
+function spawnEnemy(x, forceType){
+  const m=margin(), xx = x ?? rnd(m,W-m);
+  let type=forceType;
+  if(!type){
+    const r=Math.random();
+    if(G.wave>=2 && r<0.16) type='brute';
+    else if(r<0.30) type='runner';
+    else type='grunt';
+  }
+  let hp,spd,rad,eat;
+  if(type==='brute'){ hp=6+G.wave*1.6; spd=rnd(15,21)+G.wave*0.4; rad=22; eat=3; }
+  else if(type==='runner'){ hp=1+Math.floor(G.wave*0.3); spd=rnd(48,60)+G.wave*0.9; rad=11; eat=0; }
+  else { hp=1+Math.floor(G.wave*0.5); spd=rnd(26,34)+G.wave*0.7; rad=15; eat=0; }
+  enemies.push({ x:xx, y:-rad-6, r:rad, hp, maxHp:hp, spd, type, eat,
+    wob:rnd(0,6.28), legt:rnd(0,6.28) });
+}
+const MAX_SOLDIERS=18;
+function clampSoldiers(){ player.soldiers = Math.max(player.base, Math.min(MAX_SOLDIERS, player.soldiers)); }
+function applyGate(sec){
+  if(sec.op==='mul') player.soldiers = Math.round(player.soldiers*sec.val);
+  else if(sec.op==='div') player.soldiers = Math.max(1, Math.round(player.soldiers/sec.val));
+  else if(sec.op==='add') player.soldiers += sec.val;
+  else player.soldiers -= sec.val;
+  clampSoldiers();
+}
+const GATE = {
+  mul2:()=>({op:'mul',val:2,label:'×2',color:'#41e3ff'}),
+  mul3:()=>({op:'mul',val:3,label:'×3',color:'#ffd166'}),
+  div2:()=>({op:'div',val:2,label:'÷2',color:'#ff6b7a'}),
+  bigadd:()=>{const v=4+Math.floor(G.wave/2);return{op:'add',val:v,label:'+'+v,color:'#7dff9b'};},
+  add:()=>{const v=2+Math.floor(G.wave/3);return{op:'add',val:v,label:'+'+v,color:'#7dff9b'};},
+  sub:()=>{const v=2+Math.floor(G.wave/4);return{op:'sub',val:v,label:'-'+v,color:'#ff6b7a'};},
+};
+function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+function spawnGate(){
+  // 3分割ゲート。中身は毎回シャッフル。×2が常に最善＆安全にならないよう罠を混ぜる。
+  const m=margin(), x0=m, w=W-2*m, sw=w/3;
+  const templates = [
+    ()=>[GATE.mul2(), GATE.sub(), GATE.div2()],   // ×2は最善だが両隣が罠
+    ()=>[GATE.bigadd(), GATE.mul2(), GATE.sub()], // +大量 vs ×2 の択（人数で正解が変わる）
+    ()=>[GATE.mul3(), GATE.div2(), GATE.sub()],   // ×3ハイリスク
+    ()=>[GATE.add(), GATE.bigadd(), GATE.sub()],  // 乗算なしの加算択
+    ()=>[GATE.mul2(), GATE.add(), GATE.div2()],
+  ];
+  const sections = shuffle(templates[Math.floor(Math.random()*templates.length)]());
+  gates.push({ y:-40, x:W*0.5, x0, w, sw, sections, active:-1 });
+}
+function spawnHazard(){
+  // 感電バリア：1レーンに降下。通過した部隊が感電して兵士が減る → 位置取りを強制。
+  const m=margin(), w=W-2*m, sw=w/3, lane=Math.floor(Math.random()*3);
+  hazards.push({ x:m+sw*(lane+0.5), w:sw*0.8, y:-30, spd:42+G.wave*1.1 });
+}
+function spawnShield(){
+  const hp = 90 + G.wave*40;
+  shields.push({ x:W*0.5, y:-90, w:Math.min(W*0.56,210), h:70, hp, maxHp:hp,
+    spd:7+G.wave*0.4, spit:0 });
+}
+
+// ---------- 更新 ----------
+function update(dt){
+  G.t += dt;
+  if(G.shake>0) G.shake=Math.max(0,G.shake-dt*3);
+
+  // 通常敵スポーン（時間で加速・序盤はゆっくり）
+  const rate = 0.6 + G.t*0.009 + G.wave*0.045;
+  G.spawnAcc += dt*rate;
+  while(G.spawnAcc>=1){ G.spawnAcc-=1; spawnEnemy(); }
+
+  // ウェーブ更新
+  G.wave = 1 + Math.floor(G.t/16);
+
+  // ゲート
+  G.gateTimer -= dt;
+  if(G.gateTimer<=0){ spawnGate(); G.gateTimer = rnd(13,18); }
+  // 感電バリア（障害物）
+  G.hazTimer -= dt;
+  if(G.hazTimer<=0){ spawnHazard(); G.hazTimer = rnd(6,10); }
+  // シールドボス
+  G.bossTimer -= dt;
+  if(G.bossTimer<=0 && shields.length===0){ spawnShield(); G.bossTimer = rnd(42,55); }
+
+  // --- プレイヤー射撃（各兵士の銃口から発射） ---
+  player.cd -= dt;
+  player.flash = Math.max(0, (player.flash||0) - dt);
+  const interval = 1/(2.2 + player.upR*0.9);
+  if(player.cd<=0){
+    player.cd = interval; player.flash = 0.06;
+    for(const p of soldierPositions()){
+      bullets.push({ x:p.x, y:p.y-18, vy:-560, r:4, dmg:player.damage });
+      parts.push({ x:p.x, y:p.y-18, vx:0, vy:-2, life:.08, max:.08, color:'#d6fff0', r:3.5 });
+    }
+  }
+
+  // --- 弾 ---
+  for(let b of bullets){ b.y += b.vy*dt; }
+  // 弾 vs 敵 / ゲート / シールド
+  for(let b of bullets){
+    if(b.dead) continue;
+    // シールド
+    for(let s of shields){
+      if(b.x>s.x-s.w/2 && b.x<s.x+s.w/2 && b.y>s.y && b.y<s.y+s.h){
+        s.hp -= b.dmg; b.dead=true; G.shake=Math.max(G.shake,.25);
+        burst(b.x,b.y,'#bdeaff',3,90); break;
+      }
+    }
+    if(b.dead) continue;
+    // 敵
+    for(let e of enemies){
+      if(e.dead) continue;
+      const dx=b.x-e.x, dy=b.y-e.y;
+      if(dx*dx+dy*dy < (e.r+b.r)*(e.r+b.r)){
+        e.hp-=b.dmg; b.dead=true; burst(b.x,b.y,'#9be7ff',2,60);
+        if(e.hp<=0){ killEnemy(e); }
+        break;
+      }
+    }
+  }
+  bullets = bullets.filter(b=>!b.dead && b.y>-20);
+
+  // --- 敵 ---
+  const lineY = playLineY();
+  for(let e of enemies){
+    if(e.dead) continue;
+    e.y += e.spd*dt; e.legt += dt*10;
+    e.x += Math.sin(G.t*2+e.wob)*8*dt;
+    if(e.y >= lineY-e.r){
+      // 防衛ライン到達
+      e.dead=true;
+      if(e.type==='brute'){
+        player.hp -= 10;
+        player.soldiers = Math.max(player.base, player.soldiers - e.eat); clampSoldiers();
+        floatText(e.x, lineY-26, '部隊-'+e.eat, '#ff6b7a');
+      } else { player.hp -= 4; }
+      G.shake=.5; burst(e.x,lineY,'#ff4d5e',10,120);
+      if(player.hp<=0) gameOver();
+    }
+  }
+
+  // --- 感電バリア（障害物）：避けないと部隊が減る ---
+  for(let h of hazards){
+    h.y += h.spd*dt;
+    if(h.y >= lineY-14 && !h.done){
+      h.done=true;
+      if(Math.abs(player.x - h.x) < h.w/2 + 8){
+        const lost = Math.min(4, player.soldiers-1);
+        player.soldiers = Math.max(player.base, player.soldiers - 4); clampSoldiers();
+        player.hp -= 8; G.shake=.55; burst(player.x,lineY,'#ff4d5e',18,160);
+        floatText(player.x, lineY-30, '感電 -'+(lost>0?lost:4), '#ff6b7a');
+        if(player.hp<=0) gameOver();
+      }
+    }
+  }
+  hazards = hazards.filter(h=>h.y<H+30 && !h.done);
+
+  // --- 複製ゲート：横移動でセクションを選び、部隊を増減 ---
+  for(let g of gates){
+    g.y += 34*dt;
+    // 部隊が今どのセクションの下にいるか
+    g.active = -1;
+    for(let i=0;i<g.sections.length;i++){
+      if(player.x >= g.x0 + i*g.sw && player.x < g.x0 + (i+1)*g.sw){ g.active=i; break; }
+    }
+    if(g.y >= lineY-18 && !g.done){
+      g.done=true;
+      const sec = g.sections[g.active>=0?g.active:0];
+      applyGate(sec);
+      floatText(player.x, lineY-30, sec.label+' 部隊'+player.soldiers, sec.color);
+      burst(player.x, lineY-20, sec.color, 14, 130); G.shake=.3;
+    }
+  }
+  gates = gates.filter(g=>g.y<H+40 && !g.done);
+
+  // --- シールドボス ---
+  for(let s of shields){
+    s.y += s.spd*dt;
+    s.spit -= dt;
+    if(s.spit<=0){ s.spit = Math.max(.7, 2.0-G.wave*0.04);
+      spawnEnemy(rnd(s.x-s.w/2, s.x+s.w/2)); }
+    if(s.hp<=0){
+      s.dead=true; G.score+=50; G.coins+=30; G.slowmo=.4; G.shake=.7;
+      burst(s.x,s.y+s.h/2,'#bdeaff',40,220);
+      floatText(s.x,s.y+s.h/2,'SHIELD BREAK! +30◈','#41e3ff');
+    } else if(s.y+s.h >= lineY){
+      s.dead=true; player.hp-=28; G.shake=.7; burst(s.x,lineY,'#ff4d5e',30,180);
+      if(player.hp<=0) gameOver();
+    }
+  }
+  shields = shields.filter(s=>!s.dead);
+  enemies = enemies.filter(e=>!e.dead);
+
+  // --- パーティクル / テキスト ---
+  for(let p of parts){ p.x+=p.vx*dt*60; p.y+=p.vy*dt*60; p.vy+=14*dt; p.life-=dt; }
+  parts = parts.filter(p=>p.life>0);
+  for(let t of texts){ t.y-=24*dt; t.life-=dt; }
+  texts = texts.filter(t=>t.life>0);
+
+  if(G.slowmo>0) G.slowmo-=dt;
+  syncHUD();
+}
+
+function killEnemy(e){
+  e.dead=true; G.score+=1; G.coins+=1;
+  burst(e.x,e.y,'#ff6b7a',8,110);
+}
+
+// ---------- 描画 ----------
+function draw(){
+  ctx.clearRect(0,0,W,H);
+  // 背景グリッド
+  ctx.save();
+  let sx=0,sy=0;
+  if(G.shake>0){ sx=rnd(-1,1)*G.shake*8; sy=rnd(-1,1)*G.shake*8; ctx.translate(sx,sy); }
+  drawBg();
+
+  const lineY = playLineY();
+  // 防衛ライン
+  ctx.strokeStyle='rgba(65,227,255,.4)'; ctx.lineWidth=2;
+  ctx.setLineDash([8,8]); ctx.beginPath(); ctx.moveTo(0,lineY); ctx.lineTo(W,lineY); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // ゲート
+  for(let g of gates) drawGate(g);
+  // 感電バリア
+  for(let h of hazards) drawHazard(h);
+  // シールドボス
+  for(let s of shields) drawShield(s);
+  // 敵
+  for(let e of enemies) drawEnemy(e);
+  // 弾
+  ctx.fillStyle='#7dffd0'; ctx.shadowColor='#7dffd0'; ctx.shadowBlur=8;
+  for(let b of bullets){ ctx.beginPath(); ctx.ellipse(b.x,b.y,b.r,b.r*2.2,0,0,6.28); ctx.fill(); }
+  ctx.shadowBlur=0;
+  // 部隊
+  drawSquad(lineY);
+  // パーティクル
+  for(let p of parts){ ctx.globalAlpha=Math.max(0,p.life/p.max); ctx.fillStyle=p.color;
+    ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,6.28); ctx.fill(); }
+  ctx.globalAlpha=1;
+  // フロートテキスト
+  ctx.textAlign='center'; ctx.font='800 15px system-ui';
+  for(let t of texts){ ctx.globalAlpha=Math.min(1,t.life*1.5); ctx.fillStyle=t.color;
+    ctx.fillText(t.txt,t.x,t.y); }
+  ctx.globalAlpha=1;
+  ctx.restore();
+}
+
+function drawBg(){
+  ctx.strokeStyle='rgba(65,227,255,.05)'; ctx.lineWidth=1;
+  const sp=34, off=(G.t*18)%sp;
+  for(let y=-sp+off;y<H;y+=sp){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+  for(let x=0;x<W;x+=sp){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+}
+
+function drawSquad(lineY){
+  const firing = (player.flash||0)>0;
+  const pos = soldierPositions();
+  // 奥の列から描く（手前が重なって見えるように）
+  for(let i=pos.length-1;i>=0;i--){
+    const x=pos[i].x, y=pos[i].y;
+    // 影
+    ctx.fillStyle='rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(x,y+14,9,3,0,0,6.28); ctx.fill();
+    // 脚
+    ctx.strokeStyle='#1f6f86'; ctx.lineWidth=3;
+    ctx.beginPath(); ctx.moveTo(x-3,y+6); ctx.lineTo(x-4,y+13);
+    ctx.moveTo(x+3,y+6); ctx.lineTo(x+4,y+13); ctx.stroke();
+    // 胴（強化外骨格）
+    ctx.fillStyle='#2c9fc0'; ctx.strokeStyle='#8af3ff'; ctx.lineWidth=1.6;
+    ctx.beginPath(); ctx.roundRect(x-8,y-6,16,14,4); ctx.fill(); ctx.stroke();
+    ctx.fillStyle='#1b7a96'; ctx.fillRect(x-8,y-1,16,3); // ベルト
+    // 両手のガトリングガン（前方=上向き）
+    ctx.fillStyle='#244e5c';
+    ctx.fillRect(x-11,y-12,5,12); ctx.fillRect(x+6,y-12,5,12);
+    // 頭＋バイザー
+    ctx.fillStyle='#d6f4ff'; ctx.beginPath(); ctx.arc(x,y-11,6,0,6.28); ctx.fill();
+    ctx.fillStyle='#0a3d4a'; ctx.fillRect(x-5,y-13,10,4);
+    ctx.fillStyle='#41e3ff'; ctx.fillRect(x-5,y-12.5,10,2); // 光るバイザー
+    // マズルフラッシュ
+    if(firing){
+      ctx.fillStyle='rgba(214,255,240,.95)'; ctx.shadowColor='#7dffd0'; ctx.shadowBlur=10;
+      ctx.beginPath(); ctx.arc(x-8.5,y-13,3.2,0,6.28); ctx.arc(x+8.5,y-13,3.2,0,6.28); ctx.fill();
+      ctx.shadowBlur=0;
+    }
+  }
+}
+
+function drawEnemy(e){
+  const x=e.x,y=e.y;
+  const body = e.type==='brute'?'#5a1530' : e.type==='runner'?'#7a3a1f' : '#7a1f2a';
+  const edge = e.type==='brute'?'#ff5fae' : e.type==='runner'?'#ffb060' : '#ff5566';
+  // 機体
+  ctx.fillStyle=body; ctx.strokeStyle=edge; ctx.lineWidth = e.type==='brute'?2.5:1.5;
+  ctx.beginPath(); ctx.roundRect(x-e.r*0.8,y-e.r*0.7,e.r*1.6,e.r*1.4,4); ctx.fill(); ctx.stroke();
+  // ブルートは装甲プレート
+  if(e.type==='brute'){ ctx.strokeStyle='rgba(255,255,255,.25)';
+    ctx.strokeRect(x-e.r*0.55,y-e.r*0.45,e.r*1.1,e.r*0.9); }
+  // 脚（4足）
+  ctx.strokeStyle=edge; ctx.lineWidth=2;
+  for(let k=-1;k<=1;k+=2){
+    const sw=Math.sin(e.legt+k)*3;
+    ctx.beginPath(); ctx.moveTo(x+k*e.r*0.7,y+e.r*0.4); ctx.lineTo(x+k*e.r*1.1, y+e.r*0.9+sw); ctx.stroke();
+  }
+  // センサーアイ（ブルートは2つ目）
+  ctx.fillStyle='#ff2030'; ctx.shadowColor='#ff2030'; ctx.shadowBlur=8;
+  if(e.type==='brute'){ ctx.beginPath(); ctx.arc(x-4,y-2,3,0,6.28); ctx.arc(x+4,y-2,3,0,6.28); ctx.fill(); }
+  else { ctx.beginPath(); ctx.arc(x,y-2,3.5,0,6.28); ctx.fill(); }
+  ctx.shadowBlur=0;
+  // HPバー
+  if(e.hp<e.maxHp){ const w=e.r*1.6; ctx.fillStyle='rgba(0,0,0,.5)'; ctx.fillRect(x-w/2,y-e.r-6,w,3);
+    ctx.fillStyle=edge; ctx.fillRect(x-w/2,y-e.r-6,w*e.hp/e.maxHp,3); }
+}
+function drawHazard(h){
+  const x=h.x-h.w/2;
+  ctx.fillStyle='rgba(255,77,94,.16)'; ctx.fillRect(x,h.y-14,h.w,28);
+  ctx.strokeStyle='#ff4d5e'; ctx.lineWidth=2; ctx.strokeRect(x,h.y-14,h.w,28);
+  // 電撃アーク
+  ctx.strokeStyle='rgba(255,160,170,.9)'; ctx.lineWidth=1.5; ctx.beginPath();
+  for(let xx=x; xx<=x+h.w; xx+=8){ const yy=h.y+rnd(-9,9); if(xx===x) ctx.moveTo(xx,yy); else ctx.lineTo(xx,yy); }
+  ctx.stroke();
+  ctx.fillStyle='#ff4d5e'; ctx.textAlign='center'; ctx.font='900 15px system-ui';
+  ctx.fillText('⚡感電', h.x, h.y+5);
+}
+
+function hex2rgb(h){ const n=parseInt(h.slice(1),16); return [n>>16&255,n>>8&255,n&255]; }
+function drawGate(g){
+  for(let i=0;i<g.sections.length;i++){
+    const s=g.sections[i], sx=g.x0+i*g.sw, sel=(i===g.active);
+    const [r,gr,b]=hex2rgb(s.color);
+    ctx.fillStyle=`rgba(${r},${gr},${b},${sel?0.3:0.13})`;
+    ctx.fillRect(sx+2, g.y-22, g.sw-4, 44);
+    ctx.strokeStyle=s.color; ctx.lineWidth=sel?3:1.5;
+    ctx.strokeRect(sx+2, g.y-22, g.sw-4, 44);
+    // 数字
+    ctx.textAlign='center'; ctx.font='900 24px system-ui';
+    ctx.fillStyle=s.color; ctx.shadowColor=s.color; ctx.shadowBlur=sel?16:8;
+    ctx.fillText(s.label, sx+g.sw/2, g.y+8); ctx.shadowBlur=0;
+  }
+  // 選択中セクションから部隊への光ガイド
+  if(g.active>=0){
+    const cx=g.x0+(g.active+0.5)*g.sw;
+    ctx.strokeStyle='rgba(255,255,255,.25)'; ctx.lineWidth=1; ctx.setLineDash([4,6]);
+    ctx.beginPath(); ctx.moveTo(cx,g.y+22); ctx.lineTo(player.x,playLineY()-30); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+}
+
+function drawShield(s){
+  const ratio = Math.max(0, s.hp/s.maxHp);
+  const x=s.x-s.w/2, y=s.y;
+  // 崩壊：残量に応じてアルファ＆ヒビ
+  ctx.globalAlpha = 0.35+0.45*ratio;
+  ctx.fillStyle='rgba(189,234,255,.5)';
+  ctx.fillRect(x,y,s.w,s.h);
+  ctx.globalAlpha=1;
+  ctx.strokeStyle='#bdeaff'; ctx.lineWidth=2; ctx.strokeRect(x,y,s.w,s.h);
+  // ボスホログラム（中央）
+  ctx.globalAlpha=0.4+0.5*ratio;
+  ctx.fillStyle='#ff5566'; ctx.beginPath();
+  ctx.arc(s.x, y+s.h/2, 16, 0, 6.28); ctx.fill();
+  ctx.fillStyle='#7a1f2a'; ctx.fillRect(s.x-12, y+s.h/2-2, 24, 14);
+  ctx.globalAlpha=1;
+  // デコード崩壊エッジ（残量が減るほどギザギザ）
+  if(ratio<0.85){ ctx.strokeStyle='rgba(65,227,255,.8)'; ctx.lineWidth=1;
+    const decay=(1-ratio); ctx.beginPath();
+    for(let i=0;i<=s.w;i+=8){ const yy=y+s.h - rnd(0,decay*s.h);
+      if(i===0) ctx.moveTo(x+i,yy); else ctx.lineTo(x+i,yy); } ctx.stroke(); }
+  // HPバー
+  ctx.fillStyle='rgba(0,0,0,.5)'; ctx.fillRect(x,y-9,s.w,5);
+  ctx.fillStyle='#41e3ff'; ctx.fillRect(x,y-9,s.w*ratio,5);
+}
+
+// ---------- HUD / 強化 ----------
+const el = id=>document.getElementById(id);
+function syncHUD(){
+  el('hScore').textContent=G.score; el('hWave').textContent=G.wave;
+  el('hCoin').textContent=G.coins; el('hHp').textContent=Math.max(0,Math.ceil(player.hp));
+  // 強化ボタン
+  const cs=costSoldier(), cr=costRate(), cd=costDmg();
+  el('vSoldier').textContent='基本'+player.base+'/6';
+  el('vRate').textContent='Lv'+(player.upR+1);
+  el('vDmg').textContent='Lv'+(player.upD+1);
+  el('cSoldier').textContent = player.base>=6?'MAX':'◈'+cs;
+  el('cRate').textContent='◈'+cr; el('cDmg').textContent='◈'+cd;
+  toggleAfford('upSoldier', player.base<6 && G.coins>=cs);
+  toggleAfford('upRate', G.coins>=cr);
+  toggleAfford('upDmg', G.coins>=cd);
+}
+function toggleAfford(id,ok){ const b=el(id); b.classList.toggle('afford',ok); b.disabled=!ok && id==='upSoldier' && player.base>=6; }
+const costSoldier=()=>25+player.upS*30;
+const costRate=()=>15+player.upR*18;
+const costDmg=()=>20+player.upD*22;
+
+el('upSoldier').onclick=()=>{ if(player.base<6 && G.coins>=costSoldier()){ G.coins-=costSoldier(); player.upS++; player.base++; player.soldiers=Math.max(player.soldiers,player.base); syncHUD(); } };
+el('upRate').onclick=()=>{ const c=costRate(); if(G.coins>=c){ G.coins-=c; player.upR++; syncHUD(); } };
+el('upDmg').onclick=()=>{ const c=costDmg(); if(G.coins>=c){ G.coins-=c; player.upD++; player.damage=1+player.upD; syncHUD(); } };
+
+// ---------- ゲーム制御 ----------
+function reset(){
+  bullets=[];enemies=[];gates=[];shields=[];hazards=[];parts=[];texts=[];
+  Object.assign(G,{running:true,over:false,t:0,wave:1,score:0,coins:0,spawnAcc:0,gateTimer:14,bossTimer:45,hazTimer:13,shake:0,slowmo:0});
+  Object.assign(player,{x:W/2,soldiers:1,base:1,fireRate:1,damage:1,cd:0,hp:100,maxHp:100,upS:0,upR:0,upD:0,flash:0});
+  syncHUD();
+}
+function start(){ el('overlay').classList.add('hidden'); reset(); }
+function gameOver(){
+  G.running=false; G.over=true;
+  const best=Math.max(BEST,G.score);
+  localStorage.setItem('cyborg_best',best);
+  el('ovTitle').textContent='防衛ライン突破';
+  el('ovSub').innerHTML='部隊は全滅した…<br>もう一度迎撃しますか？';
+  el('ovScore').style.display='block';
+  el('ovScore').innerHTML=`SCORE <b>${G.score}</b> &nbsp; / &nbsp; BEST <b>${best}</b>`;
+  el('startBtn').textContent='再出撃';
+  el('overlay').classList.remove('hidden');
+}
+el('startBtn').onclick=start;
+
+// ---------- ループ ----------
+let last=0;
+function loop(ts){
+  const raw=Math.min(0.05,(ts-last)/1000||0); last=ts;
+  const dt = G.slowmo>0 ? raw*0.35 : raw;
+  if(G.running) update(dt);
+  draw();
+  requestAnimationFrame(loop);
+}
+
+resize();
+player.x=W/2;
+syncHUD();
+requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
