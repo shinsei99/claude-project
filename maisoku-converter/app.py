@@ -57,7 +57,9 @@ LOGO_PATH    = APP_DIR / "company_logo.png"
 try:
     from google import genai as _genai
     from google.genai import types as _gtypes
-    _GEMINI_KEY = Path("/Users/apple/madori-tracer/config.py").read_text().split('"')[1]
+    import sys as _sys
+    _sys.path.insert(0, "/Users/apple/madori-tracer")
+    from config import GEMINI_API_KEY as _GEMINI_KEY  # 環境変数 or .secret_key から取得
     _gemini_client = _genai.Client(api_key=_GEMINI_KEY)
     TRACER_AVAILABLE = True
 except Exception:

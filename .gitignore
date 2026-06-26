@@ -64,3 +64,8 @@ nyanko-ice/android/
 **/.turbo/
 **/__pycache__/
 **/.DS_Store
+
+# --- Secrets (all apps) — never commit; keep keys local per machine ---
+**/.secret_key
+**/.env.local
+**/.env
