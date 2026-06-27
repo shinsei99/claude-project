@@ -15,7 +15,7 @@ from pathlib import Path
 
 from models.restoration_data import LineItem
 from services.excel_parser import (
-    detect_material, _to_amount, _is_total_row, _to_float, _is_sqm_unit,
+    detect_material, _to_amount, _is_total_row, _to_float,
 )
 
 
@@ -34,8 +34,9 @@ _PROMPT = """\
 注意事項:
 ・各明細行の「工事・項目・品名」を 工事名 に、その行の「金額（税込）」を 金額 に入れる
 ・金額が「小計」や「単価×数量」の場合は、その行の合計金額を入れる
-・数量・単位は明細行に記載があればそのまま入れる（例: 数量"12.5"、単位"㎡"）。なければ空文字
-・クロス・CF・床など面積で計上された行は、単位を ㎡ とし数量に施工面積を入れる
+・数量・単位は明細行に記載があれば、見積書の表記のまま入れる
+  （例: 数量"27"・単位"m"、数量"9"・単位"㎡"、数量"11"・単位"本"）。なければ空文字
+・単位が "m" でも "㎡" に変換せず、見積書に書かれた単位をそのまま入れる
 ・小計・合計・総計・御見積額・消費税・値引きなどの集計行は items に含めない
 ・金額が空欄の行は含めない
 ・金額・数量は数字のみ（カンマ・円記号・「円」は不要）
@@ -126,18 +127,17 @@ def parse_pdf(file_bytes: bytes, filename: str = "estimate.pdf") -> list[LineIte
         if _is_total_row(name):
             continue
 
-        # 面積（㎡）: 単位が㎡系のとき数量を施工面積として採用
-        total_sqm = None
-        qv = _to_float(raw.get("数量"))
-        if qv is not None and qv > 0 and _is_sqm_unit(raw.get("単位")):
-            total_sqm = qv
+        # 数量・単位を業者表記のまま取得（クロス=m、CF=㎡ など）
+        total_qty = _to_float(raw.get("数量"))
+        unit = str(raw.get("単位", "")).strip()
 
         items.append(
             LineItem(
                 name=name,
                 vendor_amount=amount,
                 material_type=detect_material(name),
-                total_sqm=total_sqm,
+                total_qty=total_qty,
+                unit=unit,
             )
         )
     return items

@@ -116,15 +116,16 @@ def _calc_work_item(item: LineItem, residence_years: float) -> None:
     if policy == DEPRECIABLE and life:
         rate = residual_rate(life, residence_years)
         # 部分補修の対象原価を決める。優先順位:
-        #   ① 過失㎡ / 全体㎡ の面積比 × 業者見積総額
+        #   ① 過失数量 / 全体数量 の比率 × 業者見積総額
         #   ② 過失対象額（手入力の原価）
         #   ③ いずれもなければ全額
-        if item.total_sqm and item.fault_sqm and item.total_sqm > 0:
-            ratio = min(1.0, item.fault_sqm / item.total_sqm)
+        if item.total_qty and item.fault_qty and item.total_qty > 0:
+            ratio = min(1.0, item.fault_qty / item.total_qty)
             target = item.vendor_amount * ratio
+            u = item.unit or ""
             target_note = (
-                f"過失{item.fault_sqm:g}㎡/全体{item.total_sqm:g}㎡"
-                f"＝面積比{ratio * 100:.1f}%（対象¥{int(target):,}）"
+                f"過失{item.fault_qty:g}{u}/全体{item.total_qty:g}{u}"
+                f"＝比率{ratio * 100:.1f}%（対象¥{int(target):,}）"
             )
         elif item.fault_target_amount is not None:
             target = item.fault_target_amount

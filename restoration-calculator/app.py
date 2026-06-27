@@ -152,8 +152,9 @@ items: list[LineItem] = st.session_state["items"]
 st.info(
     "**ガイドライン原則**：故意・過失が証明されない限り、すべて経年劣化＝**オーナー負担(0%)** が既定です。"
     "入居者の故意・過失が認められる項目だけ「過失の有無」を**故意過失**に変更してください。\n\n"
-    "・クロス／CF等は見積から読み取った「**全体㎡**」に対し、汚損箇所の「**過失㎡**」を入力すると、"
-    "その面積比ぶんの原価にのみ残存価値率を適用します（㎡が無い場合は「過失対象額(円)」で代替、空欄なら全額対象）。\n"
+    "・クロス／CF等は見積から読み取った「**全体数量**（単位はm/㎡など）」に対し、汚損箇所の「**過失数量**」を"
+    "同じ単位で入力すると、その比率ぶんの原価にのみ残存価値率を適用します"
+    "（数量が無い場合は「過失対象額(円)」で代替、空欄なら全額対象）。\n"
     "・「諸経費」は工事費の入居者:オーナー比率で自動按分されます。"
 )
 
@@ -167,8 +168,9 @@ else:
                 "業者見積総額(円)": it.vendor_amount,
                 "部材種別": it.material_type,
                 "過失の有無": it.fault,
-                "全体㎡": it.total_sqm,
-                "過失㎡": it.fault_sqm,
+                "全体数量": it.total_qty,
+                "単位": it.unit,
+                "過失数量": it.fault_qty,
                 "過失対象額(円)": it.fault_target_amount,
             }
             for it in items
@@ -182,17 +184,20 @@ else:
             "業者見積総額(円)": st.column_config.NumberColumn(min_value=0, step=100),
             "部材種別": st.column_config.SelectboxColumn(options=MATERIAL_OPTIONS),
             "過失の有無": st.column_config.SelectboxColumn(options=FAULT_OPTIONS),
-            "全体㎡": st.column_config.NumberColumn(
-                min_value=0.0, step=0.1, format="%.2f",
-                help="業者見積から読み取った施工面積（㎡）。クロス・CF等で自動取得。",
+            "全体数量": st.column_config.NumberColumn(
+                min_value=0.0, step=0.1, format="%g",
+                help="業者見積から読み取った数量（クロス=m、CF=㎡ など）。",
             ),
-            "過失㎡": st.column_config.NumberColumn(
-                min_value=0.0, step=0.1, format="%.2f",
-                help="入居者の故意・過失による汚損箇所の面積（㎡）。全体㎡との比率で部分補修原価を自動算出。",
+            "単位": st.column_config.TextColumn(
+                help="業者見積の単位表記（m / ㎡ / 本 / 式 など）。",
+            ),
+            "過失数量": st.column_config.NumberColumn(
+                min_value=0.0, step=0.1, format="%g",
+                help="入居者の故意・過失による汚損箇所の数量（単位は『全体数量』と同じ）。全体数量との比率で部分補修原価を自動算出。",
             ),
             "過失対象額(円)": st.column_config.NumberColumn(
                 min_value=0, step=100,
-                help="㎡が不明な場合の代替。部分補修の原価を直接入力（㎡入力があればそちらを優先）。",
+                help="数量が不明な場合の代替。部分補修の原価を直接入力（過失数量があればそちらを優先）。",
             ),
         },
         key="item_editor",
@@ -213,8 +218,9 @@ else:
             vendor_amount=int(r["業者見積総額(円)"] or 0),
             material_type=str(r["部材種別"]),
             fault=str(r["過失の有無"]),
-            total_sqm=_num(r.get("全体㎡"), float),
-            fault_sqm=_num(r.get("過失㎡"), float),
+            total_qty=_num(r.get("全体数量"), float),
+            unit=str(r.get("単位") or ""),
+            fault_qty=_num(r.get("過失数量"), float),
             fault_target_amount=_num(r.get("過失対象額(円)"), int),
         )
         for _, r in edited.iterrows()
