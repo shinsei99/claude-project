@@ -15,7 +15,8 @@ from models.restoration_data import (
     FAULT_TENANT,
     FAULT_NATURAL,
 )
-from services import excel_parser
+from services import excel_parser, document_export_service
+from services.pdf_parser import parse_pdf, PdfExtractionError
 from services.depreciation_engine import calculate, USEFUL_LIFE
 from services.excel_export_service import build as build_excel
 
@@ -37,6 +38,21 @@ if "items" not in st.session_state:
     st.session_state["items"] = []  # list[LineItem]
 
 
+# ---- サイドバー：発行元（自社）情報 ----
+with st.sidebar:
+    st.header("🏢 発行元（自社）情報")
+    st.caption("見積書・請求書に印字されます。")
+    issuer = {
+        "name": st.text_input("会社名", value=st.session_state.get("iss_name", "")),
+        "address": st.text_area("住所", value=st.session_state.get("iss_addr", ""), height=60),
+        "tel": st.text_input("TEL", value=st.session_state.get("iss_tel", "")),
+        "fax": st.text_input("FAX", value=st.session_state.get("iss_fax", "")),
+        "registration_no": st.text_input("インボイス登録番号", value=st.session_state.get("iss_reg", "")),
+        "bank": st.text_area("振込先（請求書用）", value=st.session_state.get("iss_bank", ""), height=60),
+        "issue_date": "",
+    }
+
+
 # ============ 1. 基本情報 ============
 st.header("1. 基本情報の入力")
 col1, col2, col3 = st.columns(3)
@@ -56,22 +72,34 @@ if move_in and move_out:
 
 
 # ============ 2. 業者見積Excelアップロード ============
-st.header("2. 業者見積書（Excel）のアップロード")
+st.header("2. 業者見積書（Excel / PDF）のアップロード")
 uploaded = st.file_uploader(
     "リフォーム業者等の見積書をドラッグ＆ドロップ",
-    type=["xlsx", "xls", "csv"],
-    help="フォーマットが不統一でも、工事名・金額の列を自動判定して明細を抽出します。",
+    type=["xlsx", "xls", "csv", "pdf"],
+    help=(
+        "Excel/CSVは列を自動判定して抽出。PDFはAI（Claude）が直接読み取り、"
+        "フォーマットが不統一でも工事名・金額を抽出します。"
+    ),
 )
 
 if uploaded is not None:
-    if st.button("📥 Excelを解析して明細を展開", type="primary"):
+    is_pdf = uploaded.name.lower().endswith(".pdf")
+    label = "🤖 PDFをAI解析して明細を展開" if is_pdf else "📥 Excelを解析して明細を展開"
+    if st.button(label, type="primary"):
         try:
-            items = excel_parser.parse(uploaded, uploaded.name)
+            if is_pdf:
+                with st.spinner("AIがPDFを読み取っています…（混雑時は数分かかることがあります）"):
+                    items = parse_pdf(uploaded.getvalue(), uploaded.name)
+            else:
+                items = excel_parser.parse(uploaded, uploaded.name)
+
             if not items:
-                st.warning("明細を抽出できませんでした。工事名・金額の列があるか確認してください。")
+                st.warning("明細を抽出できませんでした。工事名・金額が読み取れるか確認してください。")
             else:
                 st.session_state["items"] = items
                 st.success(f"✅ {len(items)} 件の明細を抽出しました。下の表で確認・微調整してください。")
+        except PdfExtractionError as e:
+            st.error(f"PDF解析に失敗しました: {e}")
         except Exception as e:  # noqa: BLE001
             st.error(f"解析中にエラーが発生しました: {e}")
 
@@ -177,17 +205,48 @@ if "result" in st.session_state:
     )
     st.dataframe(result_df, use_container_width=True)
 
-    # 精算書ダウンロード
-    st.subheader("5. 退去精算書のダウンロード")
-    try:
-        xlsx_bytes = build_excel(data)
-        fname = f"退去精算書_{data.property_name or '物件'}_{data.room_number or ''}.xlsx"
-        st.download_button(
-            "📄 退去精算書(.xlsx)をダウンロード",
-            data=xlsx_bytes,
-            file_name=fname,
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            type="primary",
+    # ---- 帳票ダウンロード ----
+    st.subheader("5. 帳票のダウンロード")
+    MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    base = f"{data.property_name or '物件'}_{data.room_number or ''}"
+
+    tab_seisan, tab_doc = st.tabs(["📄 退去精算書（按分内訳）", "🧾 見積書・請求書（賃借人提示用）"])
+
+    with tab_seisan:
+        st.caption("入居者・オーナーの負担按分を一覧化した内部精算書です。")
+        try:
+            xlsx_bytes = build_excel(data)
+            st.download_button(
+                "📄 退去精算書(.xlsx)をダウンロード",
+                data=xlsx_bytes,
+                file_name=f"退去精算書_{base}.xlsx",
+                mime=MIME,
+                type="primary",
+            )
+        except Exception as e:  # noqa: BLE001
+            st.error(f"精算書の生成に失敗しました: {e}")
+
+    with tab_doc:
+        st.caption("入居者負担額を賃借人へ提示・請求するための見積書／請求書です（負担0円の項目は除外）。")
+        issue_date = st.date_input("発行日", value=data.move_out_date, format="YYYY/MM/DD", key="issue_date")
+        docs = st.multiselect(
+            "出力する帳票", options=[document_export_service.QUOTE, document_export_service.INVOICE],
+            default=[document_export_service.QUOTE, document_export_service.INVOICE],
         )
-    except Exception as e:  # noqa: BLE001
-        st.error(f"精算書の生成に失敗しました: {e}")
+        if not issuer.get("name"):
+            st.info("左サイドバーに発行元（自社）情報を入力すると、より体裁の整った帳票になります。")
+        try:
+            issuer_filled = dict(issuer)
+            issuer_filled["issue_date"] = issue_date.strftime("%Y年%m月%d日") if issue_date else ""
+            doc_bytes = document_export_service.build(data, issuer_filled, docs or [document_export_service.QUOTE])
+            suffix = "見積請求書" if len(docs) != 1 else docs[0]
+            st.download_button(
+                "🧾 見積書・請求書(.xlsx)をダウンロード",
+                data=doc_bytes,
+                file_name=f"{suffix}_{base}.xlsx",
+                mime=MIME,
+                type="primary",
+                disabled=not docs,
+            )
+        except Exception as e:  # noqa: BLE001
+            st.error(f"帳票の生成に失敗しました: {e}")

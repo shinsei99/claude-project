@@ -8,12 +8,18 @@
 
 ## 特徴
 
-- **スマートExcel解析**: フォーマットが不統一な業者見積でも、「工事名列」「金額列」を
+- **スマートExcel/CSV解析**: フォーマットが不統一な業者見積でも、「工事名列」「金額列」を
   キーワード＋数値ヒューリスティクスで自動判定。合計行・空欄行は自動除外。
+- **PDF解析（AI）**: PDFは Claude Code CLI に直接読ませて工事名・金額を抽出
+  （見積書自動作成ツールと同じ仕組み）。Anthropic APIキー不要、Claude Pro/Maxサブスクのみで動作。
 - **部材自動判別**: クロス／CF／クリーニング／畳などを工事名から自動マッピング。
 - **ガイドライン準拠の償却計算**: クロス・CF等は6年で直線償却、畳・襖・クリーニングは
   経過年数を考慮しない。経年劣化（通常損耗）は入居者負担0円。
-- **有料API不使用**: pandas / openpyxl のみ。完全ローカル動作。
+- **3種の帳票出力**:
+  - **退去精算書**（内部用）… 入居者/オーナーの負担按分内訳
+  - **見積書 / 請求書**（賃借人提示用）… 入居者負担額を提示・請求。請求書は敷金相殺＋振込先付き。
+    見積書自動作成ツールのレイアウトを参考に、見積書・請求書を1冊にまとめて出力。
+- **Excel解析・帳票出力は完全ローカル**（pandas / openpyxl）。PDF解析のみ Claude CLI を使用。
 
 ## セットアップ
 
@@ -46,9 +52,11 @@ python3 -m venv .venv
 restoration-calculator/
 ├── app.py                          # Streamlit UI
 ├── services/
-│   ├── excel_parser.py             # 業者見積の自動解析（品名・金額抽出）
+│   ├── excel_parser.py             # 業者見積Excel/CSVの自動解析（品名・金額抽出）
+│   ├── pdf_parser.py               # 業者見積PDFのAI解析（Claude CLI）
 │   ├── depreciation_engine.py      # 減価償却・按分計算
-│   └── excel_export_service.py     # openpyxl による精算書出力
+│   ├── excel_export_service.py     # 退去精算書(Excel)出力
+│   └── document_export_service.py  # 見積書・請求書(Excel)出力
 ├── models/
 │   └── restoration_data.py         # RestorationData / LineItem データ構造
 └── templates/
