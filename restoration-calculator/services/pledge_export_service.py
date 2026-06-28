@@ -112,9 +112,9 @@ def build(data: RestorationData, issuer: dict, options: dict | None = None) -> b
         return d.strftime("%Y年%m月%d日") if d else "―"
 
     key_cost = int(options.get("key_replacement_cost") or 0)
-    keys_text = f"{options.get('keys_count', '')}　本"
+    keys_text = f"{options.get('keys_count', '')}　本　（※紛失・返却不足の場合はカギ交換が必要）"
     if key_cost > 0:
-        keys_text += f"　（返却不足によるカギ交換代：¥{key_cost:,}）"
+        keys_text += f"　カギ交換代：¥{key_cost:,}"
     y, m = data.residence_period
     period = f"{_d(data.move_in_date)}　〜　{_d(data.move_out_date)}　（入居期間：{y}年{m}ヶ月）"
     room = f"{data.property_name}　{data.room_number}".strip()
