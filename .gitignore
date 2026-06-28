@@ -62,6 +62,10 @@ brain-dump/.vercel/
 !restoration-calculator/
 !restoration-calculator/**
 restoration-calculator/.venv/
+!realestate-valuation/
+!realestate-valuation/**
+realestate-valuation/.venv/
+realestate-valuation/.streamlit/secrets.toml
 
 # --- Build artifacts (all apps) — safety net, never commit these ---
 **/node_modules/

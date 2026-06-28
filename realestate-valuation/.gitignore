@@ -1,0 +1,6 @@
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
+# APIキー等のローカル設定（各PCに保持・公開しない）
+.streamlit/secrets.toml
