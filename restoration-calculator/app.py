@@ -17,7 +17,7 @@ from models.restoration_data import (
 )
 from services import (
     excel_parser, document_export_service, issuer_store, pledge_export_service,
-    property_store,
+    property_store, tenant_store,
 )
 from services.pdf_parser import parse_pdf, PdfExtractionError
 from services.depreciation_engine import calculate, MATERIAL_TYPES, policy_of, DEPRECIABLE
@@ -122,9 +122,32 @@ if prop_cand != st.session_state.prop_prefill:
 pv = st.session_state.prop_form_version
 pp = st.session_state.prop_prefill
 
+# ---- 登録入居者の呼び出し（物件とは独立。氏名→連絡先を自動入力）----
+NEW_TENANT_LABEL = "＋ 新規入力"
+if "tenant_form_version" not in st.session_state:
+    st.session_state.tenant_form_version = 0
+if "tenant_prefill" not in st.session_state:
+    st.session_state.tenant_prefill = {"name": "", "contact": ""}
+
+tenants_df = tenant_store.load_tenants()
+selected_tenant = st.selectbox(
+    "登録入居者から呼び出し（選ぶと氏名・連絡先が自動入力）",
+    [NEW_TENANT_LABEL] + tenants_df["name"].tolist(), key="tenant_select",
+)
+if selected_tenant != NEW_TENANT_LABEL:
+    trow = tenants_df[tenants_df["name"] == selected_tenant].iloc[0]
+    tenant_cand = {"name": selected_tenant, "contact": str(trow.get("contact", ""))}
+else:
+    tenant_cand = {"name": "", "contact": ""}
+if tenant_cand != st.session_state.tenant_prefill:
+    st.session_state.tenant_prefill = tenant_cand
+    st.session_state.tenant_form_version += 1
+tv = st.session_state.tenant_form_version
+tp = st.session_state.tenant_prefill
+
 col1, col2, col3 = st.columns(3)
 with col1:
-    tenant_name = st.text_input("賃借人氏名", value="")
+    tenant_name = st.text_input("賃借人氏名", value=tp["name"], key=f"tenantname_{tv}")
     property_name = st.text_input("物件名", value=pp["name"], key=f"propname_{pv}")
 with col2:
     room_number = st.text_input("部屋番号", value="")
@@ -132,11 +155,30 @@ with col2:
 with col3:
     move_in = st.date_input("入居日（契約開始日）", value=None, format="YYYY/MM/DD")
     move_out = st.date_input("退去日（明渡し日）", value=None, format="YYYY/MM/DD")
-property_address = st.text_input(
-    "物件住所（任意・誓約書の物件名に併記）", value=pp["address"], key=f"propaddr_{pv}",
-)
+addr_col, tcontact_col = st.columns(2)
+with addr_col:
+    property_address = st.text_input(
+        "物件住所（任意・誓約書の物件名に併記）", value=pp["address"], key=f"propaddr_{pv}",
+    )
+with tcontact_col:
+    tenant_contact = st.text_input("入居者連絡先（任意・登録用）", value=tp["contact"], key=f"tenantcontact_{tv}")
 
-ps_col, pd_col, _ = st.columns([1, 1, 2])
+# 物件の登録・削除
+ps_col, pd_col, ts_col, td_col = st.columns(4)
+with ts_col:
+    if st.button("💾 入居者を登録", use_container_width=True):
+        if tenant_name.strip():
+            tenant_store.save_tenant({"name": tenant_name, "contact": tenant_contact})
+            st.success(f"入居者「{tenant_name}」を登録しました。")
+            st.rerun()
+        else:
+            st.warning("賃借人氏名を入力してください。")
+with td_col:
+    if st.button("🗑 入居者を削除", use_container_width=True, disabled=selected_tenant == NEW_TENANT_LABEL):
+        tenant_store.delete_tenant(selected_tenant)
+        st.session_state.tenant_prefill = {"name": "", "contact": ""}
+        st.success(f"入居者「{selected_tenant}」を削除しました。")
+        st.rerun()
 with ps_col:
     if st.button("💾 物件を登録", use_container_width=True):
         if property_name.strip():
