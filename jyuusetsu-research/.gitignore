@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+*.pyc
+reports/*.xlsx
+reports/*.pdf
+templates/jyuusetsu_template.xlsx
+.DS_Store

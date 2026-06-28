@@ -74,6 +74,13 @@ settlement-creator/data/
 !legal-crosscheck/**
 legal-crosscheck/.venv/
 legal-crosscheck/.streamlit/secrets.toml
+!jyuusetsu-research/
+!jyuusetsu-research/**
+jyuusetsu-research/.venv/
+jyuusetsu-research/reports/
+jyuusetsu-research/data/
+# 個人情報を含む実テンプレートは公開しない（白紙版を各PCに配置／README参照）
+jyuusetsu-research/templates/*.xlsx
 
 # --- Build artifacts (all apps) — safety net, never commit these ---
 **/node_modules/
