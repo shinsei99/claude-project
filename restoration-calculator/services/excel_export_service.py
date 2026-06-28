@@ -12,7 +12,8 @@ import io
 import os
 
 from openpyxl import load_workbook
-from openpyxl.styles import Font
+from openpyxl.styles import Alignment, Font
+from openpyxl.worksheet.properties import PageSetupProperties
 
 from models.restoration_data import RestorationData
 
@@ -23,6 +24,34 @@ TEMPLATE_PATH = os.path.join(
 
 # 明細テーブルの開始行（テンプレートと一致させる）
 ITEM_START_ROW = 10
+COLUMN_HEADER_ROW = 9
+
+# A4横1ページ幅に収めるための列幅（文字数単位）
+COLUMN_WIDTHS = {"A": 22, "B": 13, "C": 9, "D": 13, "E": 13, "F": 38}
+
+
+def _setup_a4_print(ws, last_row: int) -> None:
+    """A4横・1ページ幅フィット・列見出し繰り返しの印刷設定を適用する。"""
+    ws.page_setup.paperSize = 9          # A4
+    ws.page_setup.orientation = "landscape"
+    if ws.sheet_properties.pageSetUpPr is None:
+        ws.sheet_properties.pageSetUpPr = PageSetupProperties()
+    ws.sheet_properties.pageSetUpPr.fitToPage = True
+    ws.page_setup.fitToWidth = 1         # 横は必ず1ページ幅に収める
+    ws.page_setup.fitToHeight = 0        # 縦は複数ページ可
+    ws.page_margins.left = 0.55
+    ws.page_margins.right = 0.55
+    ws.page_margins.top = 0.75
+    ws.page_margins.bottom = 0.75
+    ws.page_margins.header = 0.3
+    ws.page_margins.footer = 0.3
+    # 2ページ目以降にも列見出し行を繰り返す
+    ws.print_title_rows = f"{COLUMN_HEADER_ROW}:{COLUMN_HEADER_ROW}"
+    # 印刷範囲を明示
+    ws.print_area = f"A1:F{last_row}"
+    # 列幅を A4 に収まる値へ調整
+    for col, w in COLUMN_WIDTHS.items():
+        ws.column_dimensions[col].width = w
 
 
 def _fmt_date(d) -> str:
@@ -64,7 +93,8 @@ def build(data: RestorationData) -> bytes:
         ws.cell(row=row, column=3, value=f"{item.tenant_rate_pct}%")     # C 入居者負担率
         ws.cell(row=row, column=4, value=item.tenant_amount)            # D 入居者負担額
         ws.cell(row=row, column=5, value=item.owner_amount)            # E オーナー負担額
-        ws.cell(row=row, column=6, value=item.basis)                   # F 算出根拠メモ
+        memo = ws.cell(row=row, column=6, value=item.basis)            # F 算出根拠メモ
+        memo.alignment = Alignment(wrap_text=True, vertical="center", horizontal="left")
         row += 1
 
     # ---- 最終サマリー ----
@@ -93,6 +123,9 @@ def build(data: RestorationData) -> bytes:
             cell = ws.cell(row=r, column=col)
             if isinstance(cell.value, (int, float)):
                 cell.number_format = '¥#,##0'
+
+    # A4印刷設定（横・1ページ幅フィット）
+    _setup_a4_print(ws, summary_row + 2)
 
     out = io.BytesIO()
     wb.save(out)

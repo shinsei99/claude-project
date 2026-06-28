@@ -8,6 +8,7 @@ import os
 
 from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
+from openpyxl.worksheet.properties import PageSetupProperties
 
 
 def main() -> None:
@@ -21,10 +22,18 @@ def main() -> None:
     header_font = Font(bold=True, color="FFFFFF", size=11)
     center = Alignment(horizontal="center", vertical="center")
 
-    # 列幅
-    widths = {"A": 34, "B": 16, "C": 14, "D": 16, "E": 16, "F": 30}
+    # 列幅（A4横1ページ幅に収まる値）
+    widths = {"A": 22, "B": 13, "C": 9, "D": 13, "E": 13, "F": 38}
     for col, w in widths.items():
         ws.column_dimensions[col].width = w
+
+    # A4横・1ページ幅フィットの印刷設定（出力側でも再設定するが基準値を持たせる）
+    ws.page_setup.paperSize = 9
+    ws.page_setup.orientation = "landscape"
+    ws.sheet_properties.pageSetUpPr = PageSetupProperties(fitToPage=True)
+    ws.page_setup.fitToWidth = 1
+    ws.page_setup.fitToHeight = 0
+    ws.print_title_rows = "9:9"
 
     # タイトル
     ws.merge_cells("A1:F1")
