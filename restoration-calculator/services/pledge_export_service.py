@@ -210,7 +210,11 @@ def build(data: RestorationData, issuer: dict, options: dict | None = None) -> b
         ws.row_dimensions[r].height = _row_height([(13, label), (65, value)])
         r += 1
 
-    _info_row("立会人", issuer.get("name", ""))
+    witness_name = issuer.get("name", "")
+    staff = str(options.get("staff", "")).strip()
+    if staff:
+        witness_name = f"{witness_name}　担当：{staff}" if witness_name else f"担当：{staff}"
+    _info_row("立会人", witness_name)
     _info_row("住　所", issuer.get("address", ""))
     _info_row("連絡先", contact)
     r += 1

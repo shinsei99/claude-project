@@ -130,6 +130,7 @@ with st.expander("📝 退去時確認書兼誓約書を出力（基本情報の
         pledge_left = st.radio("残置物の有無", ["有　　・　　無", "有", "無"], horizontal=True, key="pledge_left")
     with pc3:
         pledge_date = st.date_input("立会日", value=move_out, format="YYYY/MM/DD", key="pledge_date")
+        pledge_staff = st.text_input("立会担当者", value="", key="pledge_staff")
 
     pledge_data = RestorationData(
         tenant_name=tenant_name, property_name=property_name, room_number=room_number,
@@ -143,6 +144,7 @@ with st.expander("📝 退去時確認書兼誓約書を出力（基本情報の
         "smoking": pledge_smoke,
         "pet": pledge_pet,
         "leftover": pledge_left,
+        "staff": pledge_staff,
         "witness_date": (
             f"令和{pledge_date.year - 2018}年{pledge_date.month}月{pledge_date.day}日"
             if pledge_date else ""
