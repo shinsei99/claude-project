@@ -71,12 +71,12 @@ def person(cx, hy, r):
 
 
 # ---- 3人（奥→手前: 右, 左, 中央）----
-person(0.60, 0.185, 0.066)
-person(0.24, 0.175, 0.070)
-person(0.42, 0.135, 0.083)
+person(0.61, 0.225, 0.057)
+person(0.31, 0.215, 0.061)
+person(0.46, 0.180, 0.072)
 
 # ---- 封筒 ----
-ex0, ey0, ex1, ey1 = S * 0.06, S * 0.36, S * 0.78, S * 0.90
+ex0, ey0, ex1, ey1 = S * 0.16, S * 0.42, S * 0.76, S * 0.86
 rad = int(S * 0.04)
 # 白フチ。
 dr.rounded_rectangle([ex0 - ow, ey0 - ow, ex1 + ow, ey1 + ow], radius=rad + ow, fill=WHITE)
@@ -89,7 +89,7 @@ lw = int(S * 0.024)
 dr.line([(ex0 + ow, ey0 + ow), (ecx, v_bottom), (ex1 - ow, ey0 + ow)], fill=WHITE, width=lw, joint="curve")
 
 # ---- 送信バッジ（紙飛行機）----
-bx, by, br = S * 0.755, S * 0.745, S * 0.155
+bx, by, br = S * 0.745, S * 0.735, S * 0.15
 # 白フチ（封筒との隙間）。
 dr.ellipse([bx - br - ow * 1.6, by - br - ow * 1.6, bx + br + ow * 1.6, by + br + ow * 1.6], fill=WHITE)
 # グラデ円。
