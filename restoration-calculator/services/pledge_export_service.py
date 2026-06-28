@@ -44,7 +44,7 @@ PLEDGE_LINES = [
 ]
 
 # 折り返し行高の推定に用いる1行あたりの全角文字数（A〜F幅合計に対する目安）
-_CHARS_PER_LINE = 38
+_CHARS_PER_LINE = 50
 
 
 def _merge_set(ws, cell_range, value=None, font=None, align=None, fill=None,
@@ -114,7 +114,7 @@ def build(data: RestorationData, issuer: dict, options: dict | None = None) -> b
     for label, value in rows:
         _merge_set(ws, f"A{r}:B{r}", label, font=bold, align=LEFT, fill=HEADER_FILL, border=True)
         _merge_set(ws, f"C{r}:F{r}", value, font=base, align=LEFT, border=True)
-        ws.row_dimensions[r].height = 22
+        ws.row_dimensions[r].height = 19
         r += 1
 
     # ── 原状回復・修繕必要箇所 ──
@@ -137,7 +137,7 @@ def build(data: RestorationData, issuer: dict, options: dict | None = None) -> b
     if key_cost > 0:
         item_rows.append(("鍵交換（返却不足）", "シリンダー交換", f"入居者負担 ¥{key_cost:,}", key_cost))
 
-    rows_needed = max(len(item_rows), 6)
+    rows_needed = max(len(item_rows), 5)
     for i in range(rows_needed):
         if i < len(item_rows):
             name, spec, detail, _ = item_rows[i]
@@ -148,7 +148,7 @@ def build(data: RestorationData, issuer: dict, options: dict | None = None) -> b
             _merge_set(ws, f"A{r}:B{r}", None, border=True)
             _merge_set(ws, f"C{r}:D{r}", None, border=True)
             _merge_set(ws, f"E{r}:F{r}", None, border=True)
-        ws.row_dimensions[r].height = 22
+        ws.row_dimensions[r].height = 19
         r += 1
 
     if item_rows:
@@ -175,14 +175,14 @@ def build(data: RestorationData, issuer: dict, options: dict | None = None) -> b
     for line in pledge_lines:
         _merge_set(ws, f"A{r}:F{r}", line, font=base, align=LEFT_TOP)
         lines = max(1, math.ceil(len(line) / _CHARS_PER_LINE))
-        ws.row_dimensions[r].height = lines * 16 + 4
+        ws.row_dimensions[r].height = lines * 15 + 2
         r += 1
 
     # ── 署名日 ──
     r += 1
     _merge_set(ws, f"A{r}:F{r}", "令和　　　　年　　　　　月　　　　　日",
                font=base, align=Alignment(horizontal="right", vertical="center"))
-    r += 2
+    r += 1
 
     # ── 署名欄（入居者）※囲み罫線ではなく下罫線 ──
     def _sign_row(label, value_range, with_seal=False):
@@ -191,8 +191,8 @@ def build(data: RestorationData, issuer: dict, options: dict | None = None) -> b
         _merge_set(ws, value_range, None, align=LEFT, bottom_border=True)
         if with_seal:
             _merge_set(ws, f"F{r}:F{r}", "印", font=base, align=CENTER)
-        ws.row_dimensions[r].height = 24
-        r += 2
+        ws.row_dimensions[r].height = 26
+        r += 1
 
     _sign_row("現住所", f"B{r}:F{r}")
     _sign_row("新住所", f"B{r}:F{r}")
@@ -206,11 +206,11 @@ def build(data: RestorationData, issuer: dict, options: dict | None = None) -> b
         ws.sheet_properties.pageSetUpPr = PageSetupProperties()
     ws.sheet_properties.pageSetUpPr.fitToPage = True
     ws.page_setup.fitToWidth = 1
-    ws.page_setup.fitToHeight = 0
+    ws.page_setup.fitToHeight = 1   # 縦も1ページに収める（誓約書は必ずA4 1枚）
     for side in ("left", "right"):
-        setattr(ws.page_margins, side, 0.59)
+        setattr(ws.page_margins, side, 0.55)
     for side in ("top", "bottom"):
-        setattr(ws.page_margins, side, 0.59)
+        setattr(ws.page_margins, side, 0.5)
 
     out = io.BytesIO()
     wb.save(out)
