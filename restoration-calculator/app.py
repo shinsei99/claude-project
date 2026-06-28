@@ -15,7 +15,9 @@ from models.restoration_data import (
     FAULT_TENANT,
     FAULT_NATURAL,
 )
-from services import excel_parser, document_export_service, issuer_store
+from services import (
+    excel_parser, document_export_service, issuer_store, pledge_export_service,
+)
 from services.pdf_parser import parse_pdf, PdfExtractionError
 from services.depreciation_engine import calculate, MATERIAL_TYPES, policy_of, DEPRECIABLE
 from services.excel_export_service import build as build_excel
@@ -105,6 +107,7 @@ with col2:
 with col3:
     move_in = st.date_input("入居日（契約開始日）", value=None, format="YYYY/MM/DD")
     move_out = st.date_input("退去日（明渡し日）", value=None, format="YYYY/MM/DD")
+property_address = st.text_input("物件住所（誓約書に記載）", value="")
 
 if move_in and move_out:
     tmp = RestorationData(move_in_date=move_in, move_out_date=move_out)
@@ -240,6 +243,7 @@ if st.button("🧮 按分を計算する", disabled=not can_calc, type="primary"
         tenant_name=tenant_name,
         property_name=property_name,
         room_number=room_number,
+        property_address=property_address,
         move_in_date=move_in,
         move_out_date=move_out,
         deposit=int(deposit),
@@ -291,7 +295,9 @@ if "result" in st.session_state:
     MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     base = f"{data.property_name or '物件'}_{data.room_number or ''}"
 
-    tab_seisan, tab_doc = st.tabs(["📄 退去精算書（按分内訳）", "🧾 見積書・請求書（賃借人提示用）"])
+    tab_seisan, tab_pledge, tab_doc = st.tabs(
+        ["📄 退去精算書（按分内訳）", "📝 誓約書（入居者署名用）", "🧾 見積書・請求書（賃借人提示用）"]
+    )
 
     with tab_seisan:
         st.caption("入居者・オーナーの負担按分を一覧化した内部精算書です。")
@@ -307,8 +313,43 @@ if "result" in st.session_state:
         except Exception as e:  # noqa: BLE001
             st.error(f"精算書の生成に失敗しました: {e}")
 
+    with tab_pledge:
+        st.caption(
+            "退去立会い時に損耗が発見された場合、入居者に署名してもらう"
+            "「退去時確認書兼原状回復費用負担誓約書」です。入居者負担の修繕箇所と入居期間を自動転記します。"
+        )
+        pc1, pc2 = st.columns(2)
+        with pc1:
+            keys_count = st.text_input("鍵の返却本数", value="", key="pledge_keys")
+            smoking = st.radio("喫煙の有無", ["有　　・　　無", "有", "無"], horizontal=True, key="pledge_smoke")
+        with pc2:
+            witness_date = st.date_input("立会日", value=data.move_out_date, format="YYYY/MM/DD", key="pledge_date")
+            leftover = st.radio("残置物の有無", ["有　　・　　無", "有", "無"], horizontal=True, key="pledge_left")
+        if not data.property_address:
+            st.info("「物件住所」を入力すると誓約書の物件表示に反映されます（基本情報の入力欄）。")
+        try:
+            pledge_opts = {
+                "keys_count": keys_count,
+                "smoking": smoking,
+                "leftover": leftover,
+                "witness_date": (
+                    f"令和{witness_date.year - 2018}年{witness_date.month}月{witness_date.day}日"
+                    if witness_date else ""
+                ),
+            }
+            pledge_bytes = pledge_export_service.build(data, issuer, pledge_opts)
+            st.download_button(
+                "📝 誓約書(.xlsx)をダウンロード",
+                data=pledge_bytes,
+                file_name=f"退去時確認書兼誓約書_{base}.xlsx",
+                mime=MIME,
+                type="primary",
+            )
+        except Exception as e:  # noqa: BLE001
+            st.error(f"誓約書の生成に失敗しました: {e}")
+
     with tab_doc:
-        st.caption("入居者負担額を賃借人へ提示・請求するための見積書／請求書です（負担0円の項目は除外）。")
+        st.caption("入居者負担額を賃借人へ提示・請求するための見積書／請求書です（負担0円の項目は除外）。本書は誓約書に基づく旨が明記されます。")
         issue_date = st.date_input("発行日", value=data.move_out_date, format="YYYY/MM/DD", key="issue_date")
         docs = st.multiselect(
             "出力する帳票", options=[document_export_service.QUOTE, document_export_service.INVOICE],

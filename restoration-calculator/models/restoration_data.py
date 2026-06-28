@@ -61,6 +61,7 @@ class RestorationData:
     tenant_name: str = ""
     property_name: str = ""
     room_number: str = ""
+    property_address: str = ""
 
     # 期間情報
     move_in_date: date | None = None     # 入居日（契約開始日）
@@ -86,12 +87,24 @@ class RestorationData:
         return round(self.residence_days / 365.0, 2)
 
     @property
+    def residence_period(self) -> tuple[int, int]:
+        """入居期間を暦ベースの (年, 月) で返す。"""
+        if not self.move_in_date or not self.move_out_date:
+            return (0, 0)
+        y = self.move_out_date.year - self.move_in_date.year
+        m = self.move_out_date.month - self.move_in_date.month
+        if self.move_out_date.day < self.move_in_date.day:
+            m -= 1
+        if m < 0:
+            y -= 1
+            m += 12
+        return (max(0, y), max(0, m))
+
+    @property
     def residence_label(self) -> str:
-        """「○年○ヶ月」表記。"""
-        days = self.residence_days
-        years = days // 365
-        months = (days % 365) // 30
-        return f"{years}年{months}ヶ月"
+        """「○年○ヶ月」表記（暦ベース）。"""
+        y, m = self.residence_period
+        return f"{y}年{m}ヶ月"
 
     # ---- サマリー ----
     @property

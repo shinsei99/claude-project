@@ -96,10 +96,14 @@ def _build_sheet(wb: Workbook, doc_type: str, data: RestorationData, issuer: dic
         ws["D9"].alignment = RIGHT
         ws["D9"].font = Font(size=9)
 
-    # ── 挨拶文 ──
+    # ── 挨拶文（誓約書に基づく旨を明記）──
     ws.merge_cells("A8:C9")
-    ws["A8"] = GREETINGS[doc_type]
+    ws["A8"] = (
+        GREETINGS[doc_type]
+        + "\n※本書は「退去時確認書兼原状回復費用負担誓約書」に基づき作成しています。"
+    )
     ws["A8"].alignment = Alignment(horizontal="left", vertical="top", wrap_text=True)
+    ws.row_dimensions[8].height = 30
 
     # ── 金額サマリーボックス ──
     ws.merge_cells("A11:B11")
