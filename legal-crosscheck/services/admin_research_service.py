@@ -79,12 +79,47 @@ def _latlng_to_tile(lat: float, lng: float, z: int) -> tuple[int, int]:
     return x, y
 
 
-def _from_api(lat: float, lng: float, api_key: str) -> AdminMaster | None:
-    """XKT002 用途地域GISへ問い合わせ。取得できれば AdminMaster、なければ None。"""
+def _ring_contains(pt, ring) -> bool:
+    x0, y0 = pt
+    inside = False
+    n = len(ring)
+    j = n - 1
+    for i in range(n):
+        xi, yi = ring[i][0], ring[i][1]
+        xj, yj = ring[j][0], ring[j][1]
+        if ((yi > y0) != (yj > y0)) and (x0 < (xj - xi) * (y0 - yi) / ((yj - yi) or 1e-12) + xi):
+            inside = not inside
+        j = i
+    return inside
+
+
+def _geom_contains(geom: dict, lng: float, lat: float) -> bool:
+    t = geom.get("type")
+    c = geom.get("coordinates", [])
+    polys = c if t == "MultiPolygon" else [c]
+    for poly in polys:
+        if poly and _ring_contains((lng, lat), poly[0]):
+            return True
+    return False
+
+
+def _centroid(geom: dict):
+    t = geom.get("type")
+    c = geom.get("coordinates", [])
+    ring = (c[0][0] if t == "MultiPolygon" else c[0]) if c else []
+    if not ring:
+        return None
+    xs = [p[0] for p in ring]
+    ys = [p[1] for p in ring]
+    return sum(xs) / len(xs), sum(ys) / len(ys)
+
+
+def _fetch_layer(code: str, lat: float, lng: float, api_key: str) -> dict | None:
+    """指定レイヤを取得し、地点を含むポリゴン（無ければ最寄りポリゴン）の properties を返す。"""
     x, y = _latlng_to_tile(lat, lng, _ZOOM)
     try:
         resp = requests.get(
-            f"{_API_BASE}/XKT002",
+            f"{_API_BASE}/{code}",
             params={"response_format": "geojson", "z": _ZOOM, "x": x, "y": y},
             headers={"Ocp-Apim-Subscription-Key": api_key},
             timeout=20,
@@ -95,23 +130,66 @@ def _from_api(lat: float, lng: float, api_key: str) -> AdminMaster | None:
         return None
     if not features:
         return None
-
-    # 複数ポリゴンが返るため、最初の有効なものを採用
+    # 1) 地点を含むポリゴン
     for feat in features:
-        p = feat.get("properties", {})
-        code = str(p.get("youto_chiki", p.get("use_area_ja", "")) or "")
-        name = _USE_DISTRICT_NAMES.get(code, p.get("use_area_ja", "") or "")
-        kenpei = _to_float(p.get("kenpei", p.get("building_coverage_ratio")))
-        yoseki = _to_float(p.get("yoseki", p.get("floor_area_ratio")))
-        if name or kenpei:
-            return AdminMaster(
-                use_district=name,
-                building_coverage=kenpei,
-                floor_area_ratio=yoseki,
-                fire_zone="",
-                source="国交省API(XKT002)",
-            )
-    return None
+        if _geom_contains(feat.get("geometry", {}), lng, lat):
+            return feat.get("properties", {})
+    # 2) 含むものが無ければ最寄りポリゴン（道路上・境界付近の救済）
+    best, best_d = None, None
+    for feat in features:
+        ctr = _centroid(feat.get("geometry", {}))
+        if not ctr:
+            continue
+        d = (ctr[0] - lng) ** 2 + (ctr[1] - lat) ** 2
+        if best_d is None or d < best_d:
+            best, best_d = feat.get("properties", {}), d
+    return best
+
+
+def _from_api(lat: float, lng: float, api_key: str) -> AdminMaster | None:
+    """不動産情報ライブラリの複数レイヤを地点で照合し AdminMaster を組み立てる。
+
+    XKT002 用途地域 / XKT001 都市計画区域・区域区分 / XKT004 小学校区 / XKT005 中学校区
+    """
+    use = _fetch_layer("XKT002", lat, lng, api_key)
+    if use is None:
+        # 用途地域が取れない＝API不通等。他レイヤも試し、全滅なら None。
+        kubun0 = _fetch_layer("XKT001", lat, lng, api_key)
+        if kubun0 is None:
+            return None
+        use = {}
+
+    name = (use.get("use_area_ja") or "").strip()
+    kenpei = _to_float(use.get("u_building_coverage_ratio_ja"))
+    yoseki = _to_float(use.get("u_floor_area_ratio_ja"))
+    city = f"{use.get('prefecture','')}{use.get('city_name','')}".strip()
+    decision = ""
+    if use.get("notice_number_s") or use.get("decision_date"):
+        decision = f"{use.get('decision_date','')} {use.get('notice_number_s','')}".strip()
+
+    kubun = _fetch_layer("XKT001", lat, lng, api_key) or {}
+    area_cls = (kubun.get("area_classification_ja") or "").strip()
+    if not city:
+        city = f"{kubun.get('prefecture','')}{kubun.get('city_name','')}".strip()
+
+    elem = _fetch_layer("XKT004", lat, lng, api_key) or {}
+    jh = _fetch_layer("XKT005", lat, lng, api_key) or {}
+
+    if not (name or area_cls):
+        return None
+    return AdminMaster(
+        use_district=name,
+        building_coverage=kenpei,
+        floor_area_ratio=yoseki,
+        fire_zone="",
+        height_district="",
+        area_classification=area_cls,
+        city=city,
+        elementary_school=(elem.get("A27_004_ja") or "").strip(),
+        junior_high_school=(jh.get("A32_004_ja") or "").strip(),
+        decision_info=decision,
+        source="国交省API(不動産情報ライブラリ)",
+    )
 
 
 def _to_float(v) -> float:

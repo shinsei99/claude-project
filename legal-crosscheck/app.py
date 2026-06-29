@@ -21,6 +21,7 @@ from services import (
     geo_service,
     law_validator,
     registry_parser,
+    web_law_service,
 )
 
 st.set_page_config(page_title="4点クロスチェック", page_icon="⚖️", layout="wide")
@@ -36,26 +37,6 @@ def D() -> LegalCrossCheckData:
 
 st.title("⚖️ 売買契約・重説・謄本 4点連動クロスチェック")
 st.caption("法令制限・建築基準法特化型 ── 行政の正解と公式ファクトを基準に書類の齟齬を検閲します")
-
-# ============================================================
-# サイドバー：設定
-# ============================================================
-with st.sidebar:
-    st.header("⚙️ 設定")
-    configured = admin_research_service.get_api_key()
-    if configured:
-        st.success("不動産情報ライブラリAPI：設定済み")
-    else:
-        st.info("APIキー未設定 → 行政データはモックで動作します")
-    api_key_input = st.text_input(
-        "国交省APIキー（このセッションのみ）", type="password",
-        help="不動産情報ライブラリの無料キー。未入力ならモック値を使用。",
-    )
-    st.session_state.api_key = api_key_input or configured
-
-    st.divider()
-    st.caption("国土地理院ジオコーディング・国交省不動産情報ライブラリ（いずれも無料）を使用。"
-               "有料API不使用。")
 
 # ============================================================
 # STEP 1: 物件所在 → 行政正解の自動調査
@@ -78,7 +59,7 @@ if st.button("🌐 行政調査（用途地域・建ぺい率・容積率）", t
         D().muni_code, D().pref_code = geo["muni_code"], geo["pref_code"]
         D().admin = admin_research_service.research(
             addr, geo["lat"], geo["lng"],
-            api_key=st.session_state.get("api_key") or None,
+            api_key=admin_research_service.get_api_key() or None,
         )
     st.rerun()
 
@@ -88,9 +69,30 @@ if adm.resolved:
     m1.metric("用途地域", adm.use_district or "—")
     m2.metric("指定建ぺい率", f"{adm.building_coverage:g}%" if adm.building_coverage else "—")
     m3.metric("指定容積率", f"{adm.floor_area_ratio:g}%" if adm.floor_area_ratio else "—")
-    m4.metric("データ取得元", adm.source or "—")
+    m4.metric("区域区分", adm.area_classification or "—")
+    n1, n2, n3, n4 = st.columns(4)
+    n1.metric("防火地域", adm.fire_zone or "—")
+    n2.metric("高度地区", adm.height_district or "—")
+    n3.metric("日影規制", adm.hikage_kisei or "—")
+    n4.metric("自治体", adm.city or "—")
+    o1, o2, o3 = st.columns([2, 1, 1])
+    o1.metric("その他制限", adm.other_restrictions or "—")
+    o2.metric("小学校区", adm.elementary_school or "—")
+    o3.metric("中学校区", adm.junior_high_school or "—")
+    st.caption(f"データ取得元：{adm.source}" + (f"／{adm.web_source}" if adm.web_source else ""))
+    if adm.decision_info.strip():
+        st.caption(f"都市計画決定：{adm.decision_info}")
     if "モック" in adm.source:
         st.warning("⚠️ 行政データはモック値です。実運用ではAPIキーを設定してください。")
+
+    if st.button("🌐 AIで法令制限を詳しく調査（建ぺい/容積/防火/高度/日影 等をWeb補完）"):
+        with st.spinner("自治体の都市計画情報（マップナビおおさか等）をWeb調査中…"):
+            try:
+                web = web_law_service.research_web(D().address, adm.use_district, adm.city)
+                web_law_service.merge_into_admin(D().admin, web)
+            except Exception as e:
+                st.error(str(e))
+        st.rerun()
 
 st.divider()
 

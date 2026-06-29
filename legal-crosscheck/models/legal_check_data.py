@@ -60,11 +60,19 @@ class AdminMaster:
     floor_area_ratio: float = 0.0   # 指定容積率（%）
     fire_zone: str = ""             # 防火地域区分（防火/準防火/指定なし 等）
     height_district: str = ""       # 高度地区
+    area_classification: str = ""   # 区域区分（市街化区域/市街化調整区域/都市計画区域 等）
+    city: str = ""                  # 自治体（都道府県＋市区町村）
+    elementary_school: str = ""     # 小学校区
+    junior_high_school: str = ""    # 中学校区
+    decision_info: str = ""         # 都市計画決定（告示番号・決定日 等）
+    hikage_kisei: str = ""          # 日影規制
+    other_restrictions: str = ""    # その他地域地区・制限（地区計画/高度利用/景観/都市計画道路 等）
+    web_source: str = ""            # Web法令調査の出典・備考
     source: str = ""                # データ取得元（API / モック 等）
 
     @property
     def resolved(self) -> bool:
-        return bool(self.use_district or self.building_coverage)
+        return bool(self.use_district or self.building_coverage or self.area_classification)
 
 
 @dataclass
