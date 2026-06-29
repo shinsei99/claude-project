@@ -101,6 +101,11 @@ def _extract_items(result: dict) -> list[dict]:
 
 def parse_pdf(file_bytes: bytes, filename: str = "estimate.pdf") -> list[LineItem]:
     """業者見積PDF（バイト列）から LineItem のリストを抽出する。"""
+    try:
+        from pdf_orient import ensure_upright_pdf
+        file_bytes = ensure_upright_pdf(file_bytes)
+    except Exception:
+        pass  # 向き補正に失敗しても元PDFで続行
     with tempfile.TemporaryDirectory(prefix="restoration_pdf_") as tmp_dir:
         tmp_path = Path(tmp_dir) / "estimate.pdf"
         tmp_path.write_bytes(file_bytes)

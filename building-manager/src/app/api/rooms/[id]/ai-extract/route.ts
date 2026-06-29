@@ -8,6 +8,18 @@ import { join } from "path";
 const execFileAsync = promisify(execFile);
 const CLAUDE_BIN = "/opt/homebrew/bin/claude";
 const TIMEOUT_MS = 300_000;
+// 解析前の向き（縦横・回転）自動補正スクリプト（pdf_orient.py を利用）
+const ORIENT_CLI = join(process.cwd(), "orient_cli.py");
+const ORIENT_TIMEOUT_MS = 150_000;
+
+/** スキャン書類の向きを正立補正する（PDF/画像）。失敗しても無視して続行。 */
+async function correctOrientation(filePath: string): Promise<void> {
+  try {
+    await execFileAsync("python3", [ORIENT_CLI, filePath], { timeout: ORIENT_TIMEOUT_MS });
+  } catch {
+    /* 向き補正に失敗しても元ファイルで解析を続行 */
+  }
+}
 
 const PROMPT = `
 以下のファイル群は、同一の賃貸物件に関する書類です（契約書・重要事項説明書・CHECK表・申込書・身分証・保証会社書類など）。
@@ -106,7 +118,10 @@ export async function POST(
       const safeName = file.name
         .replace(/[^\w　-鿿゠-ヿ぀-ゟ\.\-]/g, "_")
         .replace(/_+/g, "_");
-      writeFileSync(join(tmpDir, safeName), buf);
+      const savedPath = join(tmpDir, safeName);
+      writeFileSync(savedPath, buf);
+      // 解析前に向きを自動補正（スキャン書類が横向き・逆さでも正しく読めるように）
+      await correctOrientation(savedPath);
       savedNames.push(safeName);
     }
 

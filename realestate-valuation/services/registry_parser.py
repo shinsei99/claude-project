@@ -248,6 +248,11 @@ def _extract_json_obj(result: dict) -> dict:
 
 def parse_with_claude(pdf_bytes: bytes, filename: str = "registry.pdf") -> RegistryInfo:
     """登記簿PDFを Claude CLI に直接読ませて RegistryInfo を返す（スキャン画像対応）。"""
+    try:
+        from pdf_orient import ensure_upright_pdf
+        pdf_bytes = ensure_upright_pdf(pdf_bytes)
+    except Exception:
+        pass  # 向き補正に失敗しても元データで続行
     with tempfile.TemporaryDirectory(prefix="registry_pdf_") as tmp_dir:
         tmp_path = Path(tmp_dir) / "registry.pdf"
         tmp_path.write_bytes(pdf_bytes)

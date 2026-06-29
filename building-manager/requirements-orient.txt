@@ -1,0 +1,6 @@
+# AI抽出（ai-extract）の解析前 向き補正（orient_cli.py / pdf_orient.py）が使う Python 依存。
+# Node アプリだが、向き補正だけはシステムの python3 を subprocess で呼び出す。
+# 未インストールでも orient_cli.py は安全に何もせず終了する（解析は続行）。
+#   pip3 install -r requirements-orient.txt
+pymupdf>=1.24.0
+pillow>=10.0.0

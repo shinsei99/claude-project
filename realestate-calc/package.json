@@ -1,0 +1,18 @@
+{
+  "name": "realestate-calc",
+  "version": "1.0.0",
+  "description": "不動産・金融マスター電卓",
+  "main": "index.js",
+  "scripts": {
+    "sync": "cp index.html privacy.html www/ && npx cap sync"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@capacitor/cli": "^8.4.1",
+    "@capacitor/core": "^8.4.1",
+    "@capacitor/ios": "^8.4.1"
+  }
+}

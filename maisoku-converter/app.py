@@ -336,6 +336,17 @@ def analyze_with_claude(image: Image.Image) -> dict:
         r = 2000 / analysis_img.width
         analysis_img = analysis_img.resize((2000, int(analysis_img.height * r)), Image.LANCZOS)
 
+    # ── 解析前に向き（縦横・回転）を自動補正 ────────────────────────────────
+    # PDF・画像どちらもここに PIL 画像として集約されるので 1 箇所で両経路を補正。
+    try:
+        from pdf_orient import ensure_upright_image
+        _buf = io.BytesIO()
+        analysis_img.save(_buf, "PNG")
+        png_bytes = ensure_upright_image(_buf.getvalue())
+        analysis_img = Image.open(io.BytesIO(png_bytes)).convert("RGB")
+    except Exception:
+        pass  # 向き補正に失敗しても元画像で続行
+
     with tempfile.TemporaryDirectory(prefix="maisoku_") as tmp:
         p = Path(tmp) / "maisoku.png"
         analysis_img.save(p, "PNG")

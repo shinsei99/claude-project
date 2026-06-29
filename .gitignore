@@ -89,6 +89,16 @@ mail-merge-pro/scripts/icon.iconset/
 !tokuyaku-generator/
 !tokuyaku-generator/**
 tokuyaku-generator/.venv/
+!baikai-generator/
+!baikai-generator/**
+baikai-generator/.venv/
+baikai-generator/.streamlit/secrets.toml
+baikai-generator/data/
+# 別PC引き継ぎ用メモ
+!HANDOFF.md
+# Capacitor/Xcode 生成物（各PCで cap add ios 後に生成）
+realestate-calc/ios/
+realestate-calc/node_modules/
 
 # --- Build artifacts (all apps) — safety net, never commit these ---
 **/node_modules/

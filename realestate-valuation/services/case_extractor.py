@@ -126,6 +126,11 @@ def extract_cases(pdf_bytes: bytes, filename: str, kind: str, property_type: str
     """
     price_label = "取引価格" if kind == "取引事例" else "売出価格"
     ptype = "中古マンション" if property_type == TYPE_MANSION else "土地・戸建て"
+    try:
+        from pdf_orient import ensure_upright_pdf
+        pdf_bytes = ensure_upright_pdf(pdf_bytes)
+    except Exception:
+        pass  # 向き補正に失敗しても元データで続行
     with tempfile.TemporaryDirectory(prefix="case_pdf_") as tmp:
         path = Path(tmp) / "case.pdf"
         path.write_bytes(pdf_bytes)

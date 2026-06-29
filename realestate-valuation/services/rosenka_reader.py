@@ -69,6 +69,11 @@ def read(file_bytes: bytes, filename: str = "rosenka.png", address: str = "") ->
     }
     前面道路で路線価が変わるため、接道候補を返してUIで選び直せるようにする。
     """
+    try:
+        from pdf_orient import ensure_upright_bytes
+        file_bytes = ensure_upright_bytes(file_bytes, filename)
+    except Exception:
+        pass  # 向き補正に失敗しても元データで続行
     suffix = Path(filename).suffix.lower() or ".png"
     hint = f"対象地の住所は「{address}」です。" if address else ""
     with tempfile.TemporaryDirectory(prefix="rosenka_") as tmp_dir:

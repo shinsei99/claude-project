@@ -80,6 +80,12 @@ def _safe_name(filename: str) -> str:
 def _run_claude(file_bytes: bytes, filename: str, prompt: str) -> str:
     save_name = _safe_name(filename)
 
+    try:
+        from pdf_orient import ensure_upright_bytes
+        file_bytes = ensure_upright_bytes(file_bytes, save_name)
+    except Exception:
+        pass  # 向き補正に失敗しても元データで続行
+
     with tempfile.TemporaryDirectory(prefix="ocr_") as tmp_dir:
         tmp_path = Path(tmp_dir) / save_name
         tmp_path.write_bytes(file_bytes)

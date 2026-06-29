@@ -146,6 +146,11 @@ def _extract_json(result: dict) -> dict:
 
 
 def _parse_pdf(file_bytes: bytes, prompt_template: str) -> dict:
+    try:
+        from pdf_orient import ensure_upright_pdf
+        file_bytes = ensure_upright_pdf(file_bytes)
+    except Exception:
+        pass  # 向き補正に失敗しても元PDFで続行
     with tempfile.TemporaryDirectory(prefix="settlement_pdf_") as tmp_dir:
         tmp_path = Path(tmp_dir) / "document.pdf"
         tmp_path.write_bytes(file_bytes)
