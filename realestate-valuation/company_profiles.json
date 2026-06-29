@@ -1,0 +1,23 @@
+{
+  "current": "大京商事株式会社",
+  "profiles": {
+    "株式会社DAIKYO": {
+      "company_name": "株式会社DAIKYO",
+      "office": "",
+      "staff": "",
+      "tel": "",
+      "address": "",
+      "license_no": "",
+      "logo_path": "assets/logo.jpeg"
+    },
+    "大京商事株式会社": {
+      "company_name": "大京商事株式会社",
+      "office": "",
+      "staff": "",
+      "tel": "",
+      "address": "",
+      "license_no": "",
+      "logo_path": "assets/logo.jpeg"
+    }
+  }
+}

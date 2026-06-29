@@ -1,477 +1,462 @@
-"""AI不動産価格査定＆相場リサーチシステム。
+# -*- coding: utf-8 -*-
+"""不動産査定書 作成システム（DAIKYO）。
 
-登記簿（謄本）PDF・レントロールをアップロード → 自動解析 →
-国土地理院・国交省の無料データで住所変換＆周辺相場を調査 →
-3種別（マンション／戸建／収益）に応じた査定報告書(Excel)を自動生成する。
-
-処理は ValuationPipelineData を「入力 → 解析 → 住所変換・調査 →
-価格算定 → Excel出力」と一方向に流す。
+物件種別（土地・戸建て / マンション）を選び、取引事例・売出物件のPDFをAIで読み込み、
+評点方式で査定価格を自動算出（手修正可）→ 3枚セットの査定書(Excel)を出力する。
+不動産情報ライブラリAPIは「参考相場」として補助的に利用する。
 """
 
 from __future__ import annotations
 
+from datetime import date
+
+import pandas as pd
 import streamlit as st
 
-from models.valuation_data import (
-    ValuationPipelineData,
-    Comparable,
-    PROPERTY_TYPES,
-    TYPE_MANSION,
-    TYPE_KODATE,
-    TYPE_SHUEKI,
-)
-from services import (
-    registry_parser,
-    rentroll_parser,
-    geo_service,
-    market_research_service,
-    valuation_engine,
-    excel_export_service,
-    rosenka_reader,
-)
+from services import satei_core as sc
+from services import case_extractor, satei_report, explanation_service, ryutsu_service
+from services import geo_service, market_research_service
 
-st.set_page_config(page_title="AI不動産価格査定", page_icon="🏢", layout="wide")
-
-st.title("🏢 AI不動産価格査定＆相場リサーチシステム")
-st.caption(
-    "登記簿PDF（＋収益物件はレントロール）をアップロードすると、国土地理院・国交省の"
-    "無料データで周辺相場を調べ、査定報告書(Excel)を自動生成します。"
-)
+st.set_page_config(page_title="不動産査定書 作成システム", page_icon="🏠", layout="wide")
 
 
-# ---- セッション初期化 ----
-if "pd" not in st.session_state:
-    st.session_state.pd = ValuationPipelineData()
+# ── ヘルパ ────────────────────────────────────────────────────────────────────
+def wareki(d: date) -> str:
+    if d.year >= 2019:
+        n = d.year - 2018
+        y = "元" if n == 1 else str(n)
+        return f"令和{y}年{d.month}月{d.day}日"
+    return d.strftime("%Y年%m月%d日")
 
 
-def D() -> ValuationPipelineData:
-    return st.session_state.pd
+def add_months(d: date, months: int) -> date:
+    import calendar
+    m = d.month - 1 + months
+    y = d.year + m // 12
+    m = m % 12 + 1
+    day = min(d.day, calendar.monthrange(y, m)[1])
+    return date(y, m, day)
+
+
+def colspec(ptype):
+    if ptype == sc.TYPE_MANSION:
+        return [
+            ("address", "所在地"), ("mansion_name", "マンション名・号室"),
+            ("price_man", "価格(万円)"), ("exclusive_area", "専有面積㎡"),
+            ("balcony_area", "ﾊﾞﾙｺﾆｰ㎡"), ("unit_price", "単価(円/㎡)"),
+            ("direction", "向"), ("floor_no", "階/階建"), ("build_ym", "築年月"),
+            ("station", "最寄駅"), ("access", "アクセス"), ("trade_ym", "取引年月"),
+        ]
+    return [
+        ("address", "所在地"), ("price_man", "価格(万円)"),
+        ("land_price_man", "うち土地(万円)"), ("land_area", "土地面積㎡"),
+        ("building_area", "建物面積㎡"), ("unit_price", "土地単価(円/㎡)"),
+        ("structure", "構造"), ("build_ym", "築年月"), ("madori", "間取り"),
+        ("station", "最寄駅"), ("access", "アクセス"), ("trade_ym", "取引年月"),
+    ]
+
+
+def cases_to_df(cases, spec):
+    if not cases:
+        return pd.DataFrame([{label: "" for _, label in spec}])
+    return pd.DataFrame([{label: c.get(key, "") for key, label in spec} for c in cases])
+
+
+def df_to_cases(df, spec):
+    out = []
+    for _, row in df.iterrows():
+        c = sc.empty_case()
+        nonempty = False
+        for key, label in spec:
+            v = row.get(label, "")
+            if pd.isna(v):
+                v = ""
+            c[key] = v
+            if str(v).strip() not in ("", "0", "0.0", "nan"):
+                nonempty = True
+        if nonempty:
+            out.append(c)
+    return out
+
+
+def avg_unit(cases):
+    vals = [float(c.get("unit_price") or 0) for c in cases if float(c.get("unit_price") or 0) > 0]
+    return round(sum(vals) / len(vals)) if vals else 0
+
+
+def num(v, default=0.0):
+    try:
+        return float(v)
+    except Exception:
+        return default
+
+
+# ── セッション初期化 ──────────────────────────────────────────────────────────
+ss = st.session_state
+ss.setdefault("trades", [])
+ss.setdefault("sales", [])
+ss.setdefault("plus", [sc.empty_point() for _ in range(2)])
+ss.setdefault("minus", [sc.empty_point() for _ in range(2)])
+ss.setdefault("explanation", "")
+ss.setdefault("ryutsu", 100)
+ss.setdefault("ryutsu_reason", "")
+ss.setdefault("ryutsu_trades", None)   # {ratio, reason, basis}
+ss.setdefault("ryutsu_ai", None)       # {ratio, reason}
+ss.setdefault("ryutsu_choice_prev", None)
+# 会社セレクトの保留適用（ウィジェット生成前に行う）
+if "_pending_company_sel" in ss:
+    ss["company_sel"] = ss.pop("_pending_company_sel")
+company = sc.load_company()
 
 
 # ============================================================
-# サイドバー：APIキー設定
+# サイドバー：自社情報
 # ============================================================
 with st.sidebar:
-    st.header("⚙️ 設定")
-    configured = market_research_service.get_api_key()
-    if configured:
-        st.success("不動産情報ライブラリAPI：設定済み")
-    else:
-        st.warning("APIキー未設定（相場の自動取得には必要）")
-    st.caption(
-        "国交省「不動産情報ライブラリ」の無料APIキーで、取引事例・公示地価を"
-        "自動取得します。未設定でも各値は手入力で査定できます。"
-    )
-    api_key_input = st.text_input(
-        "APIキー（このセッションのみ）",
-        type="password",
-        help="https://www.reinfolib.mlit.go.jp/ で無料登録 → APIキーを発行",
-    )
-    st.session_state.api_key = api_key_input or configured
+    st.header("🏢 自社情報")
+    st.caption("会社名ごとに登録・選択できます")
 
-    with st.expander("APIキーの常設方法"):
-        st.code(
-            '# .streamlit/secrets.toml\nreinfolib_api_key = "あなたのキー"',
-            language="toml",
-        )
-    st.divider()
-    st.markdown(
-        "**国土地理院ジオコーディング**（住所→緯度経度）はキー不要で常に利用できます。"
-    )
+    names = sc.list_companies()
+    options = names + ["＋ 新規登録"]
+    cur = sc.current_name()
+    default_idx = names.index(cur) if cur in names else 0
+    sel = st.selectbox("登録会社", options, index=default_idx, key="company_sel")
+    is_new = sel == "＋ 新規登録"
+    prof = sc.get_profile(sel) if not is_new else dict(
+        company_name="", office="", staff="", tel="", address="",
+        license_no="", logo_path="")
+    if not is_new and sel != cur:
+        sc.set_current(sel)
 
-
-# ============================================================
-# STEP 1：物件種別とファイルアップロード → 解析
-# ============================================================
-st.header("STEP 1　物件種別とファイル")
-
-ptype = st.radio("物件種別", PROPERTY_TYPES, horizontal=True, key="ptype_radio")
-D().property_type = ptype
-
-col_a, col_b = st.columns(2)
-with col_a:
-    registry_files = st.file_uploader(
-        "登記簿（謄本）PDF　※土地・建物（複数可）",
-        type=["pdf"],
-        accept_multiple_files=True,
-    )
-    read_mode_label = st.radio(
-        "PDF読み取り方式",
-        ["自動（推奨）", "AI解析（スキャン画像対応）", "テキストのみ"],
-        horizontal=True,
-        help=(
-            "自動：通常PDFはテキスト抽出、スキャン画像PDFは自動でAI解析に切替。\n"
-            "AI解析：見積書自動作成と同じ仕組みで claude コマンドにPDFを直接読ませOCR（時間がかかります）。\n"
-            "テキストのみ：高速だがスキャン画像は読めません。"
-        ),
-    )
-    READ_MODE = {
-        "自動（推奨）": "auto",
-        "AI解析（スキャン画像対応）": "ai",
-        "テキストのみ": "text",
-    }[read_mode_label]
-with col_b:
-    rentroll_file = None
-    if ptype == TYPE_SHUEKI:
-        rentroll_file = st.file_uploader(
-            "レントロール（Excel または PDF）※収益物件は必須",
-            type=["xlsx", "xls", "pdf"],
-        )
-    else:
-        st.info("レントロールは収益物件選択時のみアップロードします。")
-
-if st.button("① 解析する", type="primary", disabled=not registry_files):
-    data = ValuationPipelineData(property_type=ptype)
-    errors = []
-    methods = []
-    # 登記簿（複数PDFをマージ：後勝ちで空欄を埋める）
-    with st.spinner("登記簿を解析中...（AI解析の場合は数分かかることがあります）"):
-        for f in registry_files:
-            try:
-                info, method = registry_parser.parse_auto(
-                    f.getvalue(), f.name, mode=READ_MODE
-                )
-                methods.append(f"{f.name}: {'AI-OCR解析' if method == 'ai' else 'テキスト抽出'}")
-                for field_name, val in info.__dict__.items():
-                    if val and not getattr(data.registry, field_name):
-                        setattr(data.registry, field_name, val)
-            except (registry_parser.RegistryParseError, registry_parser.PdfExtractionError) as e:
-                errors.append(f"{f.name}: {e}")
-    # 住所の初期値は所在（町名・丁目）まで。地番は住居表示と異なるため付けず、
-    # 番地・号はユーザーが手入力する（住居表示は登記簿に記載がないため）。
-    if data.registry.location:
-        data.address = data.registry.location
-    # レントロール
-    if ptype == TYPE_SHUEKI and rentroll_file is not None:
-        try:
-            data.rentroll = rentroll_parser.parse(
-                rentroll_file.name, rentroll_file.getvalue()
-            )
-        except rentroll_parser.RentRollParseError as e:
-            errors.append(f"レントロール: {e}")
-
-    st.session_state.pd = data
-    for e in errors:
-        st.warning(e)
-    if methods:
-        st.caption("　／　".join(methods))
-    st.success("解析しました。STEP 2 で内容を確認・補正してください。")
-
-
-# ============================================================
-# STEP 2：抽出内容の確認・補正
-# ============================================================
-st.header("STEP 2　物件情報の確認・補正")
-reg = D().registry
-
-c1, c2, c3 = st.columns(3)
-with c1:
-    if ptype == TYPE_MANSION:
-        reg.mansion_name = st.text_input("マンション名", reg.mansion_name)
-    reg.location = st.text_input("所在（登記）", reg.location)
-    reg.chiban = st.text_input("地番", reg.chiban)
-    reg.structure = st.text_input("構造", reg.structure)
-with c2:
-    reg.land_area = st.number_input("土地地積(㎡)", value=float(reg.land_area), step=1.0)
-    reg.floor_area = st.number_input("延床面積(㎡)", value=float(reg.floor_area), step=1.0)
-    if ptype == TYPE_MANSION:
-        reg.exclusive_area = st.number_input(
-            "専有面積(㎡)", value=float(reg.exclusive_area), step=1.0
-        )
-    reg.build_year = int(
-        st.number_input("建築年(西暦)", value=int(reg.build_year), step=1)
-    )
-    reg.build_ym = st.text_input("築年月(表示用)", reg.build_ym or (f"{reg.build_year}年" if reg.build_year else ""))
-with c3:
-    if ptype == TYPE_MANSION:
-        reg.floor_no = int(st.number_input("所在階", value=int(reg.floor_no), step=1))
-        reg.total_floors = int(
-            st.number_input("総階数", value=int(reg.total_floors), step=1)
-        )
-        reg.total_units = int(
-            st.number_input("総戸数(不明は0)", value=int(reg.total_units), step=1)
-        )
-        reg.nearest_station = st.text_input("最寄駅", reg.nearest_station)
-        reg.station_minutes = int(
-            st.number_input("駅徒歩(分)", value=int(reg.station_minutes), step=1)
-        )
-
-D().address = st.text_input(
-    "住所（住居表示を手入力）",
-    D().address,
-    help=(
-        "謄本からは町名・丁目までを自動入力します。番地・号はご自身で入力してください"
-        "（例: 大阪市城東区中央1-10-22）。登記簿の地番と住居表示は異なるため手入力が必要です。"
-    ),
-)
-
-if ptype == TYPE_SHUEKI:
-    st.subheader("レントロール（収益）")
-    rc1, rc2 = st.columns(2)
-    with rc1:
-        D().rentroll.monthly_total = int(
-            st.number_input(
-                "月額総収入(円)", value=int(D().rentroll.monthly_total), step=1000
-            )
-        )
-    with rc2:
-        D().rentroll.room_count = int(
-            st.number_input("部屋数", value=int(D().rentroll.room_count), step=1)
-        )
-    D().rentroll.annual_income = D().rentroll.monthly_total * 12
-    st.metric("年間想定総収入", f"{D().rentroll.annual_income_man:,} 万円")
-
-
-# ============================================================
-# STEP 3：住所変換・相場調査
-# ============================================================
-st.header("STEP 3　住所変換・周辺相場調査")
-
-if st.button("② 住所変換＆相場を調べる", disabled=not D().address):
-    with st.spinner("国土地理院・国交省データを照会中..."):
-        try:
-            geo = geo_service.resolve(D().address)
-            D().lat, D().lng = geo["lat"], geo["lng"]
-            D().muni_code, D().pref_code = geo["muni_code"], geo["pref_code"]
-            D().chika_map_url = geo["chika_map_url"]
-        except geo_service.GeoError as e:
-            st.error(str(e))
-        D().market = market_research_service.research(
-            D().pref_code,
-            D().muni_code,
-            D().lat,
-            D().lng,
-            D().property_type,
-            api_key=st.session_state.get("api_key") or None,
-        )
-    if D().lat:
-        st.success(
-            f"緯度経度: {D().lat:.5f}, {D().lng:.5f}　／　市区町村コード: {D().muni_code or '不明'}"
-        )
-    else:
-        st.warning("住所から緯度経度を特定できませんでした。住所表記を見直してください。")
-
-market = D().market
-mc1, mc2 = st.columns([1, 2])
-with mc1:
-    st.subheader("公示地価（㎡単価）")
-    market.koji_unit_price = int(
-        st.number_input(
-            "公示地価 円/㎡（手入力で上書き可）",
-            value=int(market.koji_unit_price),
-            step=1000,
-        )
-    )
-    if market.koji_point_name:
-        st.caption(f"最寄標準地: {market.koji_point_name}（{market.koji_distance_m}m）")
-    if D().chika_map_url:
-        st.link_button("🗺️ 全国地価マップで路線価を確認", D().chika_map_url)
-with mc2:
-    st.subheader(f"取引事例（{market.comp_count}件）")
-    if market.comparables:
-        st.dataframe(
-            [
-                {
-                    "名称/地区": c.name,
-                    "所在地": c.address,
-                    "取引価格(万円)": c.trade_price_man,
-                    "㎡単価(円)": c.unit_price,
-                    "面積(㎡)": c.area,
-                    "時期": c.trade_period,
-                }
-                for c in market.comparables
-            ],
-            hide_index=True,
-            use_container_width=True,
-        )
-        st.caption(
-            f"平均㎡単価: {market.avg_unit_price:,}円 ／ 最高 {market.max_unit_price:,} ／ "
-            f"最低 {market.min_unit_price:,}　"
-            "※APIは市区町村・四半期単位のため、地区レベルの近傍事例です。"
-        )
-    else:
-        st.info(
-            "取引事例が未取得です。APIキー設定後に再調査するか、"
-            "下の『手動で事例を追加』から入力してください。"
-        )
-
-    with st.expander("✍️ 手動で取引事例を追加"):
-        hc1, hc2, hc3, hc4 = st.columns(4)
-        h_addr = hc1.text_input("所在地", key="h_addr")
-        h_price = hc2.number_input("取引価格(万円)", value=0, step=100, key="h_price")
-        h_area = hc3.number_input("面積(㎡)", value=0.0, step=1.0, key="h_area")
-        h_period = hc4.text_input("時期", key="h_period")
-        if st.button("事例を追加") and h_price and h_area:
-            yen = int(h_price) * 10000
-            market.comparables.append(
-                Comparable(
-                    name="手入力事例",
-                    address=h_addr,
-                    trade_price=yen,
-                    unit_price=round(yen / h_area),
-                    area=float(h_area),
-                    trade_period=h_period,
-                )
-            )
+    kp = "new" if is_new else sel
+    with st.form("company_form"):
+        company_name = st.text_input("会社名", value=prof.get("company_name", ""), key=f"cn_{kp}")
+        office = st.text_input("営業所", value=prof.get("office", ""), key=f"of_{kp}")
+        staff = st.text_input("担当者名", value=prof.get("staff", ""), key=f"st_{kp}")
+        tel = st.text_input("電話番号", value=prof.get("tel", ""), key=f"tl_{kp}")
+        addr = st.text_input("所在地", value=prof.get("address", ""), key=f"ad_{kp}")
+        lic = st.text_input("免許番号", value=prof.get("license_no", ""), key=f"lc_{kp}")
+        logo_up = st.file_uploader("ロゴ画像（任意）", type=["png", "jpg", "jpeg"], key=f"lg_{kp}")
+        submitted = st.form_submit_button("💾 保存", use_container_width=True)
+    if submitted:
+        if not company_name.strip():
+            st.error("会社名を入力してください")
+        else:
+            info = {
+                "company_name": company_name, "office": office, "staff": staff,
+                "tel": tel, "address": addr, "license_no": lic,
+                "logo_path": prof.get("logo_path", "") or "assets/logo.jpeg",
+            }
+            if logo_up is not None:
+                import os, hashlib
+                os.makedirs("assets", exist_ok=True)
+                ext = logo_up.name.split(".")[-1].lower()
+                tag = hashlib.md5(company_name.encode("utf-8")).hexdigest()[:8]
+                p = f"assets/logo_{tag}.{ext}"
+                with open(p, "wb") as f:
+                    f.write(logo_up.getvalue())
+                info["logo_path"] = p
+            sc.save_profile(info)
+            st.session_state["_pending_company_sel"] = company_name
+            st.success("保存しました")
             st.rerun()
 
+    if not is_new and len(names) > 1:
+        if st.button("🗑 この会社を削除", use_container_width=True):
+            sc.delete_profile(sel)
+            st.session_state["_pending_company_sel"] = sc.current_name()
+            st.rerun()
 
-# ---- 相続税路線価（土地を持つ種別のみ） ----
-if ptype in (TYPE_KODATE, TYPE_SHUEKI):
-    st.subheader("相続税路線価　※前面道路（正面路線）で価格が変わります")
-    lc1, lc2 = st.columns(2)
-    with lc1:
-        st.link_button(
-            "🗺️ 全国地価マップで確認（住所検索＋路線価表示）",
-            geo_service.chika_map_url(D().address or ""),
-        )
-    with lc2:
-        st.link_button("📄 国税庁 路線価図", "https://www.rosenka.nta.go.jp/")
-
-    up = st.file_uploader(
-        "路線価図／全国地価マップのスクショ（PNG/JPG/PDF）をアップ → AIが接道路線価を読取",
-        type=["png", "jpg", "jpeg", "pdf"],
-        key="rosenka_img",
-    )
-    if st.button("路線価図をAI読取", disabled=up is None):
-        with st.spinner("路線価図をAI解析中...（数分かかることがあります）"):
-            try:
-                res = rosenka_reader.read(up.getvalue(), up.name, address=D().address)
-                st.session_state.rosenka_candidates = res["candidates"]
-                market.rosenka_unit_price = res["unit_price"]
-                market.rosenka_note = res["note"]
-                st.success(
-                    f"読取成功：正面路線 {res['note'] or ''}（{res['unit_price']:,}円/㎡）"
-                    f"／接道候補 {len(res['candidates'])}件"
-                )
-            except rosenka_reader.PdfExtractionError as e:
-                st.warning(str(e))
-
-    cands = st.session_state.get("rosenka_candidates", [])
-    if len(cands) > 1:
-        labels = [c["label"] for c in cands]
-        idx = st.radio(
-            "前面道路（正面路線）を選択",
-            range(len(labels)),
-            format_func=lambda i: labels[i],
-            horizontal=True,
-        )
-        market.rosenka_unit_price = cands[idx]["unit"]
-        market.rosenka_note = cands[idx]["note"]
-
-    rk1, rk2 = st.columns(2)
-    with rk1:
-        market.rosenka_unit_price = int(
-            st.number_input(
-                "正面路線価（円/㎡・手入力で上書き可）",
-                value=int(market.rosenka_unit_price),
-                step=1000,
-            )
-        )
-    with rk2:
-        chiku_opts = list(valuation_engine.SIDE_ADD_RATE.keys())
-        chiku_idx = (
-            chiku_opts.index(market.rosenka_chiku)
-            if market.rosenka_chiku in chiku_opts
-            else 0
-        )
-        market.rosenka_chiku = st.selectbox("地区区分（側方加算率）", chiku_opts, index=chiku_idx)
-
-    with st.expander("角地・準角地の側方路線影響加算"):
-        corner_opts = ["なし", "角地", "準角地"]
-        market.rosenka_corner = st.radio(
-            "角地区分",
-            corner_opts,
-            index=corner_opts.index(market.rosenka_corner)
-            if market.rosenka_corner in corner_opts
-            else 0,
-            horizontal=True,
-        )
-        if market.rosenka_corner != "なし":
-            market.rosenka_side_unit_price = int(
-                st.number_input(
-                    "側方路線価（円/㎡）",
-                    value=int(market.rosenka_side_unit_price),
-                    step=1000,
-                )
-            )
-            rate = valuation_engine.SIDE_ADD_RATE.get(market.rosenka_chiku, {}).get(
-                market.rosenka_corner, 0.0
-            )
-            st.caption(
-                f"側方路線影響加算率 {rate:.0%}（{market.rosenka_corner}・{market.rosenka_chiku}）。"
-                "※奥行価格補正・不整形地補正等は簡易のため省略しています。"
-            )
-
-    prev = valuation_engine.compute_rosenka(market, reg.land_area)
-    if prev:
-        eff, souzoku, jissei, detail = prev
-        st.caption(f"採用路線価：{detail}")
-        pc1, pc2 = st.columns(2)
-        pc1.metric("相続税評価額（路線価×地積）", f"{valuation_engine._man(souzoku):,} 万円")
-        pc2.metric("実勢補正（÷0.8）", f"{valuation_engine._man(jissei):,} 万円")
-    elif market.rosenka_unit_price:
-        st.info("土地地積（STEP 2）を入力すると路線価ベースの土地評価額を表示します。")
+    st.divider()
+    with st.expander("参考：不動産情報ライブラリAPI"):
+        if market_research_service.get_api_key():
+            st.success("API：設定済み（参考相場に利用）")
+        else:
+            st.info("APIキー未設定。参考相場は利用できません。")
+        st.caption("査定は事例・売出のPDF入力が主、API相場は参考扱いです。")
 
 
 # ============================================================
-# STEP 4：査定計算 ＆ Excel出力
+# メイン
 # ============================================================
-st.header("STEP 4　査定価格の算定とExcel出力")
+st.title("🏠 不動産査定書 作成システム")
+st.caption("取引事例・売出物件PDFをAIで読み込み → 評点方式で査定 → 3枚セットの査定書(Excel)を出力")
 
-if st.button("③ 査定計算する", type="primary"):
-    D().valuation = valuation_engine.evaluate(D())
+ptype = st.radio("物件種別", sc.PROPERTY_TYPES, horizontal=True)
+is_mansion = ptype == sc.TYPE_MANSION
+spec = colspec(ptype)
 
-v = D().valuation
-if v.final_price or v.basis:
-    st.metric("最終査定価格", f"{valuation_engine._man(v.final_price):,} 万円")
+c1, c2, c3 = st.columns(3)
+customer = c1.text_input("お客様氏名", placeholder="例：上田")
+satei_d = c2.date_input("査定年月日", value=date.today())
+expiry_d = c3.date_input("有効期限", value=add_months(date.today(), 3))
 
-    if ptype == TYPE_MANSION:
-        st.write(f"**算出根拠**：{v.basis}")
-    elif ptype == TYPE_KODATE:
-        kc1, kc2, kc3 = st.columns(3)
-        kc1.metric("土地評価額", f"{valuation_engine._man(v.land_price):,} 万円")
-        kc2.metric("建物評価額(原価法)", f"{valuation_engine._man(v.building_price):,} 万円")
-        kc3.metric("合計", f"{valuation_engine._man(v.final_price):,} 万円")
-        st.caption(v.basis)
-    elif ptype == TYPE_SHUEKI:
-        sc1, sc2 = st.columns(2)
-        with sc1:
-            st.markdown("**積算価格（コスト法）**")
-            st.write(f"土地: {valuation_engine._man(v.cost_land):,} 万円")
-            st.write(f"建物: {valuation_engine._man(v.cost_building):,} 万円")
-            st.write(f"合計: **{valuation_engine._man(v.cost_total):,} 万円**")
-        with sc2:
-            st.markdown("**収益価格（収益還元法）**")
-            st.write(f"年間総収入: {valuation_engine._man(v.income_gross):,} 万円")
-            st.write(f"運営経費(20%): -{valuation_engine._man(v.income_expense):,} 万円")
-            st.write(f"NOI: {valuation_engine._man(v.income_noi):,} 万円 ÷ {v.cap_rate}%")
-            st.write(f"収益還元価格: **{valuation_engine._man(v.income_price):,} 万円**")
+st.divider()
 
-    # 路線価ベースの土地評価（参考・両方表示）
-    if v.rosenka_souzoku:
-        st.markdown("**［参考］相続税路線価ベースの土地評価**")
-        st.caption(v.rosenka_detail)
-        rc1, rc2 = st.columns(2)
-        rc1.metric("相続税評価額（路線価×地積）", f"{valuation_engine._man(v.rosenka_souzoku):,} 万円")
-        rc2.metric("実勢補正（÷0.8）", f"{valuation_engine._man(v.rosenka_jissei):,} 万円")
-
-    # Excel出力
-    try:
-        xlsx = excel_export_service.build(D())
-        fname = {
-            TYPE_MANSION: "査定報告書_マンション.xlsx",
-            TYPE_KODATE: "査定報告書_戸建.xlsx",
-            TYPE_SHUEKI: "査定報告書_収益.xlsx",
-        }[ptype]
-        st.download_button(
-            "④ 査定報告書(Excel)をダウンロード",
-            data=xlsx,
-            file_name=fname,
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            type="primary",
-        )
-    except Exception as e:
-        st.error(f"Excel生成に失敗しました: {e}")
+# ── 1. 査定対象物件 ──
+st.subheader("① 査定対象物件")
+subj = sc.empty_case()
+s1, s2, s3 = st.columns([2, 1, 1])
+subj["address"] = s1.text_input("物件所在地")
+subj["rights"] = s2.selectbox("権利", ["所有権", "地上権", "賃借権", "定期借地権"])
+subj["build_ym"] = s3.text_input("築年月", placeholder="例 平成10年3月")
+s4, s5, s6, s7 = st.columns(4)
+subj["station"] = s4.text_input("最寄駅・路線")
+subj["access"] = s5.text_input("アクセス", placeholder="徒歩8分")
+subj["structure"] = s6.text_input("建物構造", placeholder="木造2F")
+subj["madori"] = s7.text_input("間取り", placeholder="3LDK")
+if is_mansion:
+    m1, m2, m3, m4 = st.columns(4)
+    subj["mansion_name"] = m1.text_input("マンション名・号室")
+    subj["exclusive_area"] = m2.number_input("専有面積(㎡)", min_value=0.0, step=0.01, format="%.2f")
+    subj["balcony_area"] = m3.number_input("バルコニー(㎡)", min_value=0.0, step=0.01, format="%.2f")
+    subj["floor_no"] = m4.text_input("階／階建", placeholder="6/11")
+    subj["direction"] = st.text_input("向き", placeholder="南")
 else:
-    st.info("「③ 査定計算する」を押すと査定価格を算定します。")
+    k1, k2 = st.columns(2)
+    subj["land_area"] = k1.number_input("土地面積(㎡)", min_value=0.0, step=0.01, format="%.2f")
+    subj["building_area"] = k2.number_input("建物面積(㎡)", min_value=0.0, step=0.01, format="%.2f")
+
+st.divider()
+
+# ── 2. 取引事例・売出物件（PDF→AI抽出） ──
+st.subheader("② 取引事例・売出物件")
+st.caption("PDFをアップして「AIで抽出」→ 下の表に反映され、手修正できます。")
+
+up1, up2 = st.columns(2)
+with up1:
+    st.markdown("**取引事例 PDF**")
+    trade_pdfs = st.file_uploader("取引事例", type=["pdf"], accept_multiple_files=True,
+                                  key="trade_up", label_visibility="collapsed")
+    if st.button("🤖 取引事例をAI抽出", use_container_width=True, disabled=not trade_pdfs):
+        got = 0
+        with st.spinner("PDFを解析中..."):
+            for f in trade_pdfs:
+                try:
+                    cs = case_extractor.extract_cases(f.getvalue(), f.name, "取引事例", ptype)
+                    ss.trades.extend(cs); got += len(cs)
+                except Exception as e:
+                    st.error(f"{f.name}: {e}")
+        st.success(f"{got}件の取引事例を抽出しました"); st.rerun()
+with up2:
+    st.markdown("**売出物件 PDF**")
+    sale_pdfs = st.file_uploader("売出物件", type=["pdf"], accept_multiple_files=True,
+                                 key="sale_up", label_visibility="collapsed")
+    if st.button("🤖 売出物件をAI抽出", use_container_width=True, disabled=not sale_pdfs):
+        got = 0
+        with st.spinner("PDFを解析中..."):
+            for f in sale_pdfs:
+                try:
+                    cs = case_extractor.extract_cases(f.getvalue(), f.name, "売出物件", ptype)
+                    ss.sales.extend(cs); got += len(cs)
+                except Exception as e:
+                    st.error(f"{f.name}: {e}")
+        st.success(f"{got}件の売出物件を抽出しました"); st.rerun()
+
+st.markdown("**取引事例（編集可）**")
+ed_t = st.data_editor(cases_to_df(ss.trades, spec), num_rows="dynamic",
+                      use_container_width=True, key="ed_trades")
+ss.trades = df_to_cases(ed_t, spec)
+
+st.markdown("**売出物件（編集可）**")
+ed_s = st.data_editor(cases_to_df(ss.sales, spec), num_rows="dynamic",
+                      use_container_width=True, key="ed_sales")
+ss.sales = df_to_cases(ed_s, spec)
+
+with st.expander("参考：周辺相場を取得（不動産情報ライブラリ）"):
+    ref_addr = st.text_input("住所", value=subj["address"], key="ref_addr")
+    if st.button("📡 参考相場を取得"):
+        try:
+            with st.spinner("照会中..."):
+                geo = geo_service.resolve(ref_addr)
+                mtype = "区分マンション" if is_mansion else "土地・戸建"
+                md = market_research_service.research(
+                    geo.get("pref_code", ""), geo.get("muni_code", ""),
+                    geo.get("lat"), geo.get("lng"), mtype)
+            if md.koji_unit_price:
+                st.info(f"最寄公示地価：{md.koji_unit_price:,}円/㎡（{md.koji_point_name} 約{md.koji_distance_m}m）")
+            if md.comparables:
+                st.dataframe(pd.DataFrame([
+                    {"所在": c.address, "取引価格(万円)": c.trade_price_man,
+                     "単価(円/㎡)": c.unit_price, "面積㎡": c.area, "時期": c.trade_period}
+                    for c in md.comparables]), use_container_width=True)
+            else:
+                st.caption("参考データを取得できませんでした（住所精度・APIキーをご確認ください）。")
+        except Exception as e:
+            st.warning(f"参考相場の取得に失敗しました: {e}")
+
+st.divider()
+
+# ── 3. 加点・減点ポイント ──
+st.subheader("③ 加点・減点ポイント（評点）")
+st.caption("要因とポイントはプルダウンから選択。土地/建物/両方の区分も選べます。"
+           "合計評点は安全のため±50点（倍率50〜150%）の範囲に制限されます。")
+
+
+def points_df(lst):
+    if not lst:
+        rows = [{"要因": None, "区分": "両方", "点": None}]
+    else:
+        rows = [{"要因": p.get("factor") or None, "区分": p.get("kubun", "両方"),
+                 "点": (p.get("point") or None)} for p in lst]
+    return pd.DataFrame(rows)
+
+
+def points_cfg(factor_options):
+    return {
+        "要因": st.column_config.SelectboxColumn("要因", options=factor_options, required=False, width="large"),
+        "区分": st.column_config.SelectboxColumn("区分", options=sc.KUBUN_OPTIONS, required=False),
+        "点": st.column_config.SelectboxColumn("点", options=sc.POINT_CHOICES, required=False),
+    }
+
+
+pp, mm = st.columns(2)
+with pp:
+    st.markdown("**加点ポイント**")
+    ed_p = st.data_editor(points_df(ss.plus), num_rows="dynamic", use_container_width=True,
+                          key="ed_plus", column_config=points_cfg(sc.PLUS_FACTORS))
+with mm:
+    st.markdown("**減点ポイント**")
+    ed_m = st.data_editor(points_df(ss.minus), num_rows="dynamic", use_container_width=True,
+                          key="ed_minus", column_config=points_cfg(sc.MINUS_FACTORS))
+
+
+def df_to_points(df):
+    out = []
+    for _, r in df.iterrows():
+        f = r.get("要因")
+        if pd.isna(f) or not str(f).strip():
+            continue
+        pt = r.get("点")
+        pt = 0 if pd.isna(pt) else int(num(pt, 0))
+        out.append({"factor": str(f).strip(), "kubun": (r.get("区分") or "両方"), "point": pt})
+    return out
+
+
+ss.plus = df_to_points(ed_p)
+ss.minus = df_to_points(ed_m)
+_net = sc.total_point(ss.plus, ss.minus)
+if abs(_net) > sc.MAX_NET_POINT:
+    st.warning(f"合計評点 {_net:+d} 点は範囲外のため ±{sc.MAX_NET_POINT}点に制限して計算します。")
+
+st.divider()
+
+# ── 4. 単価・査定計算 ──
+st.subheader("④ 単価と査定計算")
+st.markdown("**流通性比率（％）** — 売れ易さによる最終調整（原則±7%＝93〜107%）。"
+            "2通りの算出を見比べて採用できます。")
+rb1, rb2 = st.columns(2)
+if rb1.button("🧮 取引事例から算出", use_container_width=True):
+    ss.ryutsu_trades = ryutsu_service.from_trades(ss.trades, ss.sales)
+    st.rerun()
+if rb2.button("🌐 AIで総合判断（Web相場調査）", use_container_width=True):
+    with st.spinner("相場を調査中..."):
+        try:
+            ss.ryutsu_ai = ryutsu_service.suggest_ryutsu(
+                property_type=ptype, subject=subj, trades=ss.trades, sales=ss.sales)
+        except Exception as e:
+            st.error(str(e))
+    st.rerun()
+
+# 2案を並べて表示
+ca, cb = st.columns(2)
+with ca:
+    st.markdown("**🧮 取引事例ベース**")
+    if ss.ryutsu_trades:
+        st.metric("提案比率", f"{ss.ryutsu_trades['ratio']} %", help=ss.ryutsu_trades.get("basis", ""))
+        st.caption(ss.ryutsu_trades["reason"])
+    else:
+        st.caption("「取引事例から算出」を押すと、成約事例の単価推移から算出します。")
+with cb:
+    st.markdown("**🌐 AI総合判断**")
+    if ss.ryutsu_ai:
+        st.metric("提案比率", f"{ss.ryutsu_ai['ratio']} %")
+        st.caption(ss.ryutsu_ai["reason"])
+    else:
+        st.caption("「AIで総合判断」を押すと、Web相場調査＋事例から提案します。")
+
+# 採用方法を選択
+opts = []
+if ss.ryutsu_trades:
+    opts.append("取引事例ベース")
+if ss.ryutsu_ai:
+    opts.append("AI総合判断")
+opts.append("手動")
+choice = st.radio("採用する流通性比率", opts, horizontal=True, key="ryutsu_choice")
+if choice != ss.ryutsu_choice_prev:
+    if choice == "取引事例ベース" and ss.ryutsu_trades:
+        ss.ryutsu = ss.ryutsu_trades["ratio"]
+    elif choice == "AI総合判断" and ss.ryutsu_ai:
+        ss.ryutsu = ss.ryutsu_ai["ratio"]
+    ss.ryutsu_choice_prev = choice
+ryutsu = st.slider("流通性比率（％・微調整可）", min_value=70, max_value=120, value=int(ss.ryutsu), step=1)
+ss.ryutsu = ryutsu
+if choice == "取引事例ベース" and ss.ryutsu_trades:
+    ss.ryutsu_reason = f"【取引事例】{ss.ryutsu_trades['reason']}"
+elif choice == "AI総合判断" and ss.ryutsu_ai:
+    ss.ryutsu_reason = f"【AI総合判断】{ss.ryutsu_ai['reason']}"
+else:
+    ss.ryutsu_reason = "手動設定"
+if is_mansion:
+    u1, u2 = st.columns(2)
+    sugg = avg_unit(ss.trades) or avg_unit(ss.sales)
+    case_unit = u1.number_input("事例単価(円/㎡)", min_value=0, step=1000, value=int(sugg),
+                                help="採用取引事例の単価。空欄時は事例平均を提案。")
+    calc = sc.calc_mansion(case_unit, num(subj["exclusive_area"]), ss.plus, ss.minus, ryutsu)
+    u2.metric("評点計", f"{calc['point']:+d} 点")
+    st.caption(f"試算価格 {calc['base']:,}円 × 流通性比率 {ryutsu}% = {calc['total']:,}円")
+else:
+    u1, u2, u3 = st.columns(3)
+    sugg = avg_unit(ss.trades) or avg_unit(ss.sales)
+    land_unit = u1.number_input("土地事例単価(円/㎡)", min_value=0, step=1000, value=int(sugg))
+    building_unit = u2.number_input("再調達単価(円/㎡)", min_value=0, step=1000, value=150000,
+                                    help="建物の再調達単価。木造15万円/㎡等を目安に。")
+    calc = sc.calc_kodate(land_unit, num(subj["land_area"]), building_unit,
+                          num(subj["building_area"]), ss.plus, ss.minus, ryutsu)
+    u3.metric("土地/建物 評点", f"{calc['land_point']:+d} / {calc['building_point']:+d}")
+    cc1, cc2, cc3 = st.columns(3)
+    cc1.metric("土地価格(A)", f"{calc['land_value']:,} 円")
+    cc2.metric("建物価格(B)", f"{calc['building_value']:,} 円")
+    cc3.metric(f"×流通性比率{ryutsu}%", f"{calc['total']:,} 円")
+
+st.markdown(f"### 自動算出の査定価格： **{calc['total']:,} 円**")
+final = st.number_input("最終査定価格（手修正可・円）", min_value=0, step=10000, value=int(calc["total"]))
+calc["total"] = int(final)
+
+st.divider()
+
+# ── 5. 査定の根拠（説明書） ──
+st.subheader("⑤ 査定価格の説明書（査定の根拠）")
+note = st.text_input("担当者メモ（AI生成に反映・任意）", placeholder="例：高台で日当たり・眺望良好。流通性高く105%。")
+if st.button("🤖 査定の根拠をAI生成"):
+    with st.spinner("生成中..."):
+        try:
+            ss.explanation = explanation_service.generate_explanation(
+                property_type=ptype, subject=subj, trades=ss.trades, calc=calc,
+                ryutsu_ratio=f"{ryutsu}%", note=note)
+        except Exception as e:
+            st.error(str(e))
+    st.rerun()
+ss.explanation = st.text_area("査定の根拠（編集可）", value=ss.explanation, height=160)
+
+st.divider()
+
+# ── 6. 出力 ──
+st.subheader("⑥ 査定書を出力")
+if not customer:
+    st.info("お客様氏名を入力すると出力できます。")
+else:
+    company = sc.load_company()
+    data = satei_report.build_report(
+        property_type=ptype, subject=subj, trades=ss.trades, sales=ss.sales,
+        plus=ss.plus, minus=ss.minus, units={}, calc=calc, company=company,
+        customer=customer, satei_date=wareki(satei_d), expiry=wareki(expiry_d),
+        explanation=ss.explanation)
+    label = "戸建" if not is_mansion else "マンション"
+    st.download_button(
+        f"📊 査定書3枚セット（{label}）をExcelでダウンロード",
+        data=data,
+        file_name=f"査定書_{label}_{customer}_{satei_d.strftime('%Y%m%d')}.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        use_container_width=True)
+    st.caption("① 市場価格分析表 ② 価格査定書 ③ 査定価格の説明書 の3シート構成（A4縦）です。")
