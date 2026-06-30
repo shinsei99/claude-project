@@ -285,6 +285,30 @@
     .mt8  { margin-top: 8px; }
     .mt12 { margin-top: 12px; }
     .mt14 { margin-top: 14px; }
+
+    /* ===== タブレット・デスクトップ対応 ===== */
+    @media (min-width: 600px) {
+      body { background: #d1d9e6; }
+      #app {
+        max-width: 680px;
+        height: auto;
+        min-height: 100vh;
+        box-shadow: 0 4px 40px rgba(0,0,0,.12);
+      }
+      #scroll-area {
+        flex: none;
+        overflow-y: visible;
+        padding: 16px 20px;
+      }
+      nav { position: sticky; bottom: 0; }
+    }
+
+    @media (min-width: 900px) {
+      #app { max-width: 860px; }
+      #scroll-area { padding: 20px 28px; }
+      .card { padding: 24px 24px 26px; }
+      .g2 { gap: 16px; }
+    }
   </style>
 </head>
 <body>
@@ -420,7 +444,7 @@
 
         <div class="g2">
           <div><label>借入期間（年）</label><input class="fi" type="number" id="rv-years" value="35"  oninput="cReverse()"></div>
-          <div><label>年利（%）</label>      <input class="fi" type="number" id="rv-rate"  value="0.5" step="0.01" oninput="cReverse()"></div>
+          <div><label>年利（%）</label>      <input class="fi" type="number" id="rv-rate"  value="1" step="0.01" oninput="cReverse()"></div>
         </div>
 
         <div class="res res-indigo">
@@ -496,7 +520,7 @@
 
         <div class="g2 mt12">
           <div><label>返済期間（年）</label><input class="gi" type="number" id="l-years" value="35"  oninput="cLoan()"></div>
-          <div><label>年利（%）</label>     <input class="gi" type="number" id="l-rate"  value="0.5" step="0.01" oninput="cLoan()"></div>
+          <div><label>年利（%）</label>     <input class="gi" type="number" id="l-rate"  value="1" step="0.01" oninput="cLoan()"></div>
         </div>
 
         <div class="res res-green">
@@ -515,7 +539,7 @@
 
         <div class="g2 mt12">
           <div><label>返済期間（年）</label><input class="gi" type="number" id="c-years" value="35"  oninput="cCompare()"></div>
-          <div><label>年利（%）</label>     <input class="gi" type="number" id="c-rate"  value="0.5" step="0.01" oninput="cCompare()"></div>
+          <div><label>年利（%）</label>     <input class="gi" type="number" id="c-rate"  value="1" step="0.01" oninput="cCompare()"></div>
         </div>
 
         <div class="cmp-table">
@@ -550,7 +574,7 @@
           <div><label>残存期間（年）</label>            <input class="gi" type="number" id="p-remain"  value="28"   oninput="cPrepay()"></div>
         </div>
         <div class="g2 mt10">
-          <div><label>適用金利（%）</label>          <input class="gi" type="number" id="p-rate"   value="0.5" step="0.01" oninput="cPrepay()"></div>
+          <div><label>適用金利（%）</label>          <input class="gi" type="number" id="p-rate"   value="1" step="0.01" oninput="cPrepay()"></div>
           <div><label>繰り上げ返済額（万円）</label>  <input class="gi" type="number" id="p-amount" value="100"  oninput="cPrepay()"></div>
         </div>
 
