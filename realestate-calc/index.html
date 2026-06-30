@@ -1,0 +1,1046 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <!-- ▼ iOS/Android ネイティブ品質 viewport -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="不動産電卓">
+  <meta name="theme-color" content="#0f172a">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+  <title>不動産・金融電卓</title>
+
+  <style>
+    /* ===== リセット・基盤 ===== */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --safe-top:    env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --blue:   #2563eb;
+      --blue-dk:#1d4ed8;
+      --green:  #059669;
+      --green-dk:#047857;
+      --violet: #7c3aed;
+      --violet-dk:#6d28d9;
+      --bg:     #f1f5f9;
+      --card:   #ffffff;
+      --border: #e2e8f0;
+      --text:   #0f172a;
+      --sub:    #64748b;
+      --radius: 14px;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Noto Sans JP', sans-serif;
+      -webkit-text-size-adjust: 100%;
+      -webkit-tap-highlight-color: transparent;
+      overscroll-behavior: none;
+    }
+
+    /* ===== レイアウト ===== */
+    #app {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      max-width: 430px;
+      margin: 0 auto;
+    }
+
+    /* ===== ヘッダー ===== */
+    header {
+      flex-shrink: 0;
+      background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 60%, #1e1b4b 100%);
+      color: #fff;
+      padding: calc(var(--safe-top) + 14px) 16px 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    header .icon {
+      width: 36px; height: 36px;
+      background: rgba(59,130,246,.25);
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px;
+    }
+    header h1 { font-size: 15px; font-weight: 800; line-height: 1.2; }
+    header p  { font-size: 10px; color: #93c5fd; margin-top: 1px; }
+
+    /* ===== スクロール領域 ===== */
+    #scroll-area {
+      flex: 1;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      padding: 12px 12px 0;
+    }
+
+    /* ===== ボトムナビ ===== */
+    nav {
+      flex-shrink: 0;
+      background: #fff;
+      border-top: 1px solid var(--border);
+      display: flex;
+      padding-bottom: var(--safe-bottom);
+    }
+    .nav-btn {
+      flex: 1;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: 10px 0;
+      font-size: 10px; font-weight: 700;
+      color: #94a3b8;
+      gap: 4px;
+      cursor: pointer;
+      min-height: 60px;
+      border: none; background: none;
+      transition: color .15s;
+    }
+    .nav-btn svg { width: 22px; height: 22px; }
+    .nav-btn.on-blue   { color: var(--blue); }
+    .nav-btn.on-green  { color: var(--green); }
+    .nav-btn.on-violet { color: var(--violet); }
+
+    /* ===== メインタブ ===== */
+    .main-tab { display: none; }
+    .main-tab.active { display: block; }
+
+    /* ===== ピルナビ ===== */
+    .pills {
+      display: flex; gap: 4px;
+      background: #e2e8f0;
+      padding: 4px; border-radius: 12px;
+      margin-bottom: 12px;
+    }
+    .pill {
+      flex: 1; text-align: center;
+      font-size: 11px; font-weight: 700;
+      color: #64748b;
+      padding: 8px 2px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all .15s;
+      user-select: none;
+    }
+    .pill.on { color: #fff; }
+    .pill.on.c-blue   { background: var(--blue); }
+    .pill.on.c-green  { background: var(--green); }
+    .pill.on.c-violet { background: var(--violet); }
+
+    /* ===== サブタブ ===== */
+    .sub-tab { display: none; }
+    .sub-tab.active { display: block; }
+
+    /* ===== カード ===== */
+    .card {
+      background: var(--card);
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      box-shadow: 0 1px 3px rgba(0,0,0,.06);
+      padding: 18px 16px 20px;
+      margin-bottom: 12px;
+    }
+
+    /* ===== セクションタイトル ===== */
+    .ttl {
+      font-size: 13px; font-weight: 800;
+      padding-left: 10px;
+      border-left: 3px solid;
+      margin-bottom: 14px;
+    }
+    .ttl.blue   { color: var(--blue);   border-color: var(--blue); }
+    .ttl.green  { color: var(--green);  border-color: var(--green); }
+    .ttl.violet { color: var(--violet); border-color: var(--violet); }
+
+    .note { font-size: 10px; color: #94a3b8; margin-bottom: 12px; }
+
+    /* ===== ラベル ===== */
+    label { display: block; font-size: 11px; font-weight: 600; color: var(--sub); margin-bottom: 5px; }
+
+    /* ===== インプット (16px → iOSズーム防止) ===== */
+    input[type=number], select {
+      display: block; width: 100%;
+      font-size: 16px; font-weight: 700;
+      color: var(--text);
+      background: #f8fafc;
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      padding: 11px 12px;
+      text-align: right;
+      outline: none;
+      -webkit-appearance: none; appearance: none;
+      -moz-appearance: textfield;
+      transition: border-color .15s, box-shadow .15s, background .15s;
+    }
+    input[type=number]::-webkit-outer-spin-button,
+    input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
+
+    input[type=number]:focus { background: #fff; }
+    .fi:focus { border-color: var(--blue);   box-shadow: 0 0 0 3px rgba(37,99,235,.12); }
+    .gi:focus { border-color: var(--green);  box-shadow: 0 0 0 3px rgba(5,150,105,.12); }
+    .vi:focus { border-color: var(--violet); box-shadow: 0 0 0 3px rgba(124,58,237,.12); }
+
+    select { text-align: left; padding-right: 32px; }
+    .sel-wrap { position: relative; }
+    .sel-wrap::after {
+      content: '▾';
+      position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+      color: var(--sub); pointer-events: none; font-size: 12px;
+    }
+
+    /* ===== ラジオ ===== */
+    .radio-row { display: flex; gap: 16px; align-items: center; margin-bottom: 14px; }
+    .radio-row span { font-size: 12px; font-weight: 600; color: var(--sub); }
+    .radio-lbl {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 14px; font-weight: 700; cursor: pointer;
+    }
+    input[type=radio] { accent-color: var(--blue); width: 16px; height: 16px; }
+
+    /* ===== グリッド ===== */
+    .g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .g3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+
+    /* ===== 区切り ===== */
+    .sep { height: 1px; background: #f1f5f9; margin: 14px 0; }
+
+    /* ===== 内訳テーブル ===== */
+    .breakdown {
+      background: #f8fafc;
+      border-radius: 10px;
+      padding: 10px 14px;
+      margin: 12px 0;
+    }
+    .brow {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 7px 0;
+      border-bottom: 1px solid #f1f5f9;
+      font-size: 12px;
+    }
+    .brow:last-child { border-bottom: none; }
+    .brow .bl { color: var(--sub); }
+    .brow .bv { font-weight: 700; color: var(--text); }
+
+    /* ===== 結果カード ===== */
+    .res {
+      border-radius: 12px;
+      padding: 16px;
+      text-align: center;
+      margin-top: 12px;
+    }
+    .res .res-label { font-size: 11px; font-weight: 700; margin-bottom: 6px; }
+    .res .res-num   { font-size: 32px; font-weight: 800; letter-spacing: -1px; line-height: 1; }
+    .res .res-unit  { font-size: 14px; font-weight: 700; margin-left: 2px; }
+    .res .res-sub   { font-size: 11px; color: #6b7280; margin-top: 5px; }
+
+    .res-blue   { background: linear-gradient(135deg,#eff6ff,#dbeafe); }
+    .res-green  { background: linear-gradient(135deg,#ecfdf5,#d1fae5); }
+    .res-violet { background: linear-gradient(135deg,#f5f3ff,#ede9fe); }
+    .res-amber  { background: linear-gradient(135deg,#fffbeb,#fef3c7); }
+    .res-rose   { background: linear-gradient(135deg,#fff1f2,#ffe4e6); }
+    .res-indigo { background: linear-gradient(135deg,#eef2ff,#e0e7ff); }
+
+    /* ===== 比較テーブル ===== */
+    .cmp-table { border-radius: 10px; overflow: hidden; border: 1px solid var(--border); margin: 14px 0; }
+    .cmp-head { display: grid; grid-template-columns: 1.2fr 1fr 1fr; background: #e2e8f0; padding: 8px 12px; gap: 4px; }
+    .cmp-head > * { font-size: 11px; font-weight: 700; color: #475569; }
+    .cmp-head > *:not(:first-child) { text-align: right; }
+    .cmp-row { display: grid; grid-template-columns: 1.2fr 1fr 1fr; padding: 10px 12px; gap: 4px; align-items: center; border-top: 1px solid #f1f5f9; }
+    .cmp-row > *:not(:first-child) { text-align: right; font-size: 13px; font-weight: 700; }
+    .cmp-name { font-size: 12px; font-weight: 800; }
+    .cmp-sub  { font-size: 10px; color: #94a3b8; font-weight: 500; }
+
+    /* ===== 面積換算 ===== */
+    .unit-row { display: flex; align-items: center; gap: 8px; }
+    .unit-label { font-size: 16px; font-weight: 800; min-width: 32px; }
+
+    /* ===== 徒歩換算ブロック ===== */
+    .walk-block {
+      border-radius: 12px; padding: 14px 16px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .walk-block .wi { flex: 1; }
+    .walk-result { text-align: right; }
+    .walk-result .wr-label { font-size: 10px; font-weight: 700; margin-bottom: 3px; }
+    .walk-result .wr-val   { font-size: 28px; font-weight: 800; line-height: 1; }
+
+    /* ===== 築年 ===== */
+    .wareki-block {
+      background: #faf5ff;
+      border: 1px solid #e9d5ff;
+      border-radius: 12px;
+      padding: 16px;
+      margin-top: 14px;
+    }
+    .wrow { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #ede9fe; }
+    .wrow:last-child { border-bottom: none; }
+
+    /* ===== マージン便利クラス ===== */
+    .mt8  { margin-top: 8px; }
+    .mt12 { margin-top: 12px; }
+    .mt14 { margin-top: 14px; }
+  </style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ===== ヘッダー ===== -->
+  <header>
+    <div class="icon">🏠</div>
+    <div>
+      <h1>不動産・金融マスター電卓</h1>
+      <p>12機能 リアルタイム計算</p>
+    </div>
+  </header>
+
+  <!-- ===== スクロール領域 ===== -->
+  <div id="scroll-area">
+
+    <!-- ===========================
+         TAB 1: 不動産計算
+    ============================ -->
+    <div id="main-fudosan" class="main-tab active">
+      <div class="pills" id="pills-fudosan">
+        <div class="pill c-blue on" data-sub="rent"   onclick="sw('fudosan',this)">賃貸</div>
+        <div class="pill c-blue"    data-sub="buy"    onclick="sw('fudosan',this)">売買</div>
+        <div class="pill c-blue"    data-sub="yield"  onclick="sw('fudosan',this)">利回り</div>
+        <div class="pill c-blue"    data-sub="rev"    onclick="sw('fudosan',this)">逆引き</div>
+        <div class="pill c-blue"    data-sub="deduct" onclick="sw('fudosan',this)">控除</div>
+      </div>
+
+      <!-- ① 賃貸初期費用 -->
+      <div id="sub-fudosan-rent" class="card sub-tab active">
+        <div class="ttl blue">賃貸 初期費用シミュレーター</div>
+
+        <label>想定家賃（円）</label>
+        <input class="fi" type="number" id="r-rent" value="80000" oninput="cRent()">
+
+        <div class="sep"></div>
+
+        <div class="g2 mt8">
+          <div><label>敷金（ヶ月）</label><input class="fi" type="number" id="r-shiki"  value="1"     step="0.5" oninput="cRent()"></div>
+          <div><label>礼金（ヶ月）</label><input class="fi" type="number" id="r-rei"    value="1"     step="0.5" oninput="cRent()"></div>
+          <div><label>仲介手数料（ヶ月）</label><input class="fi" type="number" id="r-chukai" value="1" step="0.5" oninput="cRent()"></div>
+          <div><label>その他諸費用（円）</label><input class="fi" type="number" id="r-other"  value="50000" oninput="cRent()"></div>
+        </div>
+
+        <div class="breakdown mt12">
+          <div class="brow"><span class="bl">敷金</span><span class="bv" id="r-d-shiki">—</span></div>
+          <div class="brow"><span class="bl">礼金</span><span class="bv" id="r-d-rei">—</span></div>
+          <div class="brow"><span class="bl">仲介手数料</span><span class="bv" id="r-d-chukai">—</span></div>
+          <div class="brow"><span class="bl">前家賃（1ヶ月）</span><span class="bv" id="r-d-mae">—</span></div>
+          <div class="brow"><span class="bl">その他諸費用</span><span class="bv" id="r-d-other">—</span></div>
+        </div>
+
+        <div class="res res-blue">
+          <div class="res-label" style="color:var(--blue)">概算 初期費用 合計</div>
+          <div><span class="res-num" style="color:var(--blue-dk)" id="r-total">0</span><span class="res-unit" style="color:var(--blue-dk)">円</span></div>
+        </div>
+      </div>
+
+      <!-- ② 売買諸経費 -->
+      <div id="sub-fudosan-buy" class="card sub-tab">
+        <div class="ttl blue">売買 諸経費シミュレーター</div>
+        <p class="note">物件価格以外に必要な費用の目安（宅建業法上限ベース）</p>
+
+        <label>物件価格（万円）</label>
+        <input class="fi" type="number" id="b-price" value="4000" oninput="cBuy()">
+
+        <div class="radio-row mt12">
+          <span>住宅ローン利用</span>
+          <label class="radio-lbl"><input type="radio" name="b-loan" value="yes" checked onchange="cBuy()"> あり</label>
+          <label class="radio-lbl"><input type="radio" name="b-loan" value="no"        onchange="cBuy()"> 現金一括</label>
+        </div>
+
+        <div class="radio-row mt12">
+          <span>低廉な空家等の特例</span>
+          <label class="radio-lbl"><input type="radio" name="b-akiya" value="off" checked onchange="cBuy()"> 適用しない</label>
+          <label class="radio-lbl"><input type="radio" name="b-akiya" value="on"         onchange="cBuy()"> 適用する</label>
+        </div>
+        <p class="note">※特例「適用する」で、800万円以下の物件は仲介手数料の上限を33万円（税込）にします（2024年改正・空家等が対象、依頼者の合意が必要）。</p>
+
+        <div class="breakdown">
+          <div class="brow"><span class="bl">① 仲介手数料（上限・税込）</span><span class="bv" id="b-d1">—</span></div>
+          <div class="brow"><span class="bl">② 登記費用・登録免許税（目安）</span><span class="bv" id="b-d2">—</span></div>
+          <div class="brow"><span class="bl">③ 印紙税（軽減税率）</span><span class="bv" id="b-d3">—</span></div>
+          <div class="brow"><span class="bl">④ ローン関連費用（保証料等）</span><span class="bv" id="b-d4">—</span></div>
+          <div class="brow"><span class="bl">⑤ 火災保険・雑費</span><span class="bv" id="b-d5">—</span></div>
+        </div>
+
+        <div class="res res-blue">
+          <div class="res-label" style="color:var(--blue)">概算 諸経費 合計</div>
+          <div><span class="res-num" style="color:var(--blue-dk)" id="b-total">0</span><span class="res-unit" style="color:var(--blue-dk)">円</span></div>
+          <div class="res-sub" id="b-ratio">物件価格の約 —%</div>
+        </div>
+      </div>
+
+      <!-- ③ 投資利回り -->
+      <div id="sub-fudosan-yield" class="card sub-tab">
+        <div class="ttl blue">不動産投資 利回り電卓</div>
+
+        <label>物件価格（万円）</label>
+        <input class="fi" type="number" id="y-price" value="2000" oninput="cYield()">
+
+        <label class="mt12">想定月額家賃（円）</label>
+        <input class="fi" type="number" id="y-rent" value="70000" oninput="cYield()">
+
+        <div class="sep"></div>
+
+        <div class="g2">
+          <div><label>年間諸経費（円）</label><input class="fi" type="number" id="y-exp"  value="120000" oninput="cYield()"></div>
+          <div><label>購入諸経費（万円）</label><input class="fi" type="number" id="y-cost" value="150"    oninput="cYield()"></div>
+        </div>
+
+        <div class="g2 mt12">
+          <div class="res res-rose" style="margin-top:0;">
+            <div class="res-label" style="color:#be123c;">表面利回り（グロス）</div>
+            <div><span class="res-num" style="color:#e11d48;font-size:28px;" id="y-gross">0.00</span><span style="font-size:15px;font-weight:800;color:#e11d48;"> %</span></div>
+          </div>
+          <div class="res" style="background:linear-gradient(135deg,#fff7ed,#fed7aa);margin-top:0;">
+            <div class="res-label" style="color:#c2410c;">実質利回り（ネット）</div>
+            <div><span class="res-num" style="color:#ea580c;font-size:28px;" id="y-net">0.00</span><span style="font-size:15px;font-weight:800;color:#ea580c;"> %</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ④ 家賃逆引き -->
+      <div id="sub-fudosan-rev" class="card sub-tab">
+        <div class="ttl blue">毎月の支払額から購入逆引き</div>
+
+        <label>現在の家賃 / 毎月の目標支払額（円）</label>
+        <input class="fi" type="number" id="rv-monthly" value="100000" oninput="cReverse()">
+
+        <div class="sep"></div>
+
+        <div class="g2">
+          <div><label>借入期間（年）</label><input class="fi" type="number" id="rv-years" value="35"  oninput="cReverse()"></div>
+          <div><label>年利（%）</label>      <input class="fi" type="number" id="rv-rate"  value="0.5" step="0.01" oninput="cReverse()"></div>
+        </div>
+
+        <div class="res res-indigo">
+          <div class="res-label" style="color:#4f46e5;">同じ支払いで組める最大ローン額</div>
+          <div><span class="res-num" style="color:#3730a3;" id="rv-result">0</span><span class="res-unit" style="color:#3730a3;">万円</span></div>
+        </div>
+      </div>
+
+      <!-- ⑤ 住宅ローン控除 -->
+      <div id="sub-fudosan-deduct" class="card sub-tab">
+        <div class="ttl blue">住宅ローン控除 概算シミュレーション</div>
+        <p class="note">2024・2025年（令和6・7年）入居・新築／買取再販の基準。控除率0.7%・控除期間13年。借入限度額は住宅の省エネ性能で異なります。</p>
+
+        <label>住宅の性能（2024・2025年入居）</label>
+        <select class="fi" id="dc-type" onchange="cDeduct()">
+          <option value="4500">認定住宅（長期優良・低炭素）／限度4,500万円</option>
+          <option value="3500">ZEH水準省エネ住宅／限度3,500万円</option>
+          <option value="3000" selected>省エネ基準適合住宅／限度3,000万円</option>
+          <option value="0">一般住宅（その他・省エネ基準なし）／対象外</option>
+        </select>
+
+        <label>入居当初の借入額（万円）</label>
+        <input class="fi" type="number" id="dc-loan" value="3000" oninput="cDeduct()">
+
+        <div class="res res-amber mt14">
+          <div class="res-label" style="color:#b45309;">住宅ローン控除シミュレーション</div>
+          <div style="margin-top:10px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #fde68a;">
+              <span style="font-size:12px;color:#92400e;">初年度 最大控除額</span>
+              <span style="font-size:18px;font-weight:800;color:#b45309;" id="dc-y1">—</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;">
+              <span style="font-size:12px;font-weight:700;color:#78350f;">13年間 最大総減税額</span>
+              <span style="font-size:24px;font-weight:800;color:#b45309;" id="dc-total">—</span>
+            </div>
+          </div>
+        </div>
+        <p class="note" id="dc-note" style="margin-top:8px;"></p>
+
+        <div style="margin-top:14px;background:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:14px;">
+          <div style="font-size:13px;font-weight:800;color:#b45309;margin-bottom:10px;">📘 住宅ローン控除の制度内容（2024・2025年〔令和6・7年〕入居）</div>
+          <div style="font-size:12px;color:#78350f;line-height:1.75;">
+            <div style="margin-bottom:6px;"><b>根拠の税制</b>：2022年（令和4年）税制改正で控除率を1%→0.7%・期間を最大13年に変更。2024年（令和6年）改正で借入限度額を見直し、2024〜2025年入居分を規定（2024年度改正で2025年入居も同水準に据え置き・子育て特例を延長）。</div>
+            <div><b>控除率</b>：年末のローン残高 × <b>0.7%</b> を所得税から控除（控除しきれない分は翌年の住民税から上限あり）。</div>
+            <div><b>控除期間</b>：新築・買取再販は<b>13年</b>、中古（既存）住宅は<b>10年</b>。</div>
+            <div><b>借入限度額（新築・2024-2025入居）</b>：認定住宅 4,500万／ZEH水準 3,500万／省エネ基準適合 3,000万／一般住宅 0円（省エネ基準を満たさない一般新築は対象外）。</div>
+            <div><b>子育て・若者夫婦世帯の特例</b>：限度額を上乗せ（認定 5,000万／ZEH 4,500万／省エネ 4,000万）。</div>
+            <div><b>中古（既存）住宅</b>：限度額 認定・ZEH・省エネ＝3,000万、その他＝2,000万。控除期間10年。</div>
+            <div><b>主な要件</b>：合計所得金額 2,000万円以下／床面積 50㎡以上（新築で一定の場合40㎡以上）／自ら居住 ほか。</div>
+          </div>
+          <div style="font-size:11px;color:#92400e;margin-top:10px;">※本シミュレーションは「上限額」の目安です。実際の控除額は各人の所得税・住民税額により異なります。最新の要件・金額は国税庁等でご確認ください。</div>
+        </div>
+      </div>
+    </div><!-- /main-fudosan -->
+
+    <!-- ===========================
+         TAB 2: 金融ローン
+    ============================ -->
+    <div id="main-finance" class="main-tab">
+      <div class="pills" id="pills-finance">
+        <div class="pill c-green on" data-sub="basic"   onclick="sw('finance',this)">毎月額</div>
+        <div class="pill c-green"    data-sub="compare" onclick="sw('finance',this)">均等比較</div>
+        <div class="pill c-green"    data-sub="prepay"  onclick="sw('finance',this)">繰り上げ</div>
+      </div>
+
+      <!-- ⑥ 毎月返済額 -->
+      <div id="sub-finance-basic" class="card sub-tab active">
+        <div class="ttl green">住宅ローン 毎月返済額</div>
+        <p class="note">元利均等返済 / 複利計算式による正確な算出</p>
+
+        <label>借入金額（万円）</label>
+        <input class="gi" type="number" id="l-amount" value="3000" oninput="cLoan()">
+
+        <div class="g2 mt12">
+          <div><label>返済期間（年）</label><input class="gi" type="number" id="l-years" value="35"  oninput="cLoan()"></div>
+          <div><label>年利（%）</label>     <input class="gi" type="number" id="l-rate"  value="0.5" step="0.01" oninput="cLoan()"></div>
+        </div>
+
+        <div class="res res-green">
+          <div class="res-label" style="color:var(--green);">毎月の返済額（元利均等）</div>
+          <div><span class="res-num" style="color:var(--green-dk);" id="l-monthly">0</span><span class="res-unit" style="color:var(--green-dk);">円</span></div>
+          <div class="res-sub" id="l-detail">総返済額: — / 総利息: —</div>
+        </div>
+      </div>
+
+      <!-- ⑦ 元利均等 vs 元金均等 -->
+      <div id="sub-finance-compare" class="card sub-tab">
+        <div class="ttl green">「元利均等」vs「元金均等」比較</div>
+
+        <label>借入金額（万円）</label>
+        <input class="gi" type="number" id="c-amount" value="3000" oninput="cCompare()">
+
+        <div class="g2 mt12">
+          <div><label>返済期間（年）</label><input class="gi" type="number" id="c-years" value="35"  oninput="cCompare()"></div>
+          <div><label>年利（%）</label>     <input class="gi" type="number" id="c-rate"  value="0.5" step="0.01" oninput="cCompare()"></div>
+        </div>
+
+        <div class="cmp-table">
+          <div class="cmp-head">
+            <div>返済方式</div><div>初回返済額</div><div>総利息</div>
+          </div>
+          <div class="cmp-row">
+            <div><div class="cmp-name" style="color:var(--blue);">元利均等</div><div class="cmp-sub">毎月同額</div></div>
+            <div id="c-g1-first">—</div>
+            <div id="c-g1-int" style="color:var(--text);">—</div>
+          </div>
+          <div class="cmp-row">
+            <div><div class="cmp-name" style="color:var(--green);">元金均等</div><div class="cmp-sub">元金一定</div></div>
+            <div id="c-g2-first">—</div>
+            <div id="c-g2-int" style="color:var(--green-dk);">—</div>
+          </div>
+        </div>
+
+        <div class="res res-green">
+          <div class="res-label" style="color:var(--green);">元金均等の方が総利息が</div>
+          <div><span class="res-num" style="color:var(--green-dk);" id="c-diff">—</span><span class="res-unit" style="color:var(--green-dk);">円 安い</span></div>
+        </div>
+      </div>
+
+      <!-- ⑧ 繰り上げ返済（正確シミュレーション） -->
+      <div id="sub-finance-prepay" class="card sub-tab">
+        <div class="ttl green">期間短縮型 繰り上げ返済効果</div>
+        <p class="note">同一月額返済を維持したまま期間短縮するシミュレーション</p>
+
+        <div class="g2">
+          <div><label>現在のローン残高（万円）</label><input class="gi" type="number" id="p-balance" value="2500" oninput="cPrepay()"></div>
+          <div><label>残存期間（年）</label>            <input class="gi" type="number" id="p-remain"  value="28"   oninput="cPrepay()"></div>
+        </div>
+        <div class="g2 mt10">
+          <div><label>適用金利（%）</label>          <input class="gi" type="number" id="p-rate"   value="0.5" step="0.01" oninput="cPrepay()"></div>
+          <div><label>繰り上げ返済額（万円）</label>  <input class="gi" type="number" id="p-amount" value="100"  oninput="cPrepay()"></div>
+        </div>
+
+        <div style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:12px;padding:16px;margin-top:14px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #d1fae5;">
+            <span style="font-size:12px;color:#065f46;">削減できる将来利息</span>
+            <span style="font-size:18px;font-weight:800;color:#dc2626;" id="p-saved">—</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;">
+            <span style="font-size:13px;font-weight:700;color:#047857;">短縮される返済期間</span>
+            <span style="font-size:24px;font-weight:800;color:var(--green-dk);" id="p-period">—</span>
+          </div>
+        </div>
+      </div>
+    </div><!-- /main-finance -->
+
+    <!-- ===========================
+         TAB 3: 換算・単位
+    ============================ -->
+    <div id="main-convert" class="main-tab">
+      <div class="pills" id="pills-convert">
+        <div class="pill c-violet on" data-sub="area"  onclick="sw('convert',this)">面積</div>
+        <div class="pill c-violet"    data-sub="walk"  onclick="sw('convert',this)">徒歩</div>
+        <div class="pill c-violet"    data-sub="ratio" onclick="sw('convert',this)">建ぺい</div>
+        <div class="pill c-violet"    data-sub="age"   onclick="sw('convert',this)">築年</div>
+      </div>
+
+      <!-- ⑨ 面積換算 -->
+      <div id="sub-convert-area" class="card sub-tab active">
+        <div class="ttl violet">平米・坪・畳 相互換算</div>
+
+        <label>畳のサイズ基準</label>
+        <div class="sel-wrap">
+          <select class="vi" id="a-type" onchange="cArea('m2')">
+            <option value="1.65">中京間 / 標準（1.65㎡ / 畳）</option>
+            <option value="1.82">京間（1.82㎡ / 畳）</option>
+            <option value="1.54">江戸間（1.54㎡ / 畳）</option>
+            <option value="1.45">団地間（1.45㎡ / 畳）</option>
+          </select>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:10px;margin-top:14px;">
+          <div class="unit-row">
+            <input class="vi" type="number" id="a-m2"    value="70" oninput="cArea('m2')"    style="flex:1;">
+            <span class="unit-label" style="color:var(--violet);">㎡</span>
+          </div>
+          <div class="unit-row">
+            <input class="vi" type="number" id="a-tsubo" oninput="cArea('tsubo')" style="flex:1;">
+            <span class="unit-label" style="color:var(--violet);">坪</span>
+          </div>
+          <div class="unit-row">
+            <input class="vi" type="number" id="a-tatami" oninput="cArea('tatami')" style="flex:1;">
+            <span class="unit-label" style="color:var(--violet);">畳</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ⑩ 徒歩換算 -->
+      <div id="sub-convert-walk" class="card sub-tab">
+        <div class="ttl violet">徒歩分数 ⇔ 距離換算</div>
+        <p class="note">不動産公正取引協議会規約：徒歩1分＝80m（端数切り上げ）</p>
+
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <div class="walk-block" style="background:#f5f3ff;">
+            <div class="wi">
+              <label style="color:var(--violet);">徒歩（分）</label>
+              <input class="vi" type="number" id="w-mins" value="10" oninput="cWalk('mins')">
+            </div>
+            <div style="font-size:20px;color:#a78bfa;">→</div>
+            <div class="walk-result">
+              <div class="wr-label" style="color:var(--violet);">距離</div>
+              <div class="wr-val" style="color:var(--violet-dk);" id="w-dist">800 m</div>
+            </div>
+          </div>
+
+          <div class="walk-block" style="background:#faf5ff;">
+            <div class="wi">
+              <label style="color:#9333ea;">距離（m）</label>
+              <input class="vi" type="number" id="w-meters" value="1000" oninput="cWalk('meters')">
+            </div>
+            <div style="font-size:20px;color:#c084fc;">→</div>
+            <div class="walk-result">
+              <div class="wr-label" style="color:#9333ea;">徒歩</div>
+              <div class="wr-val" style="color:#7e22ce;" id="w-time">13 分</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ⑪ 建ぺい率・容積率 -->
+      <div id="sub-convert-ratio" class="card sub-tab">
+        <div class="ttl violet">建ぺい率・容積率からの建物上限</div>
+
+        <div class="g2">
+          <div><label>土地面積</label><input class="vi" type="number" id="rp-land" value="100" oninput="cRatio()"></div>
+          <div>
+            <label>面積単位</label>
+            <div class="sel-wrap">
+              <select class="vi" id="rp-unit" onchange="cRatio()">
+                <option value="m2">平米（㎡）</option>
+                <option value="tsubo">坪</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="g2 mt12">
+          <div><label>建ぺい率（%）</label><input class="vi" type="number" id="rp-kenpei" value="60"  oninput="cRatio()"></div>
+          <div><label>容積率（%）</label>  <input class="vi" type="number" id="rp-yoseki" value="200" oninput="cRatio()"></div>
+        </div>
+
+        <div class="g2 mt14">
+          <div class="res res-violet" style="margin-top:0;">
+            <div class="res-label" style="color:var(--violet);">建築面積上限</div>
+            <div style="font-size:10px;color:#a78bfa;margin-bottom:6px;">1階の最大サイズ</div>
+            <div><span style="font-size:26px;font-weight:800;color:var(--violet-dk);" id="rp-build">—</span><span style="font-size:12px;font-weight:700;color:var(--violet-dk);" id="rp-u1"> ㎡</span></div>
+          </div>
+          <div class="res" style="background:linear-gradient(135deg,#faf5ff,#f3e8ff);margin-top:0;">
+            <div class="res-label" style="color:#9333ea;">延床面積上限</div>
+            <div style="font-size:10px;color:#c084fc;margin-bottom:6px;">全階数の総床面積</div>
+            <div><span style="font-size:26px;font-weight:800;color:#7e22ce;" id="rp-total">—</span><span style="font-size:12px;font-weight:700;color:#7e22ce;" id="rp-u2"> ㎡</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ⑫ 築年・和暦 -->
+      <div id="sub-convert-age" class="card sub-tab">
+        <div class="ttl violet">建築年 ⇔ 和暦 ⇔ 築年数</div>
+
+        <label>西暦（年）</label>
+        <input class="vi" type="number" id="ag-year" value="2000" oninput="cAge()">
+
+        <div class="wareki-block">
+          <div class="wrow">
+            <span style="font-size:12px;color:#7c3aed;">和暦表記</span>
+            <span style="font-size:20px;font-weight:800;color:var(--violet-dk);" id="ag-wareki">平成12年</span>
+          </div>
+          <div class="wrow">
+            <span style="font-size:13px;font-weight:700;color:#4c1d95;">現在の築年数</span>
+            <span style="font-size:28px;font-weight:800;color:var(--violet-dk);" id="ag-age">築 26 年</span>
+          </div>
+        </div>
+      </div>
+    </div><!-- /main-convert -->
+
+    <!-- ===== 全体の免責 ===== -->
+    <div style="margin:18px 4px 4px;padding:14px;background:rgba(148,163,184,.10);border:1px solid rgba(148,163,184,.25);border-radius:12px;">
+      <div style="font-size:11.5px;color:#94a3b8;line-height:1.7;">
+        <b style="color:#cbd5e1;">ご利用上の注意</b><br>
+        本アプリの計算結果はすべて<b>概算・目安</b>であり、税務・法務・投資・融資に関する助言ではありません。
+        税率・限度額・各種制度は改正により変わります。実際の金額・適用可否は、税理士・宅地建物取引士・金融機関等の専門家、
+        および国税庁・法務局等の公式情報で必ずご確認ください。本アプリの利用により生じたいかなる損害についても、開発者は責任を負いません。
+        <br><a href="privacy.html" style="color:#60a5fa;text-decoration:underline;">プライバシーポリシー</a>
+      </div>
+    </div>
+
+    <!-- スクロール底部の余白 -->
+    <div style="height:12px;"></div>
+  </div><!-- /scroll-area -->
+
+  <!-- ===== ボトムナビ ===== -->
+  <nav>
+    <button class="nav-btn on-blue" id="nb-fudosan" onclick="sm('fudosan')">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+      不動産計算
+    </button>
+    <button class="nav-btn" id="nb-finance" onclick="sm('finance')">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"/></svg>
+      金融ローン
+    </button>
+    <button class="nav-btn" id="nb-convert" onclick="sm('convert')">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6.99 11L3 15l3.99 4v-3H14v-2H6.99v-3zM21 9l-3.99-4v3H10v2h7.01v3L21 9z"/></svg>
+      換算・単位
+    </button>
+  </nav>
+
+</div><!-- /app -->
+
+<script>
+// =====================================================
+//  定数
+// =====================================================
+const CY = 2026; // 現在年度
+
+// =====================================================
+//  ナビゲーション
+// =====================================================
+const MAINS   = ['fudosan','finance','convert'];
+const NAV_CLS = { fudosan:'on-blue', finance:'on-green', convert:'on-violet' };
+
+function sm(tab) {
+  MAINS.forEach(t => {
+    document.getElementById('main-'+t).classList.remove('active');
+    const btn = document.getElementById('nb-'+t);
+    btn.classList.remove('on-blue','on-green','on-violet');
+  });
+  document.getElementById('main-'+tab).classList.add('active');
+  document.getElementById('nb-'+tab).classList.add(NAV_CLS[tab]);
+  document.getElementById('scroll-area').scrollTop = 0;
+}
+
+function sw(parent, pill) {
+  // サブタブ切り替え
+  document.querySelectorAll('#main-'+parent+' .sub-tab').forEach(el => el.classList.remove('active'));
+  document.getElementById('sub-'+parent+'-'+pill.dataset.sub).classList.add('active');
+  // ピル切り替え
+  document.querySelectorAll('#pills-'+parent+' .pill').forEach(p => p.classList.remove('on'));
+  pill.classList.add('on');
+  document.getElementById('scroll-area').scrollTop = 0;
+}
+
+// =====================================================
+//  ユーティリティ
+// =====================================================
+const n  = id => +document.getElementById(id).value || 0;
+const el = id => document.getElementById(id);
+const fmt = v => Math.round(v).toLocaleString('ja-JP');
+const fmtF = (v,d) => v.toFixed(d);
+
+function ganri(P, years, r) {   // 元利均等 月額
+  const n = years * 12, mr = r / 12;
+  if (mr === 0) return P / n;
+  return P * (mr * Math.pow(1+mr, n)) / (Math.pow(1+mr, n) - 1);
+}
+
+// =====================================================
+//  ① 賃貸初期費用
+// =====================================================
+function cRent() {
+  const rent = n('r-rent'), shiki = n('r-shiki'), rei = n('r-rei'),
+        chu  = n('r-chukai'), other = n('r-other');
+  const dS=shiki*rent, dR=rei*rent, dC=chu*rent, dM=rent;
+  el('r-d-shiki').textContent  = fmt(dS)+' 円';
+  el('r-d-rei').textContent    = fmt(dR)+' 円';
+  el('r-d-chukai').textContent = fmt(dC)+' 円';
+  el('r-d-mae').textContent    = fmt(dM)+' 円';
+  el('r-d-other').textContent  = fmt(other)+' 円';
+  el('r-total').textContent    = fmt(dS+dR+dC+dM+other);
+}
+
+// =====================================================
+//  ② 売買諸経費
+// =====================================================
+function cBuy() {
+  const man = n('b-price');
+  if (!man) return;
+  const yen     = man * 10000;
+  const loanYes = document.querySelector('input[name="b-loan"]:checked').value === 'yes';
+
+  // 仲介手数料（宅建業法上限 + 消費税10%）
+  const akiya = document.querySelector('input[name="b-akiya"]:checked').value === 'on';
+  let chu;
+  if (akiya && man <= 800) {
+    // 低廉な空家等の特例: 800万円以下は上限30万円（税抜）＝ 33万円（税込）
+    chu = 300000 * 1.1;
+  } else if (man > 400) {
+    chu = (yen*0.03 + 60000) * 1.1;
+  } else if (man > 200) {
+    chu = (yen*0.04 + 20000) * 1.1;
+  } else {
+    chu = yen * 0.05 * 1.1;
+  }
+
+  // 登記費用（目安1.5%）
+  const touki = yen * 0.015;
+
+  // 印紙税（売買契約書 軽減税率 2024）
+  let inshi;
+  if      (man > 50000) inshi = 480000;
+  else if (man > 10000) inshi = 160000;
+  else if (man > 5000)  inshi = 60000;
+  else if (man > 1000)  inshi = 30000;  // ← 正しくは3万円（原典の2万円は誤り）
+  else if (man > 500)   inshi = 10000;
+  else if (man > 100)   inshi = 5000;
+  else if (man > 10)    inshi = 1000;
+  else                  inshi = 200;
+
+  // ローン関連費用（保証料等 約2.0%）
+  const loanCost = loanYes ? yen * 0.02 : 0;
+
+  // 火災保険・雑費
+  const other = 150000 + yen * 0.003;
+
+  const total = chu + touki + inshi + loanCost + other;
+
+  el('b-d1').textContent = fmt(chu)  +' 円';
+  el('b-d2').textContent = fmt(touki)+' 円';
+  el('b-d3').textContent = fmt(inshi)+' 円';
+  el('b-d4').textContent = loanYes ? fmt(loanCost)+' 円' : '—（現金一括）';
+  el('b-d5').textContent = fmt(other)+' 円';
+  el('b-total').textContent = fmt(total);
+  el('b-ratio').textContent = '物件価格の約 '+fmtF(total/yen*100,1)+'%';
+}
+
+// =====================================================
+//  ③ 投資利回り
+// =====================================================
+function cYield() {
+  const price = n('y-price')*10000, rent = n('y-rent'),
+        exp   = n('y-exp'),         cost = n('y-cost')*10000;
+  if (!price || !rent) return;
+  const ann = rent * 12;
+  el('y-gross').textContent = fmtF(ann/price*100, 2);
+  el('y-net').textContent   = fmtF((ann-exp)/(price+cost)*100, 2);
+}
+
+// =====================================================
+//  ④ 家賃逆引き
+// =====================================================
+function cReverse() {
+  const monthly = n('rv-monthly'), years = n('rv-years'), r = n('rv-rate')/100;
+  if (!monthly || !years) return;
+  const ns=years*12, mr=r/12;
+  const P = mr===0 ? monthly*ns : monthly/((mr*Math.pow(1+mr,ns))/(Math.pow(1+mr,ns)-1));
+  el('rv-result').textContent = fmt(P/10000);
+}
+
+// =====================================================
+//  ⑤ 住宅ローン控除
+// =====================================================
+function cDeduct() {
+  const loan  = n('dc-loan')*10000;
+  const limit = n('dc-type')*10000;   // 住宅性能ごとの借入限度額（万円→円）
+  if (limit <= 0) {
+    el('dc-y1').textContent    = '対象外';
+    el('dc-total').textContent = '0 円';
+    el('dc-note').textContent  = '一般住宅は2024年以降入居で住宅ローン控除の対象外です（省エネ基準適合が必要）。';
+    return;
+  }
+  const base = Math.min(loan, limit);
+  const y1   = base * 0.007;
+  el('dc-y1').textContent    = fmt(y1)+' 円';
+  el('dc-total').textContent = fmt(y1*13)+' 円';
+  el('dc-note').textContent  = '借入限度額 '+fmt(limit)+' 円・控除率0.7%・13年（2024・2025年入居／新築・買取再販）で計算。';
+}
+
+// =====================================================
+//  ⑥ 住宅ローン 毎月返済額
+// =====================================================
+function cLoan() {
+  const P=n('l-amount')*10000, yr=n('l-years'), r=n('l-rate')/100;
+  if (!P || !yr) return;
+  const pay = ganri(P, yr, r);
+  const total = pay * yr * 12;
+  el('l-monthly').textContent = fmt(pay);
+  el('l-detail').textContent  = '総返済額: '+fmt(total)+'円 / 総利息: '+fmt(total-P)+'円';
+}
+
+// =====================================================
+//  ⑦ 元利均等 vs 元金均等
+// =====================================================
+function cCompare() {
+  const P=n('c-amount')*10000, yr=n('c-years'), r=n('c-rate')/100;
+  if (!P || !yr) return;
+  const ns=yr*12, mr=r/12;
+
+  // 元利均等
+  const g1m   = ganri(P, yr, r);
+  const g1int = g1m*ns - P;
+
+  // 元金均等 — 毎月の元金返済（固定）+ その月の利息
+  // 総利息 = P * mr * (n+1) / 2  (等差数列の和)
+  const g2first = P/ns + P*mr;
+  const g2int   = mr===0 ? 0 : P * mr * (ns+1) / 2;
+
+  el('c-g1-first').textContent = fmt(g1m)+'円';
+  el('c-g1-int').textContent   = fmt(g1int)+'円';
+  el('c-g2-first').textContent = fmt(g2first)+'円';
+  el('c-g2-int').textContent   = fmt(g2int)+'円';
+  el('c-diff').textContent     = fmt(Math.max(0, g1int-g2int));
+}
+
+// =====================================================
+//  ⑧ 繰り上げ返済（正確シミュレーション）
+// =====================================================
+function cPrepay() {
+  const bal     = n('p-balance')*10000;
+  const remain  = n('p-remain');
+  const r       = n('p-rate')/100;
+  const prepay  = n('p-amount')*10000;
+  if (!bal || !remain || !prepay) return;
+
+  const ns = remain*12, mr = r/12;
+  const pay = ganri(bal, remain, r);   // 現在の月額返済額
+
+  const newBal = bal - prepay;
+  if (newBal <= 0) {
+    // 全額繰り上げ: 残利息すべて節約
+    const orgInt = pay*ns - bal;
+    el('p-saved').textContent  = fmt(Math.max(0,orgInt))+' 円';
+    el('p-period').textContent = remain+'年 全期間短縮';
+    return;
+  }
+
+  // 繰り上げ後の残ヶ月数（同じ月額で支払い続けた場合）
+  // newBal = pay * (1-(1+mr)^-newN)/mr  → 解く
+  let newN;
+  if (mr === 0) {
+    newN = newBal / pay;
+  } else {
+    newN = -Math.log(1 - newBal*mr/pay) / Math.log(1+mr);
+  }
+
+  const shortened = ns - newN;
+  // 節約利息 = 月額 × 短縮期間 - 繰り上げ元金分
+  const saved = pay * shortened - prepay;
+
+  const sy = Math.floor(shortened/12);
+  const sm = Math.round(shortened%12);
+  let pText = '';
+  if (sy > 0) pText += sy+'年';
+  if (sm > 0) pText += sm+'ヶ月';
+  if (!pText) pText = '数日';
+
+  el('p-saved').textContent  = fmt(Math.max(0,saved))+' 円';
+  el('p-period').textContent = pText+' 短縮';
+}
+
+// =====================================================
+//  ⑨ 面積換算
+// =====================================================
+function cArea(from) {
+  const ts = +el('a-type').value;
+  let m2 = 0;
+  if (from==='m2')     m2 = n('a-m2');
+  else if (from==='tsubo')  m2 = n('a-tsubo')  / 0.3025;
+  else                       m2 = n('a-tatami') * ts;
+
+  if (from!=='m2')    el('a-m2').value    = m2.toFixed(2);
+  if (from!=='tsubo') el('a-tsubo').value = (m2*0.3025).toFixed(2);
+  if (from!=='tatami')el('a-tatami').value= (m2/ts).toFixed(2);
+}
+
+// =====================================================
+//  ⑩ 徒歩換算
+// =====================================================
+function cWalk(from) {
+  if (from==='mins') {
+    el('w-dist').textContent = (n('w-mins')*80)+' m';
+  } else {
+    el('w-time').textContent = Math.ceil(n('w-meters')/80)+' 分';
+  }
+}
+
+// =====================================================
+//  ⑪ 建ぺい率・容積率
+// =====================================================
+function cRatio() {
+  const land = n('rp-land'), unit = el('rp-unit').value;
+  const ken  = n('rp-kenpei'), yo = n('rp-yoseki');
+  const ul   = unit==='m2' ? '㎡' : '坪';
+  el('rp-build').textContent = (land*ken/100).toFixed(2);
+  el('rp-total').textContent = (land*yo/100).toFixed(2);
+  el('rp-u1').textContent    = ' '+ul;
+  el('rp-u2').textContent    = ' '+ul;
+}
+
+// =====================================================
+//  ⑫ 築年・和暦・築年数
+// =====================================================
+function cAge() {
+  const yr = +el('ag-year').value || 0;
+  let wa = '不明';
+
+  if      (yr >= 2019) { const g=yr-2018; wa = g===1?'令和元年':'令和'+g+'年'; }
+  else if (yr >= 1989) { const g=yr-1988; wa = g===1?'平成元年':'平成'+g+'年'; }
+  else if (yr >= 1926) { const g=yr-1925; wa = g===1?'昭和元年':'昭和'+g+'年'; }
+  else if (yr >= 1912) { const g=yr-1911; wa = g===1?'大正元年':'大正'+g+'年'; }
+  else if (yr >= 1868) { const g=yr-1867; wa = g===1?'明治元年':'明治'+g+'年'; }
+
+  const age = CY - yr;
+  el('ag-wareki').textContent = wa;
+  el('ag-age').textContent    = age > 0 ? '築 '+age+' 年' : age===0 ? '新築（今年）' : '建築予定（未来）';
+}
+
+// =====================================================
+//  PWA サービスワーカー登録
+// =====================================================
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js').catch(()=>{});
+}
+
+// =====================================================
+//  初期計算
+// =====================================================
+window.onload = () => {
+  cRent(); cBuy(); cYield(); cReverse(); cDeduct();
+  cLoan(); cCompare(); cPrepay();
+  cArea('m2'); cWalk('mins'); cRatio(); cAge();
+};
+</script>
+</body>
+</html>
