@@ -102,6 +102,9 @@ baikai-generator/data/
 realestate-calc/ios/
 realestate-calc/node_modules/
 
+!ai-ticket-counter/
+!ai-ticket-counter/**
+
 # --- Build artifacts (all apps) — safety net, never commit these ---
 **/node_modules/
 **/.next/

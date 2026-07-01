@@ -1,6 +1,20 @@
 # 引き継ぎメモ（別PCで作業を続けるために）
 
-最終更新：2026-07-01
+最終更新：2026-07-02
+
+---
+
+## 2026-07-02 セッションの作業
+
+### 新規アプリ：ai-ticket-counter（AI受付＆起票カウンター）★今回コミット
+- 社内18アプリへの**不具合報告・改善要望・新アプリ希望**をチャットで受け付け、`claude` CLI が**対話でヒアリング**→**自動起票**→**報告書メール作成**する受付システム。**Python + FastAPI**（port 8600）。
+- AI解析は既存アプリと同じ **claude CLI 方式**（`claude -p ... --output-format json --dangerously-skip-permissions --model sonnet`、画像は `--tools Read --add-dir <tmp>`）。APIキー不要。
+- **対話フロー**：ブラウザ(`/`)で 報告者/要件/対象アプリ をプルダウン選択→「相談を開始」→ `services/intake.py` が業務口調で最大4問ヒアリング（`/chat` に会話履歴を毎回渡す）→十分集まったら確定。**「ここまでの内容でメール送信」**ボタンで途中打ち切り確定も可。
+- **要件**＝不具合報告/改善要望/新アプリ希望/その他（`REQUEST_TYPES`）。不具合報告のみ深刻度(致命的/軽微)をAI判定。指定は `forced_kind`/`forced_app` でAI推測を上書き。
+- **報告書メール**：既定は `MAIL_BACKEND=applescript`＝`osascript` で **Apple Mail に下書きを表示**（`services/mail_draft.applescript`）。宛先は `.env` の `MAIL_TO=shin@daikyocorp.co.jp`。**初回のみ macOS のオートメーション許可(Mail)が必要**。SMTP自動送信は `MAIL_BACKEND=smtp`。
+- **起票先**：`TICKET_BACKEND`＝github/notion/backlog/excel を切替（`services/ticketing.py`）。現状 `.env` は検証用に `excel`（`data/tickets.csv`）。本番は `github`（gh CLI 認証済みならトークン不要、`GITHUB_REPO`）。
+- 起動：`cd ai-ticket-counter && pip install -r requirements.txt && cp .env.example .env`（.envは各PCで作成）→ `python app.py`。単発テスト：`TICKET_BACKEND=excel python run_pipeline.py --text "..." --reporter 大鹿`。
+- **未対応**：Slack実接続は未（アダプタ実装済み・トークン未設定）。GitHub Pages対象外（サーバアプリ）。当初「グローグー人格」で作ったがユーザー指示で業務口調に変更済み。
 
 ---
 

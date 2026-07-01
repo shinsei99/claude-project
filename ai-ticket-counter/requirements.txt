@@ -1,0 +1,9 @@
+# AI受付＆起票カウンター — 依存ライブラリ
+# AI解析は claude CLI（~/.local/bin/claude）をサブプロセスで呼ぶため
+# Anthropic SDK / APIキーは不要（既存の見積書自動生成ツール等と同方式）。
+
+fastapi>=0.110.0        # Webhook 受信サーバ
+uvicorn[standard]>=0.29.0  # ASGI サーバ（開発・本番）
+python-dotenv>=1.0.0    # .env から機密情報を読み込む
+requests>=2.31.0        # チャット/起票ツールの HTTP API 呼び出し
+pillow>=10.0.0          # 受信画像の検証・正規化（任意）
