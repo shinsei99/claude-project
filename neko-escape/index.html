@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>にゃんこ大脱出 🐱</title>
+<style>
+  :root{
+    --wood1:#e9d8b8; --wood2:#e0cba0; --line:#2b2320; --ink:#2b2320;
+    --paper:#fffdf5; --accent:#c85a3a; --accent2:#5a8f6b;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:"Hiragino Maru Gothic ProN","Hiragino Sans","Yu Gothic",sans-serif;
+    color:var(--ink);
+    background:
+      repeating-linear-gradient(90deg, transparent 0 78px, rgba(0,0,0,.04) 78px 80px),
+      linear-gradient(160deg,var(--wood1),var(--wood2));
+    min-height:100vh;
+    display:flex;flex-direction:column;align-items:center;
+    padding:10px 10px 30px;
+  }
+  h1{
+    font-size:clamp(20px,5vw,30px);margin:8px 0 2px;letter-spacing:.05em;
+    text-shadow:2px 2px 0 #fff;
+  }
+  .sub{font-size:12px;opacity:.7;margin-bottom:8px;}
+
+  .hud{
+    width:100%;max-width:740px;display:flex;justify-content:space-between;
+    align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;
+  }
+  .badge{
+    background:var(--paper);border:3px solid var(--line);border-radius:14px;
+    padding:6px 12px;font-weight:800;font-size:14px;
+    box-shadow:2px 3px 0 rgba(0,0,0,.25);
+  }
+  .turn-cat{color:var(--accent2);}
+  .turn-robot{color:var(--accent);}
+
+  .board-wrap{
+    width:100%;max-width:740px;position:relative;
+    background:var(--paper);
+    border:5px solid var(--line);border-radius:22px;
+    box-shadow:5px 7px 0 rgba(0,0,0,.28);
+    padding:10px;
+  }
+  .board{
+    position:relative;width:100%;aspect-ratio:1.5/1;
+    background:
+      radial-gradient(circle at 30% 20%, rgba(255,255,255,.6), transparent 60%),
+      repeating-linear-gradient(45deg,#f3ead2 0 22px,#efe4c6 22px 44px);
+    border-radius:14px;overflow:hidden;
+  }
+  svg.edges{position:absolute;inset:0;width:100%;height:100%;}
+  .node{
+    position:absolute;width:min(9.2vw,46px);height:min(9.2vw,46px);
+    transform:translate(-50%,-50%);
+    background:var(--paper);border:4px solid var(--line);border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    cursor:default;transition:transform .12s;
+    box-shadow:1px 2px 0 rgba(0,0,0,.25);
+    font-size:min(5vw,24px);
+    z-index:2;
+  }
+  .node.reach{cursor:pointer;border-color:var(--accent2);
+    box-shadow:0 0 0 4px rgba(90,143,107,.35),1px 2px 0 rgba(0,0,0,.25);}
+  .node.reach:hover{transform:translate(-50%,-50%) scale(1.12);}
+  .gimmick{position:absolute;top:-10px;right:-10px;font-size:min(4.4vw,20px);
+    filter:drop-shadow(1px 2px 1px rgba(0,0,0,.35));pointer-events:none;}
+  .occupant{
+    font-size:min(7.2vw,34px);
+    filter:drop-shadow(2px 4px 2px rgba(0,0,0,.4));
+    pointer-events:none;line-height:1;
+  }
+  .cat.moved{animation:hop .3s;}
+  .cat.caught{animation:jump .6s;}
+  @keyframes hop{0%{transform:translateY(0)}40%{transform:translateY(-8px) rotate(-6deg)}100%{transform:translateY(0)}}
+  @keyframes jump{0%{transform:translateY(0)}30%{transform:translateY(-22px) rotate(12deg)}60%{transform:translateY(-6px) rotate(-8deg)}100%{transform:translateY(0)}}
+  .robot.err{animation:shake .4s;}
+  @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-4px) rotate(-8deg)}75%{transform:translateX(4px) rotate(8deg)}}
+
+  .msg{
+    width:100%;max-width:740px;min-height:26px;margin-top:8px;text-align:center;
+    font-weight:800;font-size:15px;color:var(--ink);
+  }
+  .controls{margin-top:8px;display:flex;gap:10px;flex-wrap:wrap;justify-content:center;}
+  button{
+    font-family:inherit;font-weight:800;font-size:15px;cursor:pointer;
+    background:var(--accent);color:#fff;border:3px solid var(--line);
+    border-radius:14px;padding:9px 18px;box-shadow:2px 3px 0 rgba(0,0,0,.3);
+  }
+  button.ghost{background:var(--paper);color:var(--ink);}
+  button:active{transform:translate(1px,2px);box-shadow:1px 1px 0 rgba(0,0,0,.3);}
+
+  .overlay{
+    position:fixed;inset:0;background:rgba(43,35,32,.55);
+    display:none;align-items:center;justify-content:center;z-index:50;padding:16px;
+  }
+  .overlay.show{display:flex;}
+  .card{
+    background:var(--paper);border:5px solid var(--line);border-radius:22px;
+    padding:26px 22px;text-align:center;max-width:420px;width:100%;
+    box-shadow:6px 8px 0 rgba(0,0,0,.35);animation:pop .3s;
+  }
+  @keyframes pop{0%{transform:scale(.7);opacity:0}100%{transform:scale(1);opacity:1}}
+  .card .big{font-size:56px;margin:0 0 6px;}
+  .card h2{margin:4px 0 6px;font-size:24px;}
+  .card p{margin:6px 0 16px;font-size:15px;line-height:1.5;}
+  .legend{
+    width:100%;max-width:740px;margin-top:14px;background:var(--paper);
+    border:3px dashed var(--line);border-radius:14px;padding:10px 14px;
+    font-size:13px;line-height:1.9;
+  }
+  .legend b{font-size:16px;}
+</style>
+</head>
+<body>
+  <h1>🐱 にゃんこ大脱出</h1>
+  <div class="sub">おじいちゃんの家から、キャットタワー🏰をめざそう！ぜんぶで20ステージ</div>
+
+  <div class="hud">
+    <span class="badge" id="stageBadge">Stage 1 / 10</span>
+    <span class="badge" id="stageName">最初の一歩</span>
+    <span class="badge" id="turnBadge">🐱 ねこのターン</span>
+  </div>
+
+  <div class="board-wrap">
+    <div class="board" id="board">
+      <svg class="edges" id="edges" viewBox="0 0 100 100" preserveAspectRatio="none"></svg>
+    </div>
+  </div>
+
+  <div class="msg" id="msg">となりのマスをクリックして、うごこう！</div>
+
+  <div class="controls">
+    <button class="ghost" id="resetBtn">このステージをやり直す</button>
+  </div>
+
+  <div class="legend">
+    <b>🐱</b> ねこ（きみ）　<b>🤖</b> おそうじロボット（てき）　<b>🏰</b> キャットタワー（ゴール）<br>
+    <b>🛋️</b> ソファ：ロボットは通れない（ねこの安全地帯！）
+    <b>🧶</b> 毛糸玉：ロボットが乗ると1ターン動けない
+    <b>🐟</b> おさかな：ねこが乗るともう1マス動ける
+    <b>🕳️</b> 落とし穴：ロボットが乗ると落ちて退場！（ねこは平気）
+  </div>
+
+  <div class="overlay" id="overlay">
+    <div class="card">
+      <div class="big" id="ovIcon">🎉</div>
+      <h2 id="ovTitle">ステージクリア！</h2>
+      <p id="ovText"></p>
+      <button id="ovBtn">次のステージへ</button>
+    </div>
+  </div>
+
+<script>
+/* ===================== ステージデータ ===================== */
+/* 座標は 0〜100（横=x, 縦=y）。cat=スタート, goal=ゴール, robots=敵 */
+const STAGES = [
+  { name:"最初の一歩", cat:1, goal:5, robots:[0], sofa:[4], yarn:[], fish:[],
+    nodes:[[5,50],[22,50],[40,50],[56,32],[56,68],[85,50]],
+    edges:[[0,1],[1,2],[2,3],[2,4],[3,5],[4,5]] },
+
+  { name:"二択の迷路", cat:1, goal:7, robots:[0], sofa:[5], yarn:[], fish:[],
+    nodes:[[5,50],[18,50],[32,50],[48,26],[64,26],[48,74],[64,74],[85,50]],
+    edges:[[0,1],[1,2],[2,3],[2,5],[3,4],[5,6],[4,7],[6,7]] },
+
+  { name:"ロボットの習性", cat:0, goal:7, robots:[8], sofa:[3], yarn:[], fish:[],
+    nodes:[[8,50],[24,28],[24,72],[44,50],[62,28],[62,72],[80,50],[93,50],[62,50]],
+    edges:[[0,1],[0,2],[1,3],[2,3],[3,4],[3,5],[1,4],[2,5],[4,6],[5,6],[6,7],[8,4],[8,5],[8,6]] },
+
+  { name:"散らかった部屋", cat:1, goal:8, robots:[0], sofa:[], yarn:[9,4], fish:[],
+    nodes:[[5,50],[18,50],[34,50],[50,28],[50,72],[68,28],[68,72],[82,50],[94,50],[50,50]],
+    edges:[[0,1],[1,2],[2,3],[2,4],[3,9],[4,9],[9,5],[9,6],[5,7],[6,7],[7,8]] },
+
+  { name:"おやつでダッシュ", cat:1, goal:10, robots:[0], sofa:[], yarn:[], fish:[2],
+    nodes:[[5,50],[16,50],[30,50],[44,30],[44,70],[60,30],[60,70],[74,50],[86,30],[86,70],[96,50]],
+    edges:[[0,1],[1,2],[2,3],[2,4],[3,5],[4,6],[5,7],[6,7],[7,8],[7,9],[8,10],[9,10]] },
+
+  { name:"ロボット2台の恐怖", cat:2, goal:11, robots:[0,1], sofa:[7], yarn:[], fish:[],
+    nodes:[[4,35],[4,65],[16,50],[30,35],[30,65],[44,50],[58,32],[58,68],[72,50],[86,35],[86,65],[95,50]],
+    edges:[[0,2],[1,2],[2,3],[2,4],[3,5],[4,5],[5,6],[5,7],[6,8],[7,8],[8,9],[8,10],[9,11],[10,11]] },
+
+  { name:"障害物レース", cat:1, goal:11, robots:[0], sofa:[4], yarn:[5,6], fish:[],
+    nodes:[[5,50],[16,50],[30,32],[30,68],[46,50],[46,18],[46,82],[62,32],[62,68],[78,50],[90,28],[93,62]],
+    edges:[[0,1],[1,2],[1,3],[2,5],[3,6],[5,7],[6,8],[2,4],[3,4],[4,7],[4,8],[7,9],[8,9],[9,11],[9,10],[10,11]] },
+
+  { name:"キャットウォーク", cat:1, goal:12, robots:[0], sofa:[7], yarn:[], fish:[4],
+    nodes:[[10,25],[10,50],[10,75],[30,25],[30,50],[30,75],[50,25],[50,50],[50,75],[70,25],[70,50],[70,75],[92,50]],
+    edges:[[0,3],[3,6],[6,9],[9,12],[1,4],[4,7],[7,10],[10,12],[2,5],[5,8],[8,11],[11,12],
+           [0,1],[1,2],[3,4],[4,5],[6,7],[7,8],[9,10],[10,11]] },
+
+  { name:"挟み撃ち", cat:2, goal:10, robots:[0,1], sofa:[6], yarn:[], fish:[3],
+    nodes:[[30,15],[30,85],[30,50],[46,50],[46,25],[46,75],[62,50],[62,25],[62,75],[78,50],[92,50],[16,50],[16,25],[16,75]],
+    edges:[[2,3],[2,11],[11,12],[11,13],[12,0],[13,1],[2,4],[2,5],[0,4],[1,5],[3,7],[3,8],[3,6],[4,7],[5,8],[7,9],[8,9],[6,9],[9,10]] },
+
+  { name:"最後の牙城", cat:2, goal:14, robots:[0,1], sofa:[8], yarn:[6,7], fish:[3,11],
+    nodes:[[8,25],[8,75],[8,50],[24,50],[24,20],[24,80],[40,35],[40,65],[56,50],[56,20],[56,80],[72,35],[72,65],[88,50],[96,50]],
+    edges:[[0,4],[1,5],[2,3],[2,4],[2,5],[4,6],[5,7],[3,6],[3,7],[6,8],[7,8],[6,9],[7,10],[8,9],[8,10],[9,11],[10,12],[11,13],[12,13],[13,14],[3,8]] },
+
+  { name:"毛糸まみれの廊下", cat:2, goal:11, robots:[0,1], sofa:[], yarn:[5,6,7], fish:[], trap:[],
+    nodes:[[4,38],[4,62],[14,50],[26,35],[26,65],[40,50],[54,32],[54,68],[68,50],[80,35],[80,65],[90,50],[40,20],[40,80]],
+    edges:[[0,2],[1,2],[2,3],[2,4],[3,5],[4,5],[3,12],[4,13],[12,6],[13,7],[5,6],[5,7],[6,8],[7,8],[8,9],[8,10],[9,11],[10,11]] },
+  { name:"さかな街道", cat:2, goal:10, robots:[0,1], sofa:[6], yarn:[], fish:[3,7], trap:[],
+    nodes:[[4,40],[4,60],[14,50],[26,50],[40,32],[40,68],[54,50],[68,32],[68,68],[82,50],[92,50],[26,22],[26,78],[54,18]],
+    edges:[[0,2],[1,2],[2,3],[3,4],[3,5],[3,11],[3,12],[11,4],[12,5],[4,6],[5,6],[6,7],[6,8],[7,9],[8,9],[9,10],[6,13],[13,7]] },
+  { name:"落とし穴の間", cat:2, goal:11, robots:[0,1], sofa:[8], yarn:[], fish:[], trap:[5],
+    nodes:[[4,38],[4,62],[14,50],[26,35],[26,65],[40,50],[54,35],[54,65],[68,50],[80,35],[80,65],[90,50],[40,20],[40,80],[54,50]],
+    edges:[[0,2],[1,2],[2,3],[2,4],[3,5],[4,5],[3,12],[4,13],[12,6],[13,7],[5,14],[14,6],[14,7],[6,8],[7,8],[8,9],[8,10],[9,11],[10,11]] },
+  { name:"3台の追跡", cat:3, goal:12, robots:[0,1,2], sofa:[], yarn:[], fish:[], trap:[6],
+    nodes:[[4,30],[4,50],[4,70],[14,50],[26,35],[26,65],[40,50],[54,35],[54,65],[68,50],[80,35],[80,65],[90,50],[40,22],[40,78]],
+    edges:[[0,3],[1,3],[2,3],[3,4],[3,5],[4,6],[5,6],[4,13],[5,14],[13,7],[14,8],[6,7],[6,8],[7,9],[8,9],[9,10],[9,11],[10,12],[11,12]] },
+  { name:"3台とおやつ", cat:3, goal:11, robots:[0,1,2], sofa:[7], yarn:[], fish:[4,10], trap:[],
+    nodes:[[4,30],[4,50],[4,70],[14,50],[26,50],[40,35],[40,65],[54,50],[68,35],[68,65],[80,50],[90,50],[54,20],[54,80]],
+    edges:[[0,3],[1,3],[2,3],[3,4],[4,5],[4,6],[5,7],[6,7],[5,12],[6,13],[12,8],[13,9],[7,8],[7,9],[8,10],[9,10],[10,11]] },
+  { name:"毛糸と落とし穴", cat:3, goal:12, robots:[0,1,2], sofa:[], yarn:[6], fish:[], trap:[7,8],
+    nodes:[[4,30],[4,50],[4,70],[14,50],[26,35],[26,65],[40,50],[54,35],[54,65],[68,50],[80,35],[80,65],[90,50],[40,20],[40,80],[68,20]],
+    edges:[[0,3],[1,3],[2,3],[3,4],[3,5],[4,6],[5,6],[4,13],[5,14],[13,7],[14,8],[6,7],[6,8],[7,9],[8,9],[9,10],[9,11],[10,12],[11,12],[9,15],[15,10]] },
+  { name:"迷宮の3台", cat:3, goal:13, robots:[0,1,2], sofa:[7], yarn:[8], fish:[6], trap:[9],
+    nodes:[[4,25],[4,50],[4,75],[13,50],[24,32],[24,68],[36,50],[48,30],[48,70],[60,50],[72,32],[72,68],[84,50],[92,50],[36,20],[36,80],[60,22],[60,78]],
+    edges:[[0,3],[1,3],[2,3],[3,4],[3,5],[4,6],[5,6],[4,14],[5,15],[14,7],[15,8],[6,7],[6,8],[7,9],[8,9],[9,10],[9,11],[10,12],[11,12],[12,13],[7,16],[8,17],[16,10],[17,11]] },
+  { name:"終盤の猛攻", cat:3, goal:14, robots:[0,1,5], sofa:[9], yarn:[6], fish:[4,11], trap:[7,8],
+    nodes:[[4,28],[4,50],[4,72],[14,50],[26,50],[38,33],[38,67],[52,33],[52,67],[64,50],[76,33],[76,67],[86,50],[92,30],[95,60],[38,15],[38,85]],
+    edges:[[0,3],[1,3],[2,3],[3,4],[4,5],[4,6],[5,7],[6,8],[5,15],[6,16],[15,7],[16,8],[7,9],[8,9],[9,10],[9,11],[10,12],[11,12],[12,13],[12,14],[13,14]] },
+  { name:"大脱走", cat:3, goal:14, robots:[0,1,7], sofa:[9], yarn:[5,6], fish:[4,12], trap:[10],
+    nodes:[[4,28],[4,50],[4,72],[14,50],[26,50],[40,33],[40,67],[54,33],[54,67],[66,50],[78,33],[78,67],[88,50],[95,50],[93,25],[40,15],[40,85],[66,20],[66,80]],
+    edges:[[0,3],[1,3],[2,3],[3,4],[4,5],[4,6],[5,7],[6,8],[5,15],[6,16],[15,7],[16,8],[7,9],[8,9],[9,10],[9,11],[10,12],[11,12],[12,13],[12,14],[9,17],[9,18],[17,10],[18,11]] },
+  { name:"最後の牙城・改", cat:3, goal:16, robots:[0,1,5], sofa:[9], yarn:[6], fish:[4,12], trap:[7,8],
+    nodes:[[4,28],[4,50],[4,72],[13,50],[24,50],[36,33],[36,67],[50,33],[50,67],[62,50],[74,33],[74,67],[84,50],[90,32],[90,68],[95,50],[97,50],[36,15],[36,85],[62,20],[62,80]],
+    edges:[[0,3],[1,3],[2,3],[3,4],[4,5],[4,6],[5,7],[6,8],[5,17],[6,18],[17,7],[18,8],[7,9],[8,9],[9,10],[9,11],[10,12],[11,12],[12,13],[12,14],[13,15],[14,15],[15,16],[9,19],[9,20],[19,10],[20,11]] },
+];
+
+/* ===================== ゲーム状態 ===================== */
+let stageIdx = 0;
+let S = null;      // 現在ステージ（コピー）
+let adj = [];      // 隣接リスト
+let cat = 0;       // 猫の現在ノード
+let robots = [];   // [{node, stun}]
+let fishLeft = new Set();
+let yarnLeft = new Set();
+let trapLeft = new Set();
+let turn = 'cat';
+let busy = false;
+let over = false;
+let justMovedCat = -1;
+let errRobots = new Set();
+
+const board = document.getElementById('board');
+const edgesSvg = document.getElementById('edges');
+
+function buildAdj(){
+  adj = S.nodes.map(()=>[]);
+  S.edges.forEach(([a,b])=>{ adj[a].push(b); adj[b].push(a); });
+}
+
+function loadStage(i){
+  const src = STAGES[i];
+  S = JSON.parse(JSON.stringify(src));
+  buildAdj();
+  cat = S.cat;
+  robots = S.robots.map(n=>({node:n, stun:0}));
+  fishLeft = new Set(S.fish);
+  yarnLeft = new Set(S.yarn);
+  trapLeft = new Set(S.trap || []);
+  turn = 'cat'; over = false; busy = false; justMovedCat = -1; errRobots.clear();
+  document.getElementById('stageBadge').textContent = `Stage ${i+1} / ${STAGES.length}`;
+  document.getElementById('stageName').textContent = S.name;
+  setMsg("となりのマスをクリックして、うごこう！");
+  render();
+}
+
+/* ===================== 描画 ===================== */
+function setTurnBadge(){
+  const b = document.getElementById('turnBadge');
+  if(turn==='cat'){ b.textContent='🐱 ねこのターン'; b.className='badge turn-cat'; }
+  else { b.textContent='🤖 ロボットのターン'; b.className='badge turn-robot'; }
+}
+function setMsg(t){ document.getElementById('msg').textContent = t; }
+
+function isSofa(n){ return S.sofa.includes(n); }
+
+function render(){
+  setTurnBadge();
+  // edges
+  let lines = '';
+  S.edges.forEach(([a,b])=>{
+    const p=S.nodes[a], q=S.nodes[b];
+    lines += `<line x1="${p[0]}" y1="${p[1]}" x2="${q[0]}" y2="${q[1]}"
+      stroke="#2b2320" stroke-width="4" stroke-linecap="round"
+      vector-effect="non-scaling-stroke"/>`;
+  });
+  edgesSvg.innerHTML = lines;
+
+  // remove old nodes
+  [...board.querySelectorAll('.node')].forEach(e=>e.remove());
+
+  const reachable = new Set();
+  if(turn==='cat' && !over){ adj[cat].forEach(n=>reachable.add(n)); }
+
+  S.nodes.forEach((pos,i)=>{
+    const el = document.createElement('div');
+    el.className = 'node';
+    el.style.left = pos[0]+'%';
+    el.style.top  = pos[1]+'%';
+
+    // gimmick badge
+    let gimmick = '';
+    if(isSofa(i)) gimmick = '🛋️';
+    else if(trapLeft.has(i)) gimmick = '🕳️';
+    else if(yarnLeft.has(i)) gimmick = '🧶';
+    else if(fishLeft.has(i)) gimmick = '🐟';
+
+    // occupant
+    let occ = '';
+    let occClass = '';
+    const robotsHere = robots.filter(r=>r.node===i);
+    if(i===cat){
+      occ = '🐱';
+      occClass = 'cat' + (justMovedCat===i?' moved':'') + (over && robotsHere.length?' caught':'');
+    } else if(robotsHere.length){
+      occ = robotsHere.length>1 ? '🤖' : '🤖';
+      occClass = 'robot' + (robotsHere.some(r=>errRobots.has(r))?' err':'');
+    } else if(i===S.goal){
+      occ = '🏰';
+    }
+    // 猫と同じマスにロボット（ゲームオーバー時）→ ロボットも重ねて表示
+    if(i===cat && robotsHere.length && over){
+      el.innerHTML = `<span class="occupant robot">🤖</span>`;
+    }
+
+    let inner = '';
+    if(gimmick) inner += `<span class="gimmick">${gimmick}</span>`;
+    if(occ) inner += `<span class="occupant ${occClass}">${occ}</span>`;
+    else if(i===S.goal) inner += `<span class="occupant">🏰</span>`;
+    el.innerHTML += inner;
+
+    if(reachable.has(i)){
+      el.classList.add('reach');
+      el.onclick = ()=>onCatMove(i);
+    }
+    board.appendChild(el);
+  });
+}
+
+/* ===================== 猫の移動 ===================== */
+function onCatMove(n){
+  if(turn!=='cat' || over || busy) return;
+  if(!adj[cat].includes(n)) return;
+  justMovedCat = n;
+  cat = n;
+
+  // ゴール判定
+  if(cat===S.goal){ render(); win(); return; }
+
+  // おさかな：もう1マス動ける
+  if(fishLeft.has(cat)){
+    fishLeft.delete(cat);
+    setMsg("🐟 おさかなゲット！ もう1マスうごけるよ！");
+    render();
+    return; // 猫のターン継続
+  }
+
+  // 通常：ロボットのターンへ
+  render();
+  setTimeout(robotTurn, 350);
+}
+
+/* ===================== ロボットのターン ===================== */
+function bfsStep(from, to){
+  // sofa と 他ロボットの居るマスは進入不可。最短経路の次の1マスを返す
+  const blocked = new Set(S.sofa);
+  robots.forEach(r=>{ if(r.node!==from) blocked.add(r.node); });
+  if(from===to) return null;
+  const prev = new Array(S.nodes.length).fill(-2);
+  prev[from] = -1;
+  const q = [from];
+  while(q.length){
+    const cur = q.shift();
+    for(const nx of adj[cur]){
+      if(prev[nx]!==-2) continue;
+      if(nx!==to && blocked.has(nx)) continue; // ゴール(=猫)以外はブロック回避
+      prev[nx] = cur;
+      if(nx===to){ q.length=0; break; }
+      q.push(nx);
+    }
+  }
+  if(prev[to]===-2) return null; // 到達不能
+  // 経路を逆にたどって from の次のマスを求める
+  let node = to;
+  while(prev[node]!==from) node = prev[node];
+  return node;
+}
+
+function robotTurn(){
+  turn = 'robot'; busy = true; errRobots.clear();
+  render();
+
+  let idx = 0;
+  const stepOne = ()=>{
+    if(idx>=robots.length || over){ endRobotTurn(); return; }
+    const r = robots[idx];
+
+    if(r.stun>0){
+      r.stun--;
+      errRobots.add(r);
+      setMsg("🤖 「エラー…毛糸がからまった！」");
+      render();
+      idx++;
+      setTimeout(stepOne, 550);
+      return;
+    }
+
+    const next = bfsStep(r.node, cat);
+    if(next!==null){
+      r.node = next;
+      // 毛糸玉に乗った？
+      if(yarnLeft.has(r.node)){
+        yarnLeft.delete(r.node);
+        r.stun = 1; // 次のターン動けない
+      }
+    }
+    render();
+
+    // 捕まった判定
+    if(r.node===cat){ over=true; render(); setTimeout(lose, 250); return; }
+
+    // 落とし穴に落ちた？（穴は残る・ロボットは退場）
+    if(trapLeft.has(r.node)){
+      robots.splice(idx, 1);   // このロボットを除去（idxは進めない）
+      setMsg("🕳️ ロボットが落とし穴に落ちた！");
+      render();
+      setTimeout(stepOne, 550);
+      return;
+    }
+
+    idx++;
+    setTimeout(stepOne, 450);
+  };
+  setTimeout(stepOne, 300);
+}
+
+function endRobotTurn(){
+  if(over) return;
+  turn = 'cat'; busy = false; justMovedCat = -1;
+  setMsg("きみのターン！ にげきろう！");
+  render();
+}
+
+/* ===================== 勝敗 ===================== */
+function win(){
+  over = true;
+  if(stageIdx >= STAGES.length-1){
+    showOverlay('🏆', '完全脱出成功！', '最高のタワーでお昼寝タイム🐾<br>ぜんぶのステージをクリアしたよ！おめでとう！', 'もう一度あそぶ', ()=>{ stageIdx=0; hideOverlay(); loadStage(0); });
+  } else {
+    showOverlay('🎉', 'ステージクリア！', `キャットタワーに とうちゃく！<br>つぎは Stage ${stageIdx+2} だよ`, '次のステージへ', ()=>{ stageIdx++; hideOverlay(); loadStage(stageIdx); });
+  }
+}
+function lose(){
+  const lines = ['お尻を吸われそうになった！','ロボットにつかまっちゃった！','あわや、丸のみ！','ヒゲがはさまった！'];
+  const t = lines[(cat+stageIdx)%lines.length];
+  showOverlay('😹', 'つかまっちゃった！', t+'<br>もう一度チャレンジ！', 'このステージをやり直す', ()=>{ hideOverlay(); loadStage(stageIdx); });
+}
+
+/* ===================== オーバーレイ ===================== */
+const overlay = document.getElementById('overlay');
+function showOverlay(icon,title,text,btn,cb){
+  document.getElementById('ovIcon').textContent = icon;
+  document.getElementById('ovTitle').textContent = title;
+  document.getElementById('ovText').innerHTML = text;
+  const b = document.getElementById('ovBtn');
+  b.textContent = btn;
+  b.onclick = cb;
+  overlay.classList.add('show');
+}
+function hideOverlay(){ overlay.classList.remove('show'); }
+
+document.getElementById('resetBtn').onclick = ()=>{ hideOverlay(); loadStage(stageIdx); };
+
+/* ===================== 開始 ===================== */
+loadStage(0);
+</script>
+</body>
+</html>
