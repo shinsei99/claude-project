@@ -105,6 +105,12 @@ realestate-calc/node_modules/
 !ai-ticket-counter/
 !ai-ticket-counter/**
 
+!tsuikyaku-crm/
+!tsuikyaku-crm/**
+tsuikyaku-crm/data/
+tsuikyaku-crm/*.db
+tsuikyaku-crm/*.db.bak
+
 # --- Build artifacts (all apps) — safety net, never commit these ---
 **/node_modules/
 **/.next/
