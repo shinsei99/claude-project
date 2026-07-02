@@ -27,7 +27,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | 特約条項ジェネレーター | tokuyaku-generator | 8513 | ✅ | — |
 | 入金突合（消込）システム | payment-reconciler | 8514 | ✅ | — |
 | 物件写真一括リサイズ | image-resizer | 8515 | ✅ | GitHub Pages |
-| 顧客追客マネージャー | tsuikyaku-crm | 8515 | ✅ | — |
+| 顧客追客マネージャー | tsuikyaku-crm | 8516 | ✅ | — |
 | AI重説調査〜Excel自動入力 | jyuusetsu-research | — | 開発中 | — |
 | 媒介契約書ジェネレーター | baikai-generator | 8517 | ✅ | — |
 | AI受付＆起票カウンター | ai-ticket-counter | 8600 | ✅ | — |
@@ -72,6 +72,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | 8513 | 特約条項ジェネレーター | com.shinsei.tokuyaku-generator |
 | 8514 | 入金突合（消込）システム | com.shinsei99.payment-reconciler |
 | 8515 | 物件写真一括リサイズ | com.shinsei.image-resizer |
+| 8516 | 顧客追客マネージャー | com.shinsei.tsuikyaku-crm |
 | 8517 | 媒介契約書ジェネレーター | com.shinsei.baikai-generator |
 | 8600 | AI受付＆起票カウンター | com.shinsei.ai-ticket-counter |
 
